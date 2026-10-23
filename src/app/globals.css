@@ -37,3 +37,8 @@ input,
 select {
   touch-action: manipulation;
 }
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}

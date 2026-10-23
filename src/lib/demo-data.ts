@@ -159,7 +159,7 @@ export const DEMO_USERS: AppUser[] = [
 export const DEMO_BRAND: BrandSettings = {
   name: "Shoco Lottery POS",
   tagline: "Aruba · Play responsibly",
-  led_message: "Welcome to Shoco Lottery — Play responsibly · Check results daily",
+  led_message: "Welcome! Thanks for choosing Shoco Lottery · Lotto Mac su jackpot ta Afl. 150.000,-",
   led_on: true,
   led_speed: 40,
   led_color: "#22c55e",
