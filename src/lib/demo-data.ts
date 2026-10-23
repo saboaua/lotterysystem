@@ -1,21 +1,130 @@
-import type { BetType, Game, Retailer, AppUser } from "./types";
+import type {
+  BetType,
+  BrandSettings,
+  Game,
+  Promotion,
+  Retailer,
+  AppUser,
+  TicketDesign,
+} from "./types";
 
 export const DEMO_GAMES: Game[] = [
-  { id: "diario", name: "Diario", color: "#22c55e", format: "digit", digits: 4, draw_time: "13:00", cutoff: "12:45", enabled: true },
-  { id: "corsow", name: "Corsow", color: "#f59e0b", format: "digit", digits: 4, draw_time: "17:00", cutoff: "16:45", enabled: true },
-  { id: "super4", name: "Super-4", color: "#06b6d4", format: "digit", digits: 4, draw_time: "13:00", cutoff: "12:45", enabled: true },
-  { id: "flamingo", name: "Flamingo", color: "#ec4899", format: "digit", digits: 4, draw_time: "14:00", cutoff: "13:45", enabled: true },
-  { id: "lottomac", name: "Lotto Mac", color: "#64748b", format: "jackpot", main_count: 5, main_max: 30, mega_count: 1, mega_max: 10, draw_time: "18:45", cutoff: "18:15", enabled: true, jackpot_current: 150000 },
-  { id: "zodiaco", name: "Zodiaco", color: "#1e3a8a", format: "zodiac", digits: 2, draw_time: "18:45", cutoff: "18:30", enabled: true },
-  { id: "phillipsburg", name: "Phillipsburg", color: "#84cc16", format: "digit", digits: 4, draw_time: "14:00", cutoff: "13:45", enabled: true, draw_days: [1, 3, 5] },
-  { id: "playwhe", name: "Play Whe", color: "#ef4444", format: "whe", draw_time: "10:00", cutoff: "09:45", enabled: true },
+  {
+    id: "diario",
+    name: "Diario",
+    color: "#22c55e",
+    format: "digit",
+    digits: 4,
+    draw_time: "13:00",
+    cutoff: "12:45",
+    enabled: true,
+    bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+  },
+  {
+    id: "corsow",
+    name: "Corsow",
+    color: "#f59e0b",
+    format: "digit",
+    digits: 4,
+    draw_time: "17:00",
+    cutoff: "16:45",
+    enabled: true,
+    bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+  },
+  {
+    id: "super4",
+    name: "Super-4",
+    color: "#3b82f6",
+    format: "digit",
+    digits: 4,
+    draw_time: "13:00",
+    cutoff: "12:45",
+    enabled: true,
+    bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+  },
+  {
+    id: "flamingo",
+    name: "Flamingo",
+    color: "#a855f7",
+    format: "digit",
+    digits: 4,
+    draw_time: "14:00",
+    cutoff: "13:45",
+    enabled: true,
+    bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+  },
+  {
+    id: "philb",
+    name: "Phillipsburg",
+    color: "#84cc16",
+    format: "digit",
+    digits: 4,
+    draw_time: "11:00",
+    cutoff: "10:45",
+    enabled: true,
+    bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+    sessions: [
+      { id: "am", label: "AM", draw_time: "11:00", cutoff: "10:45" },
+      { id: "pm", label: "PM", draw_time: "19:00", cutoff: "18:45" },
+    ],
+  },
+  {
+    id: "lottomac",
+    name: "Lotto Mac",
+    color: "#64748b",
+    format: "jackpot",
+    main_count: 5,
+    main_max: 30,
+    mega_count: 1,
+    mega_max: 10,
+    draw_time: "18:45",
+    cutoff: "18:15",
+    enabled: true,
+    jackpot_current: 150000,
+    bet_types: ["jackpot"],
+  },
+  {
+    id: "zodiaco",
+    name: "Zodiaco",
+    color: "#1e3a8a",
+    format: "zodiac",
+    digits: 2,
+    draw_time: "18:45",
+    cutoff: "18:30",
+    enabled: true,
+    bet_types: ["zodiac"],
+  },
+  {
+    id: "playwhe",
+    name: "Play Whe",
+    color: "#e11d48",
+    format: "whe",
+    digits: 2,
+    draw_time: "10:30",
+    cutoff: "10:15",
+    enabled: true,
+    bet_types: ["play_whe"],
+    sessions: [
+      { id: "morning", label: "Morning", draw_time: "10:30", cutoff: "10:15" },
+      { id: "midday", label: "Midday", draw_time: "13:00", cutoff: "12:45" },
+      { id: "afternoon", label: "Afternoon", draw_time: "16:00", cutoff: "15:45" },
+      { id: "evening", label: "Evening", draw_time: "19:00", cutoff: "18:45" },
+    ],
+  },
 ];
 
+/** HACS-aligned bet types (Aruba operator labels). */
 export const DEMO_BET_TYPES: BetType[] = [
-  { key: "straight", label: "Straight", multiplier: 5000, enabled: true },
-  { key: "box", label: "Box", multiplier: 200, enabled: true },
-  { key: "front", label: "Front 3", multiplier: 500, enabled: true },
-  { key: "back", label: "Back 3", multiplier: 500, enabled: true },
+  { key: "4_cifra", label: "4 Cifra", digits: 4, mode: "exact", multiplier: 5000, enabled: true, min_stake: 0.5, max_stake: 100 },
+  { key: "3_cifra", label: "3 Cifra", digits: 3, mode: "exact", multiplier: 500, enabled: true, min_stake: 0.5, max_stake: 100 },
+  { key: "2_cifra_3ch", label: "2 Cifra 3CH", digits: 2, mode: "chances", multiplier: 20, enabled: true, min_stake: 0.5, max_stake: 50 },
+  { key: "4_skina", label: "4 Skina", digits: 4, mode: "perm", multiplier: 200, enabled: true, min_stake: 0.5, max_stake: 100 },
+  { key: "3_skina", label: "3 Skina", digits: 3, mode: "perm", multiplier: 80, enabled: true, min_stake: 0.5, max_stake: 100 },
+  { key: "2_cifra_bf", label: "2 Cifra B/F", digits: 2, mode: "bf", multiplier: 40, enabled: true, min_stake: 0.5, max_stake: 50 },
+  { key: "2_cifra_b", label: "2 Cifra B", digits: 2, mode: "back", multiplier: 70, enabled: true, min_stake: 0.5, max_stake: 50 },
+  { key: "zodiac", label: "Zodiac", digits: 2, mode: "zodiac", multiplier: 50, enabled: true, min_stake: 1, max_stake: 50 },
+  { key: "play_whe", label: "Play Whe", digits: 2, mode: "whe", multiplier: 24, enabled: true, min_stake: 1, max_stake: 100 },
+  { key: "jackpot", label: "Jackpot", digits: 0, mode: "jackpot", multiplier: 1, enabled: true, min_stake: 1, max_stake: 20 },
 ];
 
 export const DEMO_RETAILERS: Retailer[] = [
@@ -47,6 +156,45 @@ export const DEMO_USERS: AppUser[] = [
   { id: "u-ret2", email: "lucky@shop.aw", name: "Maria Frans", role: "retailer", retailer_id: "r002" },
 ];
 
+export const DEMO_BRAND: BrandSettings = {
+  name: "Shoco Lottery POS",
+  tagline: "Aruba · Play responsibly",
+  led_message: "Welcome to Shoco Lottery — Play responsibly · Check results daily",
+  led_on: true,
+  led_speed: 40,
+  led_color: "#22c55e",
+};
+
+export const DEMO_TICKET_DESIGN: TicketDesign = {
+  font: "mono",
+  size: 12,
+  width: 72,
+  align: "center",
+  header: "",
+  footer: "Good luck!",
+  show_logo: true,
+  logo_height: 40,
+  show_name: true,
+  show_retailer: true,
+  show_barcode: true,
+  show_qr: false,
+  bold_total: true,
+};
+
+export const DEMO_PROMOTIONS: Promotion[] = [
+  {
+    id: "p1",
+    name: "Weekend Combo",
+    label: "FREE PLAY",
+    instruction: "Present this code at any shop",
+    code_len: 6,
+    min_plays: 5,
+    min_games: 2,
+    prize: 5,
+    active: true,
+  },
+];
+
 export const CURRENCY = "AWG";
-export const BRAND_NAME = "Shoco Lottery POS";
-export const BRAND_TAGLINE = "Aruba · Play responsibly";
+export const BRAND_NAME = DEMO_BRAND.name;
+export const BRAND_TAGLINE = DEMO_BRAND.tagline;

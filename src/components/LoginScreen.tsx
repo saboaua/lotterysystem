@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 export function LoginScreen() {
-  const { loginAs, brand, tagline } = useStore();
+  const { loginAs, brand } = useStore();
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[var(--bg)] p-6">
@@ -14,8 +14,8 @@ export function LoginScreen() {
           <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-extrabold text-white shadow-lg">
             SL
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight">{brand}</h1>
-          <p className="mt-1 text-sm text-[var(--mut)]">{tagline}</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">{brand.name}</h1>
+          <p className="mt-1 text-sm text-[var(--mut)]">{brand.tagline}</p>
         </div>
 
         <p className="mb-4 text-center text-xs font-medium uppercase tracking-wide text-[var(--mut)]">
@@ -51,6 +51,9 @@ export function LoginScreen() {
           {isSupabaseConfigured
             ? "Supabase is configured — replace demo login with Auth."
             : "Running in demo mode. Add NEXT_PUBLIC_SUPABASE_URL + ANON_KEY for production."}
+        </p>
+        <p className="mt-2 text-center text-[11px] text-[var(--mut)]">
+          Owner → Sell + Reports + full Back office · Retailer → Sell + Reports + Support only
         </p>
       </div>
     </div>

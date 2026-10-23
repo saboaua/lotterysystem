@@ -5,13 +5,16 @@ import { MapPin, Plus } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Retailer } from "@/lib/types";
 
-type Sub = "games" | "retailers" | "reports";
+type Sub = "games" | "bets" | "branding" | "retailers" | "promos" | "reports";
 
 export function OfficeScreen() {
   const [sub, setSub] = useState<Sub>("games");
   const tabs: { id: Sub; label: string }[] = [
     { id: "games", label: "Games & schedule" },
+    { id: "bets", label: "Bet types" },
+    { id: "branding", label: "Branding" },
     { id: "retailers", label: "Retailers" },
+    { id: "promos", label: "Promotions" },
     { id: "reports", label: "Reports" },
   ];
 
@@ -35,7 +38,10 @@ export function OfficeScreen() {
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {sub === "games" && <GamesPanel />}
+        {sub === "bets" && <BetTypesPanel />}
+        {sub === "branding" && <BrandingPanel />}
         {sub === "retailers" && <RetailersPanel />}
+        {sub === "promos" && <PromosPanel />}
         {sub === "reports" && <ReportsPanel />}
       </div>
     </div>
@@ -154,6 +160,215 @@ function GamesPanel() {
     </div>
   );
 }
+
+
+function BetTypesPanel() {
+  const { betTypes, updateBetType, toast } = useStore();
+  return (
+    <div className="mx-auto max-w-3xl space-y-3">
+      <div>
+        <h2 className="text-xl font-bold">Bet types & payouts</h2>
+        <p className="text-sm text-[var(--mut)]">
+          HACS-aligned labels (4 Cifra, Skina, …). Toggle and edit multipliers.
+        </p>
+      </div>
+      <div className="space-y-2">
+        {betTypes.map((b) => (
+          <div
+            key={b.key}
+            className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-4 py-3"
+          >
+            <span className="min-w-[120px] font-bold">{b.label}</span>
+            <span className="text-xs text-[var(--mut)]">{b.mode} · {b.digits}d</span>
+            <label className="text-xs font-semibold text-[var(--mut)]">
+              Multiplier
+              <input
+                type="number"
+                className="ml-2 h-9 w-24 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-sm"
+                defaultValue={b.multiplier}
+                onBlur={(e) =>
+                  updateBetType(b.key, { multiplier: parseFloat(e.target.value) || 1 })
+                }
+              />
+            </label>
+            <label className="ml-auto flex items-center gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={b.enabled}
+                onChange={(e) => updateBetType(b.key, { enabled: e.target.checked })}
+              />
+              Enabled
+            </label>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => toast("Bet types saved (demo)")}
+        className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white"
+      >
+        Save bet types
+      </button>
+    </div>
+  );
+}
+
+function BrandingPanel() {
+  const { brand, updateBrand, ticketDesign, updateTicketDesign, toast } = useStore();
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div>
+        <h2 className="text-xl font-bold">Branding & LED message</h2>
+        <p className="text-sm text-[var(--mut)]">Owner-only — visible on all retailer tablets.</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-xs font-semibold text-[var(--mut)]">
+          Lottery name
+          <input
+            className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+            defaultValue={brand.name}
+            onBlur={(e) => updateBrand({ name: e.target.value })}
+          />
+        </label>
+        <label className="text-xs font-semibold text-[var(--mut)]">
+          Tagline
+          <input
+            className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+            defaultValue={brand.tagline}
+            onBlur={(e) => updateBrand({ tagline: e.target.value })}
+          />
+        </label>
+        <label className="text-xs font-semibold text-[var(--mut)] sm:col-span-2">
+          LED scrolling message
+          <input
+            className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+            defaultValue={brand.led_message}
+            onBlur={(e) => updateBrand({ led_message: e.target.value })}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={brand.led_on}
+            onChange={(e) => updateBrand({ led_on: e.target.checked })}
+          />
+          LED on
+        </label>
+        <label className="text-xs font-semibold text-[var(--mut)]">
+          LED color
+          <input
+            type="color"
+            className="mt-1 h-10 w-full rounded-xl border border-[var(--line)]"
+            value={brand.led_color}
+            onChange={(e) => updateBrand({ led_color: e.target.value })}
+          />
+        </label>
+      </div>
+
+      <div>
+        <h3 className="mb-2 font-bold">Ticket design</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Paper width (mm)
+            <select
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+              value={ticketDesign.width}
+              onChange={(e) => updateTicketDesign({ width: parseInt(e.target.value, 10) })}
+            >
+              {[48, 58, 72, 80].map((w) => (
+                <option key={w} value={w}>
+                  {w} mm
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Footer
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+              defaultValue={ticketDesign.footer}
+              onBlur={(e) => updateTicketDesign({ footer: e.target.value })}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={ticketDesign.show_barcode}
+              onChange={(e) => updateTicketDesign({ show_barcode: e.target.checked })}
+            />
+            Barcode
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={ticketDesign.show_qr}
+              onChange={(e) => updateTicketDesign({ show_qr: e.target.checked })}
+            />
+            QR code
+          </label>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => toast("Branding saved (demo)")}
+        className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white"
+      >
+        Save branding
+      </button>
+    </div>
+  );
+}
+
+function PromosPanel() {
+  const { promotions, toast } = useStore();
+  return (
+    <div className="mx-auto max-w-3xl space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Promotions</h2>
+          <p className="text-sm text-[var(--mut)]">
+            Min plays / games / amount triggers — codes print on qualifying tickets.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => toast("Add promotion (wire to Supabase)")}
+          className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white"
+        >
+          Add promotion
+        </button>
+      </div>
+      {promotions.map((p) => (
+        <div
+          key={p.id}
+          className="rounded-2xl border border-[var(--line)] bg-[var(--card)] px-4 py-3 shadow-sm"
+        >
+          <div className="flex items-center justify-between">
+            <span className="font-bold">{p.name}</span>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                p.active
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                  : "bg-rose-500/15 text-rose-700"
+              }`}
+            >
+              {p.active ? "Active" : "Off"}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-[var(--mut)]">
+            Label: {p.label} · code {p.code_len} digits
+            {p.min_plays ? ` · min ${p.min_plays} plays` : ""}
+            {p.min_games ? ` · min ${p.min_games} games` : ""}
+            {p.prize != null ? ` · prize AWG ${p.prize}` : ""}
+          </p>
+          <p className="text-xs text-[var(--mut)]">{p.instruction}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function RetailersPanel() {
   const { retailers, updateRetailer, toast } = useStore();

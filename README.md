@@ -1,6 +1,6 @@
-# Shoco Lottery POS (Tablet)
+# Shoco Lottery POS (Tablet) — Vercel full build
 
-Standalone **tablet lottery point-of-sale** for Aruba — outside Home Assistant / HACS.
+Standalone **tablet lottery point-of-sale** for Aruba — full feature parity path from the HACS Home Assistant integration, hosted on Vercel + Supabase.
 
 | Layer | Stack |
 |-------|--------|
@@ -9,14 +9,39 @@ Standalone **tablet lottery point-of-sale** for Aruba — outside Home Assistant
 | Data / Auth | [Supabase](https://supabase.com) (Postgres + Auth + RLS) |
 | Offline demo | In-memory demo data (no keys required) |
 
-## Features (prototype)
+## Role model (important)
 
-- **Sell (POS)** — game picker, bet types, keypad, ticket list, Sell
-- **Quick pick, clear, report, clerks, support ticket** on the sell bar
-- **Back office (owner only)** — games schedule, 20 Aruba retailers, SVG map, reports
-- **Roles** — Owner sees Back office; Retailer locked to Sell + own shop
-- **Dark / light** theme toggle
-- **Readable list rows** (fixed purple-on-text issue from the HA panel)
+| Role | Sees |
+|------|------|
+| **Lottery Owner** | Sell · Reports (all shops) · **Back office** (games, bet types, branding, retailers, promotions, network reports) |
+| **Retailer / seller** | Sell · Reports (**own shop only**) · Support |
+
+Back office is **never** shown to retailers (nav hidden + `/office` redirects to `/sell`).
+
+## Features (aligned with HACS v0.9.x)
+
+### Sell (POS)
+- Multi-game picker, draw date, **AM/PM / multi-session** (Phillipsburg, Play Whe)
+- Bet types: **4 Cifra, 3 Cifra, 2 Cifra 3CH, 4 Skina, 3 Skina, 2 Cifra B/F, 2 Cifra B**, Zodiac, Play Whe, Jackpot
+- Keypad + amount presets · **Quick pick** · Clear · Replay · Último · Cancel · Scan · Report · Support
+- **Zodiac** sign grid · **Play Whe** 1–36 marks · **Lotto Mac** ball + mega picker
+- Ticket list · Send & Print (demo persistence in memory)
+
+### Reports
+- Date range · tickets / cancelled / plays / sales
+- By game · by retailer (owner) · ticket list
+- Retailer scoped to own shop
+
+### Support
+- Retailers open tickets; owner sees all
+
+### Back office (owner only)
+- Games & schedule (enable, draw time, color)
+- Bet types & multipliers
+- Branding + LED message + ticket design (width, barcode, QR, footer)
+- 20 Aruba retailers + map
+- Promotions (min plays / games)
+- Network reports
 
 ## Quick start (demo mode)
 
@@ -28,8 +53,6 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Pick a demo user:
-
 | User | Role |
 |------|------|
 | Lottery Owner | Full back office + sell |
@@ -38,11 +61,11 @@ Pick a demo user:
 
 ## Deploy to Vercel
 
-1. Push this folder to a GitHub repo.
+1. Push this folder to a GitHub repo (e.g. `saboaua/lotterysystem`).
 2. [vercel.com/new](https://vercel.com/new) → import the repo.
 3. Framework: **Next.js** (auto-detected).
 4. Add env vars when you connect Supabase (see below).
-5. Deploy.
+5. Deploy → `*.vercel.app`.
 
 Or CLI:
 
@@ -63,35 +86,39 @@ cp .env.example .env.local
 ```
 
 5. On Vercel: Project → Settings → Environment Variables → same two keys.
-
 6. Create users in Supabase Auth, then insert matching rows in `profiles` (`role` = `owner` or `retailer`, optional `retailer_id`).
 
 Until env is set, the app stays in **demo mode** (no network required).
 
-## Tablet tips
+## HACS vs Vercel
 
-- Add to Home Screen (Safari / Chrome) for full-screen kiosk feel.
-- Viewport is locked to scale 1 for POS touch accuracy.
-- Landscape 10" tablets work best for the two-column Sell layout.
+| | HACS (HA panel) | This Vercel app |
+|--|-----------------|-----------------|
+| Host | Home Assistant | vercel.app |
+| Storage | HA Store | Supabase / demo memory |
+| Owner UI | Back office (admin users) | `/office` (role=owner) |
+| Retailer UI | Sell only | Sell + Reports + Support |
+| Games | Same catalog (Diario, Corsow, Play Whe, …) | Ported |
+| Bet types | 4 Cifra / Skina / … | Ported |
 
 ## Project layout
 
 ```
 src/
-  app/           # routes: /, /sell, /office
-  components/    # SellScreen, OfficeScreen, Shell, Login
-  lib/           # types, demo-data, store, supabase client
+  app/           # /, /sell, /office, /reports, /support
+  components/    # Sell, Office, Reports, Support, Shell, Login
+  lib/           # types, demo-data, constants (zodiac/whe), store, supabase
 supabase/
   schema.sql     # tables + RLS for owner vs retailer
 ```
 
-## Roadmap (next)
+## Roadmap
 
 - Wire Sell → `tickets` / `ticket_lines` inserts
 - Supabase Auth (email or PIN + clerk)
 - Thermal print / Web Bluetooth
+- Results & winners tab (settle draws)
 - Live reports from Postgres
-- Zodiac / Play Whe / jackpot pickers (ported from HA panel)
 
 ## License
 

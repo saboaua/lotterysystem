@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   Banknote,
   Cog,
+  FileChartColumn,
+  LifeBuoy,
   LogOut,
   Moon,
   Sun,
@@ -15,8 +17,16 @@ import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { user, brand, currency, retailers, selectedRetailerId, setSelectedRetailer, logout } =
-    useStore();
+  const {
+    user,
+    brand,
+    currency,
+    retailers,
+    selectedRetailerId,
+    setSelectedRetailer,
+    logout,
+    salesToday,
+  } = useStore();
   const path = usePathname();
   const [dark, setDark] = useState(false);
 
@@ -25,10 +35,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, [dark]);
 
   const isOwner = user?.role === "owner";
-  const salesToday = 0; // demo placeholder
 
+  // Owner: Sell + full Back office
+  // Retailer: Sell + Reports (own shop) + Support — never Back office
   const nav = [
     { href: "/sell", label: "Sell", icon: Banknote, show: true },
+    { href: "/reports", label: "Reports", icon: FileChartColumn, show: true },
+    { href: "/support", label: "Support", icon: LifeBuoy, show: !isOwner },
     { href: "/office", label: "Back office", icon: Cog, show: isOwner },
   ].filter((n) => n.show);
 
@@ -79,11 +92,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center gap-3 border-b border-[var(--line)] bg-[var(--card)]/80 px-4 py-2 backdrop-blur">
           <div className="min-w-0">
-            <div className="truncate text-sm font-bold">{brand}</div>
+            <div className="truncate text-sm font-bold">{brand.name}</div>
             <div className="truncate text-xs text-[var(--mut)]">
               {user?.name} · {user?.role === "owner" ? "Owner" : "Retailer"}
             </div>
           </div>
+          {brand.led_on && (
+            <div
+              className="hidden max-w-xs truncate rounded-lg px-3 py-1 text-xs font-medium sm:block"
+              style={{ color: brand.led_color, background: `${brand.led_color}18` }}
+            >
+              {brand.led_message}
+            </div>
+          )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <div className="rounded-xl bg-[var(--key)] px-3 py-1.5 shadow-sm">
               <div className="text-[10px] uppercase tracking-wide text-[var(--mut)]">Sales today</div>
