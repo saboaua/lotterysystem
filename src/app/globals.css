@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f0f2f8;
+  --card: #ffffff;
+  --ink: #0b1220;
+  --mut: #64748b;
+  --line: #e2e8f0;
+  --key: #f8fafc;
+}
+
+.dark {
+  --bg: #080c18;
+  --card: #121a2e;
+  --ink: #eef2ff;
+  --mut: #94a3b8;
+  --line: #1e293b;
+  --key: #0f172a;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
+}
