@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, Plus, Trash2 } from "lucide-react";
+import { MapPin, Plus } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Game, Retailer } from "@/lib/types";
 import { PromosPanel } from "./office/PromosPanel";
