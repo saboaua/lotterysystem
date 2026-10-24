@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Ban,
   Copy,
@@ -88,13 +88,13 @@ export function SellScreen() {
   const activeBet = allowedBets.find((b) => b.key === bt) || allowedBets[0];
   const digits = activeBet?.digits ?? primary?.digits ?? 4;
 
-  useMemo(() => {
+  useEffect(() => {
     if (allowedBets.length && !allowedBets.find((b) => b.key === bt)) {
       setBt(allowedBets[0].key);
     }
   }, [allowedBets, bt]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (primary?.sessions?.length) {
       if (!session || !primary.sessions.find((s) => s.id === session)) {
         setSession(primary.sessions[0].id);
