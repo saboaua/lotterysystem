@@ -12,11 +12,11 @@ import {
   Sun,
   Store,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
 
-export function Shell({ children }: { children: React.ReactNode }) {
+export function Shell({ children }: { children: ReactNode }) {
   const {
     user,
     brand,
@@ -160,6 +160,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
       </div>
       <ToastHost />
-      </div>
+    </div>
   );
 }
