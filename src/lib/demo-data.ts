@@ -1,6 +1,7 @@
 import type {
   BetType,
   BrandSettings,
+  Clerk,
   Game,
   Promotion,
   Retailer,
@@ -113,7 +114,6 @@ export const DEMO_GAMES: Game[] = [
   },
 ];
 
-/** HACS-aligned bet types (Aruba operator labels). */
 export const DEMO_BET_TYPES: BetType[] = [
   { key: "4_cifra", label: "4 Cifra", digits: 4, mode: "exact", multiplier: 5000, enabled: true, min_stake: 0.5, max_stake: 100 },
   { key: "3_cifra", label: "3 Cifra", digits: 3, mode: "exact", multiplier: 500, enabled: true, min_stake: 0.5, max_stake: 100 },
@@ -150,6 +150,15 @@ export const DEMO_RETAILERS: Retailer[] = [
   { id: "r020", number: "020", name: "Wayaca Center", first_name: "Tina", last_name: "Croes", address: "Wayaca 9, Oranjestad", phone: "+297 582 1020", commission_sell: 10, commission_redeem: 2, active: true, lat: 12.51, lng: -70.025 },
 ];
 
+export const DEMO_CLERKS: Clerk[] = [
+  { id: "c001", retailer_id: "r001", name: "Carlos Croes", pin: "1234", active: true },
+  { id: "c002", retailer_id: "r001", name: "Lisa Croes", pin: "5678", active: true },
+  { id: "c003", retailer_id: "r002", name: "Maria Frans", pin: "1234", active: true },
+  { id: "c004", retailer_id: "r002", name: "Kevin Frans", pin: "9999", active: true },
+  { id: "c005", retailer_id: "r003", name: "John Kelly", pin: "1111", active: true },
+  { id: "c006", retailer_id: "r007", name: "Luis Kock", pin: "2222", active: true },
+];
+
 export const DEMO_USERS: AppUser[] = [
   { id: "u-owner", email: "owner@shocolottery.aw", name: "Lottery Owner", role: "owner" },
   { id: "u-ret1", email: "main@shop.aw", name: "Carlos Croes", role: "retailer", retailer_id: "r001" },
@@ -163,6 +172,7 @@ export const DEMO_BRAND: BrandSettings = {
   led_on: true,
   led_speed: 40,
   led_color: "#22c55e",
+  logo: "",
 };
 
 export const DEMO_TICKET_DESIGN: TicketDesign = {
@@ -170,15 +180,41 @@ export const DEMO_TICKET_DESIGN: TicketDesign = {
   size: 12,
   width: 72,
   align: "center",
-  header: "",
-  footer: "Good luck!",
+  header: "Shoco Lottery",
+  footer: "Good luck! Play responsibly.",
   show_logo: true,
   logo_height: 40,
   show_name: true,
   show_retailer: true,
+  show_retailer_number: true,
+  show_retailer_address: true,
+  show_retailer_phone: false,
+  show_datetime: true,
   show_barcode: true,
   show_qr: false,
   bold_total: true,
+  show_jackpot: true,
+  jackpot_text: "Jackpot pool: {currency} {jackpot}",
+  manual_text: "",
+  preview_game_id: "diario",
+  schedule_messages: [
+    {
+      id: "sm1",
+      label: "Jackpot banner",
+      text: "★ Lotto Mac jackpot: {currency} {jackpot} · Draw {draw_time}",
+      game_ids: ["lottomac"],
+      enabled: true,
+      placement: "after_lines",
+    },
+    {
+      id: "sm2",
+      label: "Daily reminder",
+      text: "Next draw {game} at {draw_time} on {date}",
+      game_ids: [],
+      enabled: true,
+      placement: "footer",
+    },
+  ],
 };
 
 export const DEMO_PROMOTIONS: Promotion[] = [
