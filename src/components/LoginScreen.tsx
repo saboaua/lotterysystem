@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { DEMO_USERS } from "@/lib/demo-data";
 import { useStore } from "@/lib/store";
 import { isSupabaseConfigured, signInWithPassword } from "@/lib/auth";
@@ -11,7 +11,7 @@ export function LoginScreen() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!isSupabaseConfigured) return;
     setBusy(true);
