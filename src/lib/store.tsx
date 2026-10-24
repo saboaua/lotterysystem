@@ -25,6 +25,7 @@ import {
   DEMO_TICKET_DESIGN,
   DEMO_USERS,
 } from "./demo-data";
+import { signOut as sbSignOut, isSupabaseConfigured } from "./auth";
 
 interface Toast {
   id: number;
@@ -50,6 +51,7 @@ interface Store {
   lastTicketId: string | null;
   toasts: Toast[];
   loginAs: (userId: string) => void;
+  setUserFromAuth: (user: AppUser) => void;
   logout: () => void;
   setSelectedRetailer: (id: string) => void;
   addLine: (line: Omit<TicketLine, "id">) => void;
@@ -103,7 +105,6 @@ function randomCode(len: number) {
   return s;
 }
 
-/** Apply active promotions to a ticket (HACS _apply_promotions logic). */
 function applyPromotions(
   lines: TicketLine[],
   promotions: Promotion[],
@@ -168,9 +169,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast]
   );
 
+  const setUserFromAuth = useCallback(
+    (u: AppUser) => {
+      setUser(u);
+      if (u.role === "retailer" && u.retailer_id) setSelectedRetailerId(u.retailer_id);
+    },
+    []
+  );
+
   const logout = useCallback(() => {
     setUser(null);
     setLines([]);
+    if (isSupabaseConfigured) void sbSignOut();
   }, []);
 
   const addLine = useCallback((line: Omit<TicketLine, "id">) => {
@@ -199,9 +209,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSoldTickets((prev) => [t, ...prev]);
     setLastTicketId(id);
     setLines([]);
-    if (promo.promo_code) {
-      toast(`Ticket ${id} sold · promo ${promo.promo_code}`);
-    }
+    if (promo.promo_code) toast(`Ticket ${id} sold · promo ${promo.promo_code}`);
     return t;
   }, [lines, selectedRetailerId, promotions, toast]);
 
@@ -242,12 +250,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (id: string) => {
       const t = soldTickets.find((x) => x.id === id);
       if (!t) return toast("Ticket not found", true);
-      setLines(
-        t.lines.map((l) => ({
-          ...l,
-          id: `L${++lineSeq}`,
-        }))
-      );
+      setLines(t.lines.map((l) => ({ ...l, id: `L${++lineSeq}` })));
       toast(`Replaying ${id}`);
     },
     [soldTickets, toast]
@@ -316,17 +319,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setPromotions((prev) => prev.filter((x) => x.id !== id));
   }, []);
 
-  const setResults = useCallback((result: Omit<DrawResult, "id">) => {
-    const id = `R${++resultSeq}`;
-    setDrawResults((prev) => {
-      const filtered = prev.filter(
-        (r) =>
-          !(r.game_id === result.game_id && r.draw_date === result.draw_date && r.session === result.session)
-      );
-      return [{ ...result, id }, ...filtered];
-    });
-    toast(`Results saved for ${result.game_id} ${result.draw_date}`);
-  }, [toast]);
+  const setResults = useCallback(
+    (result: Omit<DrawResult, "id">) => {
+      const id = `R${++resultSeq}`;
+      setDrawResults((prev) => {
+        const filtered = prev.filter(
+          (r) =>
+            !(
+              r.game_id === result.game_id &&
+              r.draw_date === result.draw_date &&
+              r.session === result.session
+            )
+        );
+        return [{ ...result, id }, ...filtered];
+      });
+      toast(`Results saved for ${result.game_id} ${result.draw_date}`);
+    },
+    [toast]
+  );
 
   const addHoliday = useCallback((h: Omit<Holiday, "id">) => {
     setHolidays((prev) => [...prev, { ...h, id: `H${++holidaySeq}` }]);
@@ -369,10 +379,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
   const ticketsToday = todayTickets.length;
   const unpaidPrizes = useMemo(
-    () =>
-      soldTickets
-        .filter((t) => t.status === "won")
-        .reduce((s, t) => s + (t.prize || 0), 0),
+    () => soldTickets.filter((t) => t.status === "won").reduce((s, t) => s + (t.prize || 0), 0),
     [soldTickets]
   );
 
@@ -394,6 +401,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     lastTicketId,
     toasts,
     loginAs,
+    setUserFromAuth,
     logout,
     setSelectedRetailer: setSelectedRetailerId,
     addLine,
