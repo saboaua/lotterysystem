@@ -1,21 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f0f2f8;
+  --bg: #f8fafc;
   --card: #ffffff;
-  --ink: #0b1220;
+  --ink: #0f172a;
   --mut: #64748b;
   --line: #e2e8f0;
-  --key: #f8fafc;
+  --key: #f1f5f9;
+  --sidebar: #020617;
+  --brand-magenta: #ff0055;
+  --brand-mint: #059669;
 }
 
 .dark {
-  --bg: #080c18;
-  --card: #121a2e;
-  --ink: #eef2ff;
+  --bg: #0f172a;
+  --card: #1e293b;
+  --ink: #f1f5f9;
   --mut: #94a3b8;
-  --line: #1e293b;
+  --line: #334155;
   --key: #0f172a;
+  --sidebar: #020617;
 }
 
 html,
@@ -38,7 +42,62 @@ select {
   touch-action: manipulation;
 }
 
+/* Tactile press feedback for POS touch targets */
+.btn-tactile {
+  transition: all 0.075s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-tactile:active {
+  transform: scale(0.97);
+}
+
+/* Dashed receipt separator */
+.ticket-dashed-line {
+  background-image: linear-gradient(to right, #cbd5e1 50%, transparent 50%);
+  background-position: top;
+  background-size: 8px 1.5px;
+  background-repeat: repeat-x;
+}
+
+/* Subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
 @keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
