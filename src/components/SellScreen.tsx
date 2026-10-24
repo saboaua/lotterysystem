@@ -3,17 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Ban,
-  Copy,
   Dice5,
-  FileChartColumn,
   LifeBuoy,
   Printer,
-  Receipt,
   RotateCcw,
   Trash2,
-  Users,
   X,
   Banknote,
+  Bookmark,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Game } from "@/lib/types";
@@ -263,8 +260,8 @@ export function SellScreen() {
   }
 
   return (
-    <div className="grid h-full gap-3 p-3 lg:grid-cols-[1.15fr_0.85fr]">
-      <section className="flex min-h-0 flex-col gap-2.5 overflow-auto">
+    <div className="flex h-full min-h-0 gap-0 bg-slate-50 dark:bg-slate-900">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-auto p-4 lg:p-5">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
           {enabled.map((g) => {
             const on = sel.includes(g.id);
@@ -274,41 +271,49 @@ export function SellScreen() {
                 key={g.id}
                 type="button"
                 onClick={() => toggleGame(g.id)}
-                className={`relative flex flex-col items-start rounded-2xl p-3 text-left text-white transition ${
+                className={`btn-tactile relative overflow-hidden rounded-xl border p-3 text-left text-white shadow-sm transition ${
                   on
-                    ? "opacity-100 ring-2 ring-white ring-offset-2 ring-offset-[var(--bg)]"
+                    ? "ring-2 ring-white ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-900"
                     : st.closed
                       ? "opacity-40 grayscale"
-                      : "opacity-90 hover:opacity-100"
+                      : "hover:shadow-md"
                 }`}
                 style={{
-                  background: `linear-gradient(145deg, ${g.color}, color-mix(in srgb, ${g.color} 50%, #000))`,
+                  background: `linear-gradient(145deg, ${g.color}, color-mix(in srgb, ${g.color} 55%, #000))`,
                 }}
               >
-                <span className="text-[15px] font-extrabold leading-tight">{g.name}</span>
-                <span className="mt-0.5 text-[10px] opacity-90">
-                  {g.format === "digit"
-                    ? `${g.digits}D`
-                    : g.format === "jackpot"
-                      ? "JACKPOT"
-                      : g.format === "zodiac"
-                        ? "ZODIAC"
-                        : "1–36"}
-                </span>
-                <span className="text-[10px] opacity-80">
-                  Draw {g.draw_time}
-                  {g.sessions?.length ? ` · ${g.sessions.map((s) => s.label).join("/")}` : ""}
-                </span>
-                <span className={`mt-1 text-[10px] font-semibold ${st.closed ? "text-white/70" : ""}`}>
-                  {g.jackpot_current
-                    ? `Pool AWG ${g.jackpot_current.toLocaleString()}`
-                    : st.label}
-                </span>
-                {on && (
-                  <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-[11px] font-black text-slate-900">
-                    ✓
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/30 text-xs font-black shadow-inner"
+                      style={{ background: "rgba(0,0,0,0.2)" }}
+                    >
+                      {g.format === "jackpot" ? "★" : g.format === "zodiac" ? "✦" : g.format === "whe" ? "●" : `${g.digits}D`}
+                    </div>
+                    <span className="text-base font-black tracking-tight leading-tight">{g.name}</span>
+                  </div>
+                  {on && (
+                    <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[11px] font-black text-slate-900">
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2.5 flex items-center justify-between text-xs font-medium opacity-90">
+                  <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ background: "rgba(0,0,0,0.25)" }}>
+                    {g.format === "digit"
+                      ? `${g.digits}d`
+                      : g.format === "jackpot"
+                        ? "JACKPOT"
+                        : g.format === "zodiac"
+                          ? "ZODIAC"
+                          : "1–36"}
                   </span>
-                )}
+                  <span>
+                    {g.jackpot_current
+                      ? `AWG ${g.jackpot_current.toLocaleString()}`
+                      : st.label}
+                  </span>
+                </div>
               </button>
             );
           })}
@@ -320,7 +325,7 @@ export function SellScreen() {
             value={date}
             min={today()}
             onChange={(e) => setDate(e.target.value)}
-            className="h-9 rounded-full border border-[var(--line)] bg-[var(--card)] px-3 text-sm shadow-sm"
+            className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold shadow-sm dark:border-slate-600 dark:bg-slate-800"
           />
           {allowedBets.map((b) => (
             <button
@@ -330,21 +335,21 @@ export function SellScreen() {
                 setBt(b.key);
                 setNum("");
               }}
-              className={`h-9 rounded-full px-3.5 text-sm font-semibold shadow-sm ${
+              className={`btn-tactile h-9 rounded-full px-3.5 text-sm font-semibold shadow-sm ${
                 bt === b.key
                   ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                  : "bg-[var(--card)] text-[var(--mut)]"
+                  : "bg-white text-slate-500 dark:bg-slate-800 dark:text-slate-400"
               }`}
             >
               {b.label}
             </button>
           ))}
-          {!primary && <span className="text-xs text-[var(--mut)]">Tap a game to start</span>}
+          {!primary && <span className="text-xs text-slate-400">Tap a game to start</span>}
         </div>
 
         {primary?.format === "whe" && (
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-3 shadow-sm">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--mut)]">Play Whe · pick 1–36</div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Play Whe · pick 1–36</div>
             <div className="grid max-h-52 grid-cols-5 gap-1.5 overflow-auto sm:grid-cols-10">
               {PLAY_WHE_MARKS.map((m) => (
                 <button
@@ -354,15 +359,15 @@ export function SellScreen() {
                     setWhePick(m.num);
                     setNum(String(m.num));
                   }}
-                  className={`flex flex-col items-center rounded-xl border p-1.5 text-center ${
+                  className={`btn-tactile flex flex-col items-center rounded-xl border p-1.5 text-center ${
                     whePick === m.num
                       ? "border-rose-400 bg-rose-500/15 ring-2 ring-rose-400"
-                      : "border-[var(--line)] bg-[var(--key)]"
+                      : "border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-700"
                   }`}
                 >
                   <span className="text-lg leading-none">{m.emoji}</span>
                   <span className="text-[10px] font-bold">{String(m.num).padStart(2, "0")}</span>
-                  <span className="w-full truncate text-[8px] text-[var(--mut)]">{m.label}</span>
+                  <span className="w-full truncate text-[8px] text-slate-400">{m.label}</span>
                 </button>
               ))}
             </div>
@@ -370,17 +375,43 @@ export function SellScreen() {
         )}
 
         {primary?.format === "zodiac" && (
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-3 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase text-[var(--mut)]">Zodiac</span>
-              <button type="button" className={`rounded-full px-2.5 py-1 text-xs font-semibold ${allZodiac ? "bg-indigo-500 text-white" : "bg-[var(--key)]"}`} onClick={() => { setAllZodiac(true); setZodiacPick(ZODIAC_SYMBOLS.map((z) => z.id)); }}>All</button>
-              <button type="button" className="rounded-full bg-[var(--key)] px-2.5 py-1 text-xs font-semibold" onClick={() => { setAllZodiac(false); setZodiacPick([]); }}>Clear</button>
+              <span className="text-xs font-bold uppercase text-slate-400">Zodiac</span>
+              <button
+                type="button"
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${allZodiac ? "bg-indigo-500 text-white" : "bg-slate-100 dark:bg-slate-700"}`}
+                onClick={() => {
+                  setAllZodiac(true);
+                  setZodiacPick(ZODIAC_SYMBOLS.map((z) => z.id));
+                }}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold dark:bg-slate-700"
+                onClick={() => {
+                  setAllZodiac(false);
+                  setZodiacPick([]);
+                }}
+              >
+                Clear
+              </button>
             </div>
             <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
               {ZODIAC_SYMBOLS.map((z) => {
                 const on = allZodiac || zodiacPick.includes(z.id);
                 return (
-                  <button key={z.id} type="button" onClick={() => { setAllZodiac(false); setZodiacPick((p) => p.includes(z.id) ? p.filter((x) => x !== z.id) : [...p, z.id]); }} className={`rounded-xl p-2 text-center text-xs font-semibold ${on ? "bg-indigo-500 text-white" : "bg-[var(--key)]"}`}>
+                  <button
+                    key={z.id}
+                    type="button"
+                    onClick={() => {
+                      setAllZodiac(false);
+                      setZodiacPick((p) => (p.includes(z.id) ? p.filter((x) => x !== z.id) : [...p, z.id]));
+                    }}
+                    className={`btn-tactile rounded-xl p-2 text-center text-xs font-semibold ${on ? "bg-indigo-500 text-white" : "bg-slate-100 dark:bg-slate-700"}`}
+                  >
                     <span className="block text-xl">{z.emoji}</span>
                     {z.label}
                   </button>
@@ -391,20 +422,40 @@ export function SellScreen() {
         )}
 
         {primary?.format === "jackpot" && (
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-3 shadow-sm">
-            <div className="mb-2 text-xs font-bold uppercase text-[var(--mut)]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-2 text-xs font-bold uppercase text-slate-400">
               Jackpot · pick {primary.main_count} of {primary.main_max}
               {primary.mega_count ? ` + mega 1–${primary.mega_max}` : ""}
             </div>
             <div className="flex flex-wrap gap-1">
               {Array.from({ length: primary.main_max ?? 30 }, (_, i) => String(i + 1).padStart(2, "0")).map((v) => (
-                <button key={v} type="button" onClick={() => { setJackBalls((prev) => { if (prev.includes(v)) return prev.filter((x) => x !== v); if (prev.length >= (primary.main_count ?? 5)) return prev; return [...prev, v]; }); }} className={`h-9 w-9 rounded-full text-xs font-bold ${jackBalls.includes(v) ? "bg-indigo-500 text-white" : "bg-[var(--key)]"}`}>{v}</button>
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    setJackBalls((prev) => {
+                      if (prev.includes(v)) return prev.filter((x) => x !== v);
+                      if (prev.length >= (primary.main_count ?? 5)) return prev;
+                      return [...prev, v];
+                    });
+                  }}
+                  className={`btn-tactile h-9 w-9 rounded-full text-xs font-bold ${jackBalls.includes(v) ? "bg-indigo-500 text-white" : "bg-slate-100 dark:bg-slate-700"}`}
+                >
+                  {v}
+                </button>
               ))}
             </div>
             {!!primary.mega_count && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {Array.from({ length: primary.mega_max ?? 10 }, (_, i) => String(i + 1).padStart(2, "0")).map((v) => (
-                  <button key={v} type="button" onClick={() => setJackMega(v)} className={`h-9 w-9 rounded-full text-xs font-bold ${jackMega === v ? "bg-rose-500 text-white" : "bg-[var(--key)]"}`}>{v}</button>
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setJackMega(v)}
+                    className={`btn-tactile h-9 w-9 rounded-full text-xs font-bold ${jackMega === v ? "bg-rose-500 text-white" : "bg-slate-100 dark:bg-slate-700"}`}
+                  >
+                    {v}
+                  </button>
                 ))}
               </div>
             )}
@@ -414,90 +465,286 @@ export function SellScreen() {
         {(primary?.format === "digit" || primary?.format === "zodiac") && (
           <div className="flex justify-center gap-2">
             {digitSlots.map((d, i) => (
-              <div key={i} className="grid h-14 w-12 place-items-center rounded-xl border-2 border-[var(--line)] bg-[var(--card)] font-mono text-2xl font-bold shadow-sm">{d || "·"}</div>
+              <div
+                key={i}
+                className="grid h-16 w-14 place-items-center rounded-xl border-2 border-slate-300 bg-white font-mono text-3xl font-bold shadow-sm dark:border-slate-600 dark:bg-slate-800"
+              >
+                {d || "·"}
+              </div>
             ))}
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, ".", 0, "DEL"].map((k) => (
-            <button key={String(k)} type="button" onClick={() => key(k)} className="h-12 rounded-xl bg-[var(--card)] text-lg font-bold shadow-sm active:scale-95">{k === "DEL" ? "⌫" : k}</button>
-          ))}
-          <button type="button" onClick={() => key("CLR")} className="h-12 rounded-xl bg-rose-500/15 text-sm font-bold text-rose-600">CLR</button>
-          <button type="button" onClick={quickPick} className="flex h-12 items-center justify-center gap-1 rounded-xl bg-indigo-500/15 text-sm font-bold text-indigo-600"><Dice5 size={16} /> QP</button>
-          <button type="button" onClick={() => setField(field === "num" ? "amt" : "num")} className="h-12 rounded-xl bg-[var(--key)] text-xs font-bold">{field === "num" ? "→ Amt" : "→ Num"}</button>
-        </div>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto]">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, ".", 0, "DEL"].map((k) => (
+              <button
+                key={String(k)}
+                type="button"
+                onClick={() => key(k)}
+                className="btn-tactile h-14 rounded-xl border border-slate-200 bg-white text-xl font-bold shadow-sm active:scale-95 dark:border-slate-600 dark:bg-slate-800"
+              >
+                {k === "DEL" ? "⌫" : k}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => key("CLR")}
+              className="btn-tactile h-14 rounded-xl bg-rose-500/15 text-sm font-bold text-rose-600"
+            >
+              CLR
+            </button>
+            <button
+              type="button"
+              onClick={quickPick}
+              className="btn-tactile flex h-14 items-center justify-center gap-1 rounded-xl bg-indigo-500/15 text-sm font-bold text-indigo-600"
+            >
+              <Dice5 size={16} /> QP
+            </button>
+            <button
+              type="button"
+              onClick={() => setField(field === "num" ? "amt" : "num")}
+              className="btn-tactile h-14 rounded-xl bg-slate-100 text-xs font-bold dark:bg-slate-700"
+            >
+              {field === "num" ? "→ Amt" : "→ Num"}
+            </button>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {PRESETS.map((p) => (
-            <button key={p} type="button" onClick={() => { setAmt(String(p)); setField("amt"); }} className="rounded-full bg-[var(--card)] px-3 py-1.5 text-xs font-semibold shadow-sm">{p}</button>
-          ))}
-          <input className="h-9 w-24 rounded-full border border-[var(--line)] bg-[var(--card)] px-3 text-sm font-bold" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="Amt" onFocus={() => setField("amt")} />
-          <button type="button" onClick={addPlay} className="rounded-full bg-indigo-600 px-5 py-2 text-sm font-bold text-white">Add play</button>
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-4 gap-1.5 lg:grid-cols-2">
+              {PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => {
+                    setAmt(String(p));
+                    setField("amt");
+                  }}
+                  className="btn-tactile flex h-12 flex-col items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50/80 font-mono text-sm font-extrabold text-indigo-700 shadow-sm dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
+                >
+                  <span className="text-[9px] font-bold leading-none text-indigo-400">{currency}</span>
+                  {p}
+                </button>
+              ))}
+            </div>
+            <input
+              className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-center font-mono text-lg font-bold shadow-sm dark:border-slate-600 dark:bg-slate-800"
+              value={amt}
+              onChange={(e) => setAmt(e.target.value)}
+              placeholder="Amount"
+              onFocus={() => setField("amt")}
+            />
+            <button
+              type="button"
+              onClick={addPlay}
+              className="btn-tactile h-12 rounded-xl bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-600/25"
+            >
+              Add play
+            </button>
+          </div>
         </div>
 
         {primary?.sessions && primary.sessions.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {primary.sessions.map((s) => (
-              <button key={s.id} type="button" onClick={() => setSession(s.id)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${session === s.id ? "bg-indigo-600 text-white" : "bg-[var(--card)]"}`}>{s.label}</button>
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSession(s.id)}
+                className={`btn-tactile rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  session === s.id ? "bg-indigo-600 text-white" : "bg-white dark:bg-slate-800"
+                }`}
+              >
+                {s.label}
+              </button>
             ))}
           </div>
         )}
-
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs font-semibold text-[var(--mut)]">Multi-draw</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-slate-400">Multi-draw</span>
           {MULTI_DRAW.map((n) => (
-            <button key={n} type="button" onClick={() => setMultiDraw(n)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${multiDraw === n ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "bg-[var(--card)]"}`}>{n}d</button>
+            <button
+              key={n}
+              type="button"
+              onClick={() => setMultiDraw(n)}
+              className={`btn-tactile rounded-full px-2.5 py-1 text-xs font-semibold ${
+                multiDraw === n
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                  : "bg-white dark:bg-slate-800"
+              }`}
+            >
+              {n}d
+            </button>
           ))}
         </div>
       </section>
 
-      <section className="flex min-h-0 flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-3 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold">Ticket</h2>
+      <aside className="flex w-full max-w-md shrink-0 flex-col border-l border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 lg:w-[380px]">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+          <h2 className="text-sm font-extrabold tracking-tight">Current Ticket</h2>
           <div className="flex gap-1">
-            <button type="button" onClick={clearLines} className="rounded-lg p-2 text-[var(--mut)] hover:bg-[var(--key)]" title="Clear"><Trash2 size={16} /></button>
-            <button type="button" onClick={() => lastTicketId && replayTicket(lastTicketId)} className="rounded-lg p-2 text-[var(--mut)] hover:bg-[var(--key)]" title="Replay"><RotateCcw size={16} /></button>
+            <button
+              type="button"
+              onClick={clearLines}
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700"
+              title="Clear"
+            >
+              <Trash2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => lastTicketId && replayTicket(lastTicketId)}
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700"
+              title="Replay last"
+            >
+              <RotateCcw size={16} />
+            </button>
           </div>
         </div>
-        <div className="min-h-0 flex-1 space-y-1 overflow-auto">
+
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
           {lines.map((l) => (
-            <div key={l.id} className="flex items-center justify-between rounded-xl bg-[var(--key)] px-3 py-2 text-xs">
-              <span className="font-semibold">{games.find((g) => g.id === l.game)?.name} · {l.bet_type} · {l.number}</span>
-              <span className="flex items-center gap-2">
-                <span className="font-bold">{currency} {l.amount.toFixed(2)}</span>
-                <button type="button" onClick={() => removeLine(l.id)} className="text-rose-500"><X size={14} /></button>
-              </span>
+            <div
+              key={l.id}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs dark:border-slate-600 dark:bg-slate-700/50"
+            >
+              <div className="min-w-0">
+                <div className="truncate font-bold text-slate-800 dark:text-slate-100">
+                  {games.find((g) => g.id === l.game)?.name} · {l.bet_type}
+                </div>
+                <div className="font-mono text-sm font-black tracking-wider text-indigo-700 dark:text-indigo-300">
+                  {l.number}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold">
+                  {currency} {l.amount.toFixed(2)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeLine(l.id)}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
           ))}
-          {!lines.length && <p className="py-8 text-center text-sm text-[var(--mut)]">No plays yet</p>}
+          {!lines.length && (
+            <p className="py-12 text-center text-sm text-slate-400">No plays yet — add from the left</p>
+          )}
         </div>
-        <div className="border-t border-[var(--line)] pt-2">
-          <div className="mb-2 flex justify-between text-lg font-extrabold">
-            <span>Total</span>
-            <span>{currency} {total.toFixed(2)}</span>
+
+        <div className="space-y-3 border-t border-slate-200 bg-slate-50/90 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between font-medium text-slate-500">
+              <span>Lines count:</span>
+              <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                {lines.length} play(s)
+              </span>
+            </div>
+            <div className="ticket-dashed-line flex items-baseline justify-between pt-2 font-bold text-slate-900 dark:text-white">
+              <span className="text-sm">Net Payable:</span>
+              <span className="font-mono text-lg font-black text-indigo-700 dark:text-indigo-400">
+                {currency} {total.toFixed(2)}
+              </span>
+            </div>
           </div>
-          <button type="button" onClick={sendTicket} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg">
-            <Printer size={18} /> Send & print
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={clearLines}
+              className="btn-tactile flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-300"
+            >
+              <Trash2 size={14} /> Clear Ticket
+            </button>
+            <button
+              type="button"
+              onClick={() => lastTicketId && replayTicket(lastTicketId)}
+              className="btn-tactile flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-300"
+            >
+              <Bookmark size={14} /> Replay
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={sendTicket}
+            className="btn-tactile flex h-14 w-full items-center justify-center gap-2.5 rounded-xl bg-emerald-500 text-base font-extrabold tracking-wide text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-600 active:bg-emerald-700"
+          >
+            <Printer size={18} />
+            <span>Send & Print</span>
+            <span className="ml-1 rounded bg-emerald-950/20 px-2 py-0.5 font-mono text-xs">F12</span>
           </button>
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
-            <button type="button" onClick={() => lastTicketId && cancelTicket(lastTicketId)} className="flex items-center justify-center gap-1 rounded-xl bg-rose-500/15 py-2 text-xs font-semibold text-rose-600"><Ban size={14} /> Cancel</button>
-            <button type="button" onClick={() => lastTicketId && redeemTicket(lastTicketId)} className="flex items-center justify-center gap-1 rounded-xl bg-amber-500/15 py-2 text-xs font-semibold text-amber-700"><Banknote size={14} /> Redeem</button>
-            <button type="button" onClick={() => setModal("support")} className="flex items-center justify-center gap-1 rounded-xl bg-[var(--key)] py-2 text-xs font-semibold"><LifeBuoy size={14} /> Support</button>
+
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              type="button"
+              onClick={() => lastTicketId && cancelTicket(lastTicketId)}
+              className="btn-tactile flex items-center justify-center gap-1 rounded-xl bg-rose-500/15 py-2 text-xs font-semibold text-rose-600"
+            >
+              <Ban size={14} /> Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => lastTicketId && redeemTicket(lastTicketId)}
+              className="btn-tactile flex items-center justify-center gap-1 rounded-xl bg-amber-500/15 py-2 text-xs font-semibold text-amber-700"
+            >
+              <Banknote size={14} /> Redeem
+            </button>
+            <button
+              type="button"
+              onClick={() => setModal("support")}
+              className="btn-tactile flex items-center justify-center gap-1 rounded-xl bg-slate-100 py-2 text-xs font-semibold dark:bg-slate-700"
+            >
+              <LifeBuoy size={14} /> Support
+            </button>
           </div>
+          {shop && (
+            <p className="text-center text-[10px] text-slate-400">
+              #{shop.number} {shop.name}
+            </p>
+          )}
         </div>
-        {shop && <p className="text-center text-[10px] text-[var(--mut)]">#{shop.number} {shop.name}</p>}
-      </section>
+      </aside>
 
       {modal === "support" && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-          <div className="w-full max-w-md space-y-3 rounded-2xl bg-[var(--card)] p-5 shadow-xl">
+          <div className="w-full max-w-md space-y-3 rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-800">
             <h3 className="font-bold">Support ticket</h3>
-            <input className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm" placeholder="Subject" value={supSub} onChange={(e) => setSupSub(e.target.value)} />
-            <textarea className="h-28 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] p-3 text-sm" placeholder="Describe the issue" value={supBody} onChange={(e) => setSupBody(e.target.value)} />
+            <input
+              className="h-10 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-700"
+              placeholder="Subject"
+              value={supSub}
+              onChange={(e) => setSupSub(e.target.value)}
+            />
+            <textarea
+              className="h-28 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm dark:border-slate-600 dark:bg-slate-700"
+              placeholder="Describe the issue"
+              value={supBody}
+              onChange={(e) => setSupBody(e.target.value)}
+            />
             <div className="flex gap-2">
-              <button type="button" onClick={() => { addSupport(supSub || "Support", supBody); setSupSub(""); setSupBody(""); setModal(null); }} className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Submit</button>
-              <button type="button" onClick={() => setModal(null)} className="rounded-full bg-[var(--key)] px-4 py-2 text-sm font-semibold">Close</button>
+              <button
+                type="button"
+                onClick={() => {
+                  addSupport(supSub || "Support", supBody);
+                  setSupSub("");
+                  setSupBody("");
+                  setModal(null);
+                }}
+                className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Submit
+              </button>
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold dark:bg-slate-700"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
