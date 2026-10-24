@@ -96,6 +96,7 @@ export interface Ticket {
   promo_id?: string;
   cancelled_at?: string;
   redeemed_at?: string;
+  clerk_id?: string;
 }
 
 export interface Clerk {
@@ -190,6 +191,20 @@ export interface BrandSettings {
   led_on: boolean;
   led_speed: number;
   led_color: string;
+  /** Data URL or public path for system logo */
+  logo?: string;
+}
+
+/** Schedule / marketing text printed on tickets */
+export interface TicketScheduleMessage {
+  id: string;
+  label: string;
+  /** Template: {date} {amount} {jackpot} {game} {draw_time} {retailer} {ticket_id} {currency} */
+  text: string;
+  /** Empty = all games */
+  game_ids: string[];
+  enabled: boolean;
+  placement: "header" | "footer" | "after_lines" | "before_total";
 }
 
 export interface TicketDesign {
@@ -220,6 +235,9 @@ export interface TicketDesign {
   padding?: number;
   line_gap?: number;
   messages?: string[];
+  schedule_messages?: TicketScheduleMessage[];
+  manual_text?: string;
+  preview_game_id?: string;
 }
 
 export interface SalesSettings {
