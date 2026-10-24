@@ -5,7 +5,9 @@ import type {
   AppUser,
   BetType,
   BrandSettings,
+  DrawResult,
   Game,
+  Holiday,
   Promotion,
   Retailer,
   SupportTicket,
@@ -39,6 +41,8 @@ interface Store {
   brand: BrandSettings;
   ticketDesign: TicketDesign;
   promotions: Promotion[];
+  holidays: Holiday[];
+  drawResults: DrawResult[];
   selectedRetailerId: string;
   lines: TicketLine[];
   soldTickets: Ticket[];
@@ -56,15 +60,26 @@ interface Store {
   redeemTicket: (id: string) => void;
   replayTicket: (id: string) => void;
   updateGame: (id: string, patch: Partial<Game>) => void;
+  addGame: (game: Game) => void;
+  deleteGame: (id: string) => void;
   updateRetailer: (id: string, patch: Partial<Retailer>) => void;
+  addRetailer: (r: Omit<Retailer, "id">) => Retailer;
   updateBrand: (patch: Partial<BrandSettings>) => void;
   updateTicketDesign: (patch: Partial<TicketDesign>) => void;
   updateBetType: (key: string, patch: Partial<BetType>) => void;
   addSupport: (subject: string, body: string) => void;
+  addPromotion: (p: Promotion) => void;
+  updatePromotion: (id: string, patch: Partial<Promotion>) => void;
+  deletePromotion: (id: string) => void;
+  setResults: (result: Omit<DrawResult, "id">) => void;
+  addHoliday: (h: Omit<Holiday, "id">) => void;
+  deleteHoliday: (id: string) => void;
+  checkPromoCode: (code: string) => { ok: boolean; message: string; prize?: number };
   toast: (message: string, err?: boolean) => void;
   total: number;
   salesToday: number;
   ticketsToday: number;
+  unpaidPrizes: number;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -73,9 +88,50 @@ let toastSeq = 0;
 let lineSeq = 0;
 let ticketSeq = 1000;
 let supportSeq = 0;
+let promoSeq = 10;
+let holidaySeq = 0;
+let resultSeq = 0;
+let retailerSeq = 100;
 
 function padTicket(n: number) {
   return `T${String(n).padStart(8, "0")}`;
+}
+
+function randomCode(len: number) {
+  let s = "";
+  for (let i = 0; i < len; i++) s += Math.floor(Math.random() * 10);
+  return s;
+}
+
+/** Apply active promotions to a ticket (HACS _apply_promotions logic). */
+function applyPromotions(
+  lines: TicketLine[],
+  promotions: Promotion[],
+  now = new Date()
+): { promo_id?: string; promo_code?: string } {
+  const active = promotions.filter((p) => {
+    if (!p.active) return false;
+    if (p.start && new Date(p.start) > now) return false;
+    if (p.end && new Date(p.end) < now) return false;
+    return true;
+  });
+  for (const p of active) {
+    const scoped = p.game_ids?.length
+      ? lines.filter((l) => p.game_ids!.includes(l.game))
+      : lines;
+    if (!scoped.length) continue;
+    if (p.min_plays != null && scoped.length < p.min_plays) continue;
+    if (p.min_games != null) {
+      const distinct = new Set(scoped.map((l) => l.game)).size;
+      if (distinct < p.min_games) continue;
+    }
+    if (p.min_amount != null) {
+      const sum = scoped.reduce((s, l) => s + l.amount, 0);
+      if (sum < p.min_amount) continue;
+    }
+    return { promo_id: p.id, promo_code: randomCode(p.code_len || 6) };
+  }
+  return {};
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -85,7 +141,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [betTypes, setBetTypes] = useState<BetType[]>(DEMO_BET_TYPES);
   const [brand, setBrand] = useState<BrandSettings>(DEMO_BRAND);
   const [ticketDesign, setTicketDesign] = useState<TicketDesign>(DEMO_TICKET_DESIGN);
-  const [promotions] = useState<Promotion[]>(DEMO_PROMOTIONS);
+  const [promotions, setPromotions] = useState<Promotion[]>(DEMO_PROMOTIONS);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [drawResults, setDrawResults] = useState<DrawResult[]>([]);
   const [selectedRetailerId, setSelectedRetailerId] = useState("r001");
   const [lines, setLines] = useState<TicketLine[]>([]);
   const [soldTickets, setSoldTickets] = useState<Ticket[]>([]);
@@ -128,6 +186,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sellTicket = useCallback((): Ticket | null => {
     if (!lines.length) return null;
     const id = padTicket(++ticketSeq);
+    const promo = applyPromotions(lines, promotions);
     const t: Ticket = {
       id,
       retailer_id: selectedRetailerId,
@@ -135,17 +194,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       total: lines.reduce((s, l) => s + l.amount, 0),
       status: "sold",
       created_at: new Date().toISOString(),
+      ...promo,
     };
     setSoldTickets((prev) => [t, ...prev]);
     setLastTicketId(id);
     setLines([]);
+    if (promo.promo_code) {
+      toast(`Ticket ${id} sold · promo ${promo.promo_code}`);
+    }
     return t;
-  }, [lines, selectedRetailerId]);
+  }, [lines, selectedRetailerId, promotions, toast]);
 
   const cancelTicket = useCallback(
     (id: string) => {
       setSoldTickets((prev) =>
-        prev.map((t) => (t.id === id && t.status === "sold" ? { ...t, status: "cancelled" } : t))
+        prev.map((t) =>
+          t.id === id && t.status === "sold"
+            ? { ...t, status: "cancelled", cancelled_at: new Date().toISOString() }
+            : t
+        )
       );
       toast(`Ticket ${id} cancelled`);
     },
@@ -157,7 +224,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setSoldTickets((prev) =>
         prev.map((t) =>
           t.id === id && (t.status === "won" || t.status === "sold")
-            ? { ...t, status: "paid", prize: t.prize ?? t.total * 10 }
+            ? {
+                ...t,
+                status: "paid",
+                prize: t.prize ?? t.total * 10,
+                redeemed_at: new Date().toISOString(),
+              }
             : t
         )
       );
@@ -185,8 +257,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setGames((g) => g.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   }, []);
 
+  const addGame = useCallback((game: Game) => {
+    setGames((g) => [...g, game]);
+  }, []);
+
+  const deleteGame = useCallback((id: string) => {
+    setGames((g) => g.filter((x) => x.id !== id));
+  }, []);
+
   const updateRetailer = useCallback((id: string, patch: Partial<Retailer>) => {
     setRetailers((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  }, []);
+
+  const addRetailer = useCallback((r: Omit<Retailer, "id">): Retailer => {
+    const id = `r${String(++retailerSeq).padStart(3, "0")}`;
+    const full: Retailer = { ...r, id };
+    setRetailers((prev) => [...prev, full]);
+    return full;
   }, []);
 
   const updateBrand = useCallback((patch: Partial<BrandSettings>) => {
@@ -217,6 +304,52 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [selectedRetailerId, toast]
   );
 
+  const addPromotion = useCallback((p: Promotion) => {
+    setPromotions((prev) => [...prev, p.id ? p : { ...p, id: `p${++promoSeq}` }]);
+  }, []);
+
+  const updatePromotion = useCallback((id: string, patch: Partial<Promotion>) => {
+    setPromotions((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  }, []);
+
+  const deletePromotion = useCallback((id: string) => {
+    setPromotions((prev) => prev.filter((x) => x.id !== id));
+  }, []);
+
+  const setResults = useCallback((result: Omit<DrawResult, "id">) => {
+    const id = `R${++resultSeq}`;
+    setDrawResults((prev) => {
+      const filtered = prev.filter(
+        (r) =>
+          !(r.game_id === result.game_id && r.draw_date === result.draw_date && r.session === result.session)
+      );
+      return [{ ...result, id }, ...filtered];
+    });
+    toast(`Results saved for ${result.game_id} ${result.draw_date}`);
+  }, [toast]);
+
+  const addHoliday = useCallback((h: Omit<Holiday, "id">) => {
+    setHolidays((prev) => [...prev, { ...h, id: `H${++holidaySeq}` }]);
+  }, []);
+
+  const deleteHoliday = useCallback((id: string) => {
+    setHolidays((prev) => prev.filter((x) => x.id !== id));
+  }, []);
+
+  const checkPromoCode = useCallback(
+    (code: string) => {
+      const t = soldTickets.find((x) => x.promo_code === code);
+      if (!t) return { ok: false, message: "Code not found" };
+      const promo = promotions.find((p) => p.id === t.promo_id);
+      return {
+        ok: true,
+        message: promo?.label || "Promo code valid",
+        prize: promo?.prize,
+      };
+    },
+    [soldTickets, promotions]
+  );
+
   const total = useMemo(() => lines.reduce((s, l) => s + l.amount, 0), [lines]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -235,6 +368,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [todayTickets]
   );
   const ticketsToday = todayTickets.length;
+  const unpaidPrizes = useMemo(
+    () =>
+      soldTickets
+        .filter((t) => t.status === "won")
+        .reduce((s, t) => s + (t.prize || 0), 0),
+    [soldTickets]
+  );
 
   const value: Store = {
     user,
@@ -245,6 +385,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     brand,
     ticketDesign,
     promotions,
+    holidays,
+    drawResults,
     selectedRetailerId,
     lines,
     soldTickets,
@@ -262,15 +404,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     redeemTicket,
     replayTicket,
     updateGame,
+    addGame,
+    deleteGame,
     updateRetailer,
+    addRetailer,
     updateBrand,
     updateTicketDesign,
     updateBetType,
     addSupport,
+    addPromotion,
+    updatePromotion,
+    deletePromotion,
+    setResults,
+    addHoliday,
+    deleteHoliday,
+    checkPromoCode,
     toast,
     total,
     salesToday,
     ticketsToday,
+    unpaidPrizes,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
