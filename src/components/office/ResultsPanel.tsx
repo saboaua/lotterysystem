@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { ScrapeButtons } from "./ScrapeButtons";
 
 export function ResultsPanel() {
   const {
@@ -71,8 +72,9 @@ export function ResultsPanel() {
       <div className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
         <h2 className="text-lg font-bold">Results & winners</h2>
         <p className="text-xs text-[var(--mut)]">
-          Enter draw numbers — stored in session state (Supabase-ready).
+          Enter draw numbers or scrape external sources (set SCRAPE_*_URL env).
         </p>
+        <ScrapeButtons date={d} />
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-[11px] font-semibold text-[var(--mut)]">
             Game
