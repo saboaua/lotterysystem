@@ -50,7 +50,6 @@ export function Shell({ children }: { children: ReactNode }) {
   const isOwner = user?.role === "owner";
   const shop = retailers.find((r) => r.id === selectedRetailerId);
 
-  // Retailer: sell only. Owner: back office only.
   const nav = isOwner
     ? [{ href: "/office", label: "Back Office", icon: LayoutDashboard }]
     : [{ href: "/sell", label: "Sell", icon: Banknote }];
@@ -59,12 +58,22 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex h-dvh overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
       <aside className="z-30 flex w-20 shrink-0 flex-col items-center justify-between border-r border-slate-800 bg-slate-950 py-4">
         <div className="flex w-full flex-col items-center gap-5">
-          <div
-            className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-indigo-600 text-lg font-extrabold text-white shadow-lg shadow-rose-950/50"
-            title="Shoco Lottery POS"
-          >
-            SL
-          </div>
+          {brand.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brand.logo}
+              alt={brand.name}
+              title={brand.name}
+              className="h-12 w-12 rounded-2xl object-contain bg-white/10 p-1 shadow-lg"
+            />
+          ) : (
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-indigo-600 text-lg font-extrabold text-white shadow-lg shadow-rose-950/50"
+              title={brand.name}
+            >
+              SL
+            </div>
+          )}
           <nav aria-label="Terminal Navigation" className="flex w-full flex-col gap-2 px-2">
             {nav.map((n) => {
               const Icon = n.icon;
@@ -143,9 +152,9 @@ export function Shell({ children }: { children: ReactNode }) {
               </p>
             </div>
             {brand.led_on && !isOwner && (
-              <div className="hidden items-center gap-2 rounded-full border border-emerald-200/70 bg-emerald-50/80 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 xl:flex dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {brand.led_message}
+              <div className="hidden max-w-md items-center gap-2 overflow-hidden rounded-full border border-emerald-200/70 bg-emerald-50/80 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 xl:flex dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                <span className="truncate">{brand.led_message}</span>
               </div>
             )}
           </div>
