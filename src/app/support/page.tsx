@@ -6,15 +6,17 @@ import { Shell } from "@/components/Shell";
 import { SupportScreen } from "@/components/SupportScreen";
 import { useStore } from "@/lib/store";
 
+/** Support is owner-facing; retailers stay on sell. */
 export default function SupportPage() {
   const { user } = useStore();
   const router = useRouter();
 
   useEffect(() => {
     if (!user) router.replace("/");
+    else if (user.role !== "owner") router.replace("/sell");
   }, [user, router]);
 
-  if (!user) return null;
+  if (!user || user.role !== "owner") return null;
   return (
     <Shell>
       <SupportScreen />

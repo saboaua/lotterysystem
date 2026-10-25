@@ -10,7 +10,8 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user) router.replace("/sell");
+    if (!user) return;
+    router.replace(user.role === "owner" ? "/office" : "/sell");
   }, [user, router]);
 
   if (user) return null;

@@ -6,6 +6,7 @@ import { Shell } from "@/components/Shell";
 import { OfficeScreen } from "@/components/OfficeScreen";
 import { useStore } from "@/lib/store";
 
+/** Owner back office only. Retailers are sent to sell. */
 export default function OfficePage() {
   const { user } = useStore();
   const router = useRouter();
