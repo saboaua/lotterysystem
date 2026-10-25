@@ -1,15 +1,20 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Building2, Store } from "lucide-react";
 import { DEMO_USERS } from "@/lib/demo-data";
 import { useStore } from "@/lib/store";
 import { isSupabaseConfigured, signInWithPassword } from "@/lib/auth";
 
+/** Offline demo passwords (used when Supabase is not configured, or as fallback). */
+const DEMO_PASSWORDS: Record<string, string> = {
+  "owner@shocolottery.aw": "owner123",
+  "main@shop.aw": "retailer123",
+  "lucky@shop.aw": "retailer123",
+};
+
 export function LoginScreen() {
   const { loginAs, setUserFromAuth, brand, toast } = useStore();
-  const router = useRouter();
   const [mode, setMode] = useState<"pick" | "owner" | "retailer">("pick");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,24 +23,68 @@ export function LoginScreen() {
   const owners = DEMO_USERS.filter((u) => u.role === "owner");
   const retailers = DEMO_USERS.filter((u) => u.role === "retailer");
 
-  function enterAs(userId: string, role: "owner" | "retailer") {
+  /** Set user only — home page redirects after state commits (avoids race). */
+  function enterAs(userId: string) {
     loginAs(userId);
-    router.replace(role === "owner" ? "/office" : "/sell");
+  }
+
+  function tryDemoPassword(emailIn: string, passwordIn: string): boolean {
+    const key = emailIn.trim().toLowerCase();
+    const expected = DEMO_PASSWORDS[key];
+    if (!expected || passwordIn !== expected) return false;
+    const u = DEMO_USERS.find((x) => x.email.toLowerCase() === key);
+    if (!u) return false;
+    if (mode === "owner" && u.role !== "owner") {
+      toast("This account is not an owner", true);
+      return true;
+    }
+    if (mode === "retailer" && u.role !== "retailer") {
+      toast("This account is not a retailer", true);
+      return true;
+    }
+    loginAs(u.id);
+    return true;
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!isSupabaseConfigured) return;
-    setBusy(true);
-    const res = await signInWithPassword(email.trim(), password);
-    setBusy(false);
-    if (!res.ok) {
-      toast(res.error, true);
+    const em = email.trim();
+    const pw = password;
+    if (!em || !pw) {
+      toast("Enter email and password", true);
       return;
     }
-    setUserFromAuth(res.user);
-    toast(`Signed in as ${res.user.name || res.user.email}`);
-    router.replace(res.user.role === "owner" ? "/office" : "/sell");
+
+    setBusy(true);
+
+    // Always try demo credentials first (works offline)
+    if (tryDemoPassword(em, pw)) {
+      setBusy(false);
+      return;
+    }
+
+    if (isSupabaseConfigured) {
+      const res = await signInWithPassword(em, pw);
+      setBusy(false);
+      if (!res.ok) {
+        toast(res.error, true);
+        return;
+      }
+      if (mode === "owner" && res.user.role !== "owner") {
+        toast("This account is not an owner", true);
+        return;
+      }
+      if (mode === "retailer" && res.user.role !== "retailer") {
+        toast("This account is not a retailer", true);
+        return;
+      }
+      setUserFromAuth(res.user);
+      toast(`Signed in as ${res.user.name || res.user.email}`);
+      return;
+    }
+
+    setBusy(false);
+    toast("Wrong email or password", true);
   }
 
   return (
@@ -54,7 +103,11 @@ export function LoginScreen() {
             <p className="text-center text-xs font-bold uppercase tracking-wider text-slate-400">Choose sign-in</p>
             <button
               type="button"
-              onClick={() => setMode("retailer")}
+              onClick={() => {
+                setMode("retailer");
+                setEmail("");
+                setPassword("");
+              }}
               className="flex w-full items-start gap-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50/80 p-5 text-left transition hover:border-emerald-400 hover:shadow-md dark:border-emerald-900 dark:bg-emerald-950/40"
             >
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-500 text-white shadow">
@@ -69,7 +122,11 @@ export function LoginScreen() {
             </button>
             <button
               type="button"
-              onClick={() => setMode("owner")}
+              onClick={() => {
+                setMode("owner");
+                setEmail("owner@shocolottery.aw");
+                setPassword("");
+              }}
               className="flex w-full items-start gap-4 rounded-2xl border-2 border-violet-200 bg-violet-50/80 p-5 text-left transition hover:border-violet-400 hover:shadow-md dark:border-violet-900 dark:bg-violet-950/40"
             >
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-violet-600 text-white shadow">
@@ -93,30 +150,53 @@ export function LoginScreen() {
             <h2 className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400">Retailer terminal</h2>
             <p className="text-sm text-slate-500">Sell tickets at your shop. No back-office access.</p>
 
-            {isSupabaseConfigured && (
-              <form onSubmit={onSubmit} className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                <input type="email" required autoComplete="username" placeholder="Shop email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800" />
-                <input type="password" required autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800" />
-                <button type="submit" disabled={busy} className="h-11 w-full rounded-xl bg-emerald-600 text-sm font-bold text-white disabled:opacity-60">
-                  {busy ? "Signing in…" : "Sign in as retailer"}
-                </button>
-              </form>
-            )}
+            <form onSubmit={onSubmit} className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                placeholder="Shop email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
+              />
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className="h-11 w-full rounded-xl bg-emerald-600 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {busy ? "Signing in…" : "Sign in as retailer"}
+              </button>
+              <p className="text-center text-[11px] text-slate-400">
+                Demo: main@shop.aw / retailer123
+              </p>
+            </form>
 
-            <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Demo shops</p>
+            <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or one-tap demo</p>
             <div className="space-y-2">
               {retailers.map((u) => (
                 <button
                   key={u.id}
                   type="button"
-                  onClick={() => enterAs(u.id, "retailer")}
+                  onClick={() => enterAs(u.id)}
                   className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-left transition hover:border-emerald-400 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
                 >
                   <div>
                     <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
                     <div className="text-xs text-slate-500">{u.email}</div>
                   </div>
-                  <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">Retailer</span>
+                  <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                    Retailer
+                  </span>
                 </button>
               ))}
             </div>
@@ -129,32 +209,56 @@ export function LoginScreen() {
               ← Change role
             </button>
             <h2 className="text-lg font-extrabold text-violet-700 dark:text-violet-400">Owner back office</h2>
-            <p className="text-sm text-slate-500">Manage games, retailers, results, promotions and reports. No sell screen.</p>
+            <p className="text-sm text-slate-500">Manage games, retailers, results, promotions and reports.</p>
 
-            {isSupabaseConfigured && (
-              <form onSubmit={onSubmit} className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                <input type="email" required autoComplete="username" placeholder="Owner email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800" />
-                <input type="password" required autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800" />
-                <button type="submit" disabled={busy} className="h-11 w-full rounded-xl bg-violet-600 text-sm font-bold text-white disabled:opacity-60">
-                  {busy ? "Signing in…" : "Sign in as owner"}
-                </button>
-              </form>
-            )}
+            <form onSubmit={onSubmit} className="space-y-3 rounded-2xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900 dark:bg-violet-950/20">
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                placeholder="Owner email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
+              />
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className="h-11 w-full rounded-xl bg-violet-600 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {busy ? "Signing in…" : "Sign in as owner"}
+              </button>
+              <p className="text-center text-[11px] text-slate-500">
+                Demo: <span className="font-mono font-semibold">owner@shocolottery.aw</span> /{" "}
+                <span className="font-mono font-semibold">owner123</span>
+              </p>
+            </form>
 
-            <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Demo owner</p>
+            <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or one-tap demo</p>
             <div className="space-y-2">
               {owners.map((u) => (
                 <button
                   key={u.id}
                   type="button"
-                  onClick={() => enterAs(u.id, "owner")}
+                  onClick={() => enterAs(u.id)}
                   className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-left transition hover:border-violet-400 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
                 >
                   <div>
                     <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
                     <div className="text-xs text-slate-500">{u.email}</div>
                   </div>
-                  <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-[11px] font-bold text-violet-700 dark:text-violet-300">Owner</span>
+                  <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-[11px] font-bold text-violet-700 dark:text-violet-300">
+                    Owner
+                  </span>
                 </button>
               ))}
             </div>
