@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Shell } from "@/components/Shell";
-import { SellScreen } from "@/components/SellScreen";
+import SellScreen from "@/components/SellScreen";
 import { useStore } from "@/lib/store";
 
 /** Retailer sell terminal only. Owners are sent to back office. */
