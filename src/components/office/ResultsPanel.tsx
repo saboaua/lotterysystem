@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { ScrapeButtons } from "./ScrapeButtons";
+import { DrawCalendar } from "./DrawCalendar";
 
 export function ResultsPanel() {
   const {
@@ -33,7 +34,7 @@ export function ResultsPanel() {
     if (!gameId) return toast("Select a game", true);
     if (g?.format === "whe") {
       const n = parseInt(whe, 10);
-      if (!n || n < 1 || n > 36) return toast("Play Whe mark 1–36 required", true);
+      if (!n || n < 1 || n > 36) return toast("Play Whe mark 1-36 required", true);
       setResults({
         game_id: gameId,
         draw_date: d,
@@ -68,7 +69,9 @@ export function ResultsPanel() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
+      <DrawCalendar />
+
       <div className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
         <h2 className="text-lg font-bold">Results & winners</h2>
         <p className="text-xs text-[var(--mut)]">
@@ -121,7 +124,7 @@ export function ResultsPanel() {
           )}
           {g?.format === "whe" ? (
             <label className="text-[11px] font-semibold text-[var(--mut)]">
-              Play Whe (1–36)
+              Play Whe (1-36)
               <input
                 className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
                 value={whe}
