@@ -28,6 +28,7 @@ export interface Game {
   draw_time: string;
   cutoff: string;
   enabled: boolean;
+  /** 0=Sun .. 6=Sat; empty/undefined = every day */
   draw_days?: number[];
   jackpot_current?: number;
   main_count?: number;
@@ -36,7 +37,9 @@ export interface Game {
   mega_max?: number;
   sessions?: GameSession[];
   bet_types?: string[];
+  /** Data URL or URL shown on sell tiles */
   logo?: string;
+  /** Digit games only — stake limits */
   min_stake?: number;
   max_stake?: number;
   sort_order?: number;
@@ -184,24 +187,35 @@ export interface AppUser {
   must_change_password?: boolean;
 }
 
+/** LED / sell-screen ticker scheduled rows */
+export interface LedScheduleMessage {
+  id: string;
+  label: string;
+  text: string;
+  enabled: boolean;
+  /** ISO date YYYY-MM-DD optional window */
+  start?: string;
+  end?: string;
+}
+
 export interface BrandSettings {
   name: string;
   tagline: string;
   led_message: string;
   led_on: boolean;
+  /** px/s style speed; UI maps slow/normal/fast */
   led_speed: number;
   led_color: string;
-  /** Data URL or public path for system logo */
   logo?: string;
+  /** Extra scheduled ticker messages */
+  led_schedule?: LedScheduleMessage[];
 }
 
-/** Schedule / marketing text printed on tickets */
 export interface TicketScheduleMessage {
   id: string;
   label: string;
-  /** Template: {date} {amount} {jackpot} {game} {draw_time} {retailer} {ticket_id} {currency} */
+  /** Tokens: {date} {amount} {jackpot} {game} {game1} {amount1} {draw_time} {retailer} {ticket_id} {currency} {promo} */
   text: string;
-  /** Empty = all games */
   game_ids: string[];
   enabled: boolean;
   placement: "header" | "footer" | "after_lines" | "before_total";
@@ -236,8 +250,12 @@ export interface TicketDesign {
   line_gap?: number;
   messages?: string[];
   schedule_messages?: TicketScheduleMessage[];
+  /** Message of the day under lines */
   manual_text?: string;
+  /** Retailer block template under logo */
+  retailer_template?: string;
   preview_game_id?: string;
+  logo?: string;
 }
 
 export interface SalesSettings {
