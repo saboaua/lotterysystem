@@ -8,6 +8,7 @@ import { GamesPanel } from "./office/GamesPanel";
 import { BrandPanel } from "./office/BrandPanel";
 import { TicketDesignPanel } from "./office/TicketDesignPanel";
 import { RetailersPanel } from "./office/RetailersPanel";
+import { HelpPanel } from "./office/HelpPanel";
 
 type Sub =
   | "games"
@@ -16,7 +17,8 @@ type Sub =
   | "promos"
   | "results"
   | "reports"
-  | "retailers";
+  | "retailers"
+  | "help";
 
 const TABS: { id: Sub; label: string }[] = [
   { id: "games", label: "Games & schedule" },
@@ -26,6 +28,7 @@ const TABS: { id: Sub; label: string }[] = [
   { id: "results", label: "Results & holidays" },
   { id: "reports", label: "Reports" },
   { id: "retailers", label: "Retailers" },
+  { id: "help", label: "Help" },
 ];
 
 export function OfficeScreen() {
@@ -72,6 +75,7 @@ export function OfficeScreen() {
         {sub === "results" && <ResultsPanel />}
         {sub === "reports" && <ReportsPanel />}
         {sub === "retailers" && <RetailersPanel />}
+        {sub === "help" && <HelpPanel />}
       </div>
     </div>
   );
