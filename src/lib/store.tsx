@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type {
   AppUser,
   BetType,
@@ -26,6 +33,7 @@ import {
   DEMO_USERS,
 } from "./demo-data";
 import { signOut as sbSignOut, isSupabaseConfigured } from "./auth";
+import { loadJson, saveJson } from "./persist";
 
 interface Toast {
   id: number;
@@ -76,6 +84,7 @@ interface Store {
   setResults: (result: Omit<DrawResult, "id">) => void;
   addHoliday: (h: Omit<Holiday, "id">) => void;
   deleteHoliday: (id: string) => void;
+  importHolidays: (rows: { date: string; name: string }[]) => number;
   checkPromoCode: (code: string) => { ok: boolean; message: string; prize?: number };
   toast: (message: string, err?: boolean) => void;
   total: number;
@@ -136,6 +145,7 @@ function applyPromotions(
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const [hydrated, setHydrated] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
   const [games, setGames] = useState<Game[]>(DEMO_GAMES);
   const [retailers, setRetailers] = useState<Retailer[]>(DEMO_RETAILERS);
@@ -151,6 +161,46 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [lastTicketId, setLastTicketId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  useEffect(() => {
+    setGames(loadJson("games", DEMO_GAMES));
+    setBrand(loadJson("brand", DEMO_BRAND));
+    setTicketDesign(loadJson("ticketDesign", DEMO_TICKET_DESIGN));
+    setHolidays(loadJson("holidays", []));
+    setDrawResults(loadJson("drawResults", []));
+    setRetailers(loadJson("retailers", DEMO_RETAILERS));
+    setPromotions(loadJson("promotions", DEMO_PROMOTIONS));
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("games", games);
+  }, [games, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("brand", brand);
+  }, [brand, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("ticketDesign", ticketDesign);
+  }, [ticketDesign, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("holidays", holidays);
+  }, [holidays, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("drawResults", drawResults);
+  }, [drawResults, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("retailers", retailers);
+  }, [retailers, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("promotions", promotions);
+  }, [promotions, hydrated]);
 
   const toast = useCallback((message: string, err = false) => {
     const id = ++toastSeq;
@@ -169,13 +219,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast]
   );
 
-  const setUserFromAuth = useCallback(
-    (u: AppUser) => {
-      setUser(u);
-      if (u.role === "retailer" && u.retailer_id) setSelectedRetailerId(u.retailer_id);
-    },
-    []
-  );
+  const setUserFromAuth = useCallback((u: AppUser) => {
+    setUser(u);
+    if (u.role === "retailer" && u.retailer_id) setSelectedRetailerId(u.retailer_id);
+  }, []);
 
   const logout = useCallback(() => {
     setUser(null);
@@ -209,7 +256,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSoldTickets((prev) => [t, ...prev]);
     setLastTicketId(id);
     setLines([]);
-    if (promo.promo_code) toast(`Ticket ${id} sold · promo ${promo.promo_code}`);
+    if (promo.promo_code) toast(`Ticket ${id} sold - promo ${promo.promo_code}`);
     return t;
   }, [lines, selectedRetailerId, promotions, toast]);
 
@@ -339,11 +386,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addHoliday = useCallback((h: Omit<Holiday, "id">) => {
-    setHolidays((prev) => [...prev, { ...h, id: `H${++holidaySeq}` }]);
+    setHolidays((prev) => {
+      if (prev.some((x) => x.date === h.date && x.name === h.name)) return prev;
+      return [...prev, { ...h, id: `H${++holidaySeq}` }];
+    });
   }, []);
 
   const deleteHoliday = useCallback((id: string) => {
     setHolidays((prev) => prev.filter((x) => x.id !== id));
+  }, []);
+
+  const importHolidays = useCallback((rows: { date: string; name: string }[]) => {
+    let added = 0;
+    setHolidays((prev) => {
+      const next = [...prev];
+      for (const row of rows) {
+        if (next.some((x) => x.date === row.date)) continue;
+        next.push({ ...row, id: `H${++holidaySeq}` });
+        added++;
+      }
+      return next;
+    });
+    return added;
   }, []);
 
   const checkPromoCode = useCallback(
@@ -361,7 +425,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const total = useMemo(() => lines.reduce((s, l) => s + l.amount, 0), [lines]);
-
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayTickets = useMemo(
     () =>
@@ -426,6 +489,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setResults,
     addHoliday,
     deleteHoliday,
+    importHolidays,
     checkPromoCode,
     toast,
     total,
