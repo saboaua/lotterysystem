@@ -14,16 +14,7 @@ import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
 
 export function Shell({ children }: { children: ReactNode }) {
-  const {
-    user,
-    brand,
-    currency,
-    retailers,
-    selectedRetailerId,
-    setSelectedRetailer,
-    logout,
-    salesToday,
-  } = useStore();
+  const { user, brand, currency, retailers, selectedRetailerId, logout, salesToday } = useStore();
   const path = usePathname();
   const [dark, setDark] = useState(false);
   const [clock, setClock] = useState("");
@@ -89,7 +80,9 @@ export function Shell({ children }: { children: ReactNode }) {
                   }`}
                 >
                   <Icon size={18} className="mb-1 transition-transform group-hover:scale-110" />
-                  <span className="text-center text-[10px] font-bold leading-tight tracking-tight">{n.label}</span>
+                  <span className="text-center text-[10px] font-bold leading-tight tracking-tight">
+                    {n.label}
+                  </span>
                 </Link>
               );
             })}
@@ -139,14 +132,20 @@ export function Shell({ children }: { children: ReactNode }) {
                 {isOwner ? (
                   <>
                     Signed in as{" "}
-                    <span className="font-semibold text-violet-700 dark:text-violet-400">{user?.name || "Owner"}</span>
+                    <span className="font-semibold text-violet-700 dark:text-violet-400">
+                      {user?.name || "Owner"}
+                    </span>
                   </>
                 ) : (
                   <>
                     Clerk:{" "}
-                    <span className="font-semibold text-indigo-700 dark:text-indigo-400">{user?.name || "Cashier"}</span>
+                    <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                      {user?.name || "Cashier"}
+                    </span>
                     {" · "}
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">Terminal #{shop?.number || "—"}</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      Terminal #{shop?.number || "—"}
+                    </span>
                   </>
                 )}
               </p>
@@ -168,7 +167,9 @@ export function Shell({ children }: { children: ReactNode }) {
               <>
                 <div className="hidden h-7 w-px bg-slate-200 md:block dark:bg-slate-600" />
                 <div className="text-right">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Shift Sales</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Shift Sales
+                  </div>
                   <div className="flex items-center justify-end gap-1 font-mono text-base font-bold text-slate-900 dark:text-white">
                     <span className="text-xs font-medium text-slate-500">{currency}</span>
                     <span>{salesToday.toFixed(2)}</span>
@@ -181,20 +182,6 @@ export function Shell({ children }: { children: ReactNode }) {
                   </span>
                 </div>
               </>
-            )}
-            {isOwner && (
-              <select
-                className="rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                value={selectedRetailerId}
-                onChange={(e) => setSelectedRetailer(e.target.value)}
-                title="Filter / preview retailer"
-              >
-                {retailers.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.number} · {r.name}
-                  </option>
-                ))}
-              </select>
             )}
           </div>
         </header>

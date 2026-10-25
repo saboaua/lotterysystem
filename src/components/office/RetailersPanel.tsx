@@ -3,29 +3,40 @@
 import { useMemo, useState } from "react";
 import { MapPin, Plus } from "lucide-react";
 import { useStore } from "@/lib/store";
-import type { Retailer } from "@/lib/types";
 
-/** Aruba approx bounds for OSM embed */
-const ARUBA = { south: 12.41, west: -70.07, north: 12.63, east: -69.86 };
+/** Project lat/lng into a simple Aruba map viewBox for pin overlay */
+function toXY(lat: number, lng: number) {
+  // Aruba rough bounds
+  const west = -70.07;
+  const east = -69.86;
+  const south = 12.41;
+  const north = 12.63;
+  const x = ((lng - west) / (east - west)) * 100;
+  const y = ((north - lat) / (north - south)) * 100;
+  return {
+    x: Math.min(98, Math.max(2, x)),
+    y: Math.min(98, Math.max(2, y)),
+  };
+}
 
 export function RetailersPanel() {
   const { retailers, updateRetailer, addRetailer, toast } = useStore();
   const [openId, setOpenId] = useState<string | null>(null);
-  const [pickMode, setPickMode] = useState(false);
 
-  const active = retailers.filter((r) => r.active && r.lat != null && r.lng != null);
+  const withCoords = useMemo(
+    () => retailers.filter((r) => r.lat != null && r.lng != null),
+    [retailers]
+  );
 
   const bbox = useMemo(() => {
-    if (!active.length) {
-      return `${ARUBA.west},${ARUBA.south},${ARUBA.east},${ARUBA.north}`;
-    }
-    const lats = active.map((r) => r.lat!);
-    const lngs = active.map((r) => r.lng!);
-    const pad = 0.02;
-    return `${Math.min(...lngs) - pad},${Math.min(...lats) - pad},${Math.max(...lngs) + pad},${Math.max(...lats) + pad}`;
-  }, [active]);
+    const west = -70.07;
+    const east = -69.86;
+    const south = 12.41;
+    const north = 12.63;
+    return `${west},${south},${east},${north}`;
+  }, []);
 
-  const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik`;
+  const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=12.52%2C-70.03`;
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -52,15 +63,14 @@ export function RetailersPanel() {
         </button>
       </div>
 
-      {/* OpenStreetMap embed */}
       <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--card)] shadow-sm">
         <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-[var(--mut)]">
             <MapPin size={14} className="text-emerald-500" />
-            OpenStreetMap · Aruba
+            OpenStreetMap · {withCoords.length} pin(s)
           </div>
           <a
-            href={`https://www.openstreetmap.org/#map=12/12.52/-70.0`}
+            href="https://www.openstreetmap.org/#map=12/12.52/-70.0"
             target="_blank"
             rel="noreferrer"
             className="text-xs font-bold text-indigo-600"
@@ -68,37 +78,67 @@ export function RetailersPanel() {
             Open full map
           </a>
         </div>
+
+        {/* OSM base + HTML pin overlay */}
         <div className="relative aspect-[16/9] w-full bg-slate-200 dark:bg-slate-800">
           <iframe
-            title="OpenStreetMap retailers"
-            className="absolute inset-0 h-full w-full border-0"
+            title="OpenStreetMap"
+            className="absolute inset-0 h-full w-full border-0 opacity-90"
             src={embedUrl}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
+          {/* Pin layer (pointer-events for clicks) */}
+          <div className="pointer-events-none absolute inset-0">
+            {withCoords.map((r) => {
+              const { x, y } = toXY(r.lat!, r.lng!);
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  title={`#${r.number} ${r.name}`}
+                  onClick={() => setOpenId(r.id)}
+                  className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full"
+                  style={{ left: `${x}%`, top: `${y}%` }}
+                >
+                  <span
+                    className={`flex flex-col items-center drop-shadow-md ${
+                      r.active ? "text-emerald-600" : "text-rose-500"
+                    }`}
+                  >
+                    <MapPin size={28} fill="currentColor" className="opacity-95" />
+                    <span className="rounded bg-white/95 px-1 text-[9px] font-bold text-slate-800 shadow">
+                      {r.number}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
+
         <div className="flex flex-wrap gap-2 border-t border-[var(--line)] p-3">
-          {active.map((r) => (
+          {withCoords.map((r) => (
             <button
               key={r.id}
               type="button"
               onClick={() => setOpenId(r.id)}
               className="flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--key)] px-2.5 py-1 text-[11px] font-semibold hover:border-indigo-400"
             >
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span
+                className={`h-2 w-2 rounded-full ${r.active ? "bg-emerald-500" : "bg-rose-500"}`}
+              />
               #{r.number} {r.name}
             </button>
           ))}
-          {!active.length && (
-            <span className="text-xs text-[var(--mut)]">Set lat/lng on a retailer to show on map.</span>
+          {!withCoords.length && (
+            <span className="text-xs text-[var(--mut)]">
+              Set latitude &amp; longitude on a retailer to show a pin.
+            </span>
           )}
         </div>
         <p className="px-3 pb-3 text-[10px] text-[var(--mut)]">
-          Map data © OpenStreetMap contributors. Edit lat/lng below or paste coordinates from{" "}
-          <a className="text-indigo-600 underline" href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">
-            openstreetmap.org
-          </a>
-          .
+          Map data © OpenStreetMap contributors. Pins overlay shop coordinates from the list below.
         </p>
       </div>
 
@@ -156,16 +196,12 @@ export function RetailersPanel() {
                   <Field
                     label="Latitude"
                     defaultValue={r.lat != null ? String(r.lat) : ""}
-                    onBlur={(v) =>
-                      updateRetailer(r.id, { lat: v ? parseFloat(v) : undefined })
-                    }
+                    onBlur={(v) => updateRetailer(r.id, { lat: v ? parseFloat(v) : undefined })}
                   />
                   <Field
                     label="Longitude"
                     defaultValue={r.lng != null ? String(r.lng) : ""}
-                    onBlur={(v) =>
-                      updateRetailer(r.id, { lng: v ? parseFloat(v) : undefined })
-                    }
+                    onBlur={(v) => updateRetailer(r.id, { lng: v ? parseFloat(v) : undefined })}
                   />
                   <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
                     <input
