@@ -34,7 +34,7 @@ import {
 } from "./demo-data";
 import { signOut as sbSignOut, isSupabaseConfigured } from "./auth";
 import { loadJson, saveJson } from "./persist";
-import { computeJackpotAfterDraw } from "./jackpot";
+import { computeJackpotAfterDraw, describeJackpotChange } from "./jackpot";
 
 interface Toast {
   id: number;
@@ -87,7 +87,6 @@ interface Store {
   deleteHoliday: (id: string) => void;
   importHolidays: (rows: { date: string; name: string }[]) => number;
   checkPromoCode: (code: string) => { ok: boolean; message: string; prize?: number };
-  /** POS heartbeat: shop pings base; base sets last_ack (ping-back). */
   pingRetailer: (retailerId?: string) => void;
   toast: (message: string, err?: boolean) => void;
   total: number;
@@ -208,7 +207,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const toast = useCallback((message: string, err = false) => {
     const id = ++toastSeq;
     setToasts((t) => [...t, { id, message, err }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
   }, []);
 
   const loginAs = useCallback(
@@ -289,7 +288,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 redeemed_at: new Date().toISOString(),
               }
             : t
-          )
+        )
       );
       toast(`Ticket ${id} redeemed`);
     },
@@ -373,6 +372,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (result: Omit<DrawResult, "id">) => {
       const id = `R${++resultSeq}`;
       let enriched: DrawResult = { ...result, id };
+      let jpNote = "";
 
       setGames((prevGames) => {
         const game = prevGames.find((g) => g.id === result.game_id);
@@ -384,6 +384,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             jackpot_next: jp.jackpot_next,
             jackpot_won: jp.jackpot_won,
           };
+          jpNote = describeJackpotChange(jp, CURRENCY);
           return prevGames.map((g) =>
             g.id === game.id
               ? {
@@ -408,7 +409,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         );
         return [enriched, ...filtered];
       });
-      toast(`Results saved for ${result.game_id} ${result.draw_date}`);
+
+      if (jpNote) {
+        toast(`Results ${result.game_id} ${result.draw_date} · ${jpNote}`);
+      } else {
+        toast(`Results saved for ${result.game_id} ${result.draw_date}`);
+      }
     },
     [toast, soldTickets]
   );
