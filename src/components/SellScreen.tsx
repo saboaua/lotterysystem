@@ -9,8 +9,10 @@ import {
   Dice5,
   Printer,
   RotateCcw,
+  Ticket,
   Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Game, TicketLine } from "@/lib/types";
@@ -434,24 +436,26 @@ export function SellScreen() {
             type="button"
             onClick={() => setSellTab("lottery")}
             className={
-              "flex-1 rounded-xl py-2.5 text-sm font-extrabold transition " +
+              "flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-extrabold transition " +
               (sellTab === "lottery"
                 ? "bg-violet-600 text-white shadow"
                 : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")
             }
           >
+            <Ticket size={16} strokeWidth={2.25} />
             Lottery
           </button>
           <button
             type="button"
             onClick={() => setSellTab("fast_play")}
             className={
-              "flex-1 rounded-xl py-2.5 text-sm font-extrabold transition " +
+              "flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-extrabold transition " +
               (sellTab === "fast_play"
-                ? "bg-rose-600 text-white shadow"
+                ? "bg-rose-500 text-white shadow"
                 : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")
             }
           >
+            <Zap size={16} strokeWidth={2.25} />
             Fast Play
           </button>
         </div>
