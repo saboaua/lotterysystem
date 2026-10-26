@@ -14,13 +14,19 @@ import { useStore } from "@/lib/store";
 import type { Game, TicketLine } from "@/lib/types";
 import { PLAY_WHE_MARKS, ZODIAC_SYMBOLS } from "@/lib/constants";
 import { printReceipt } from "@/lib/print-receipt";
+import {
+  SessionsPicker,
+  MultiDrawPicker,
+  ZodiacPicker,
+  PlayWhePicker,
+  JackpotPicker,
+} from "@/components/sell/GamePickers";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
 const PRESETS = [0.5, 1, 2, 3, 4, 5, 10, 20, 50, 100];
-const MULTI_DRAW = [1, 2, 3, 5, 10];
 
 export function SellScreen() {
   const {
@@ -203,12 +209,19 @@ export function SellScreen() {
         toast("Pick at least one sign", true);
         return;
       }
-      if (num.length < (primary.digits || 2)) {
-        toast("Enter number", true);
+      if (num.length < (primary.digits || 4)) {
+        toast(`Enter ${primary.digits || 4}-digit number`, true);
         return;
       }
       for (const z of syms) {
-        addLine({ game: primary.id, bet_type: "zodiac", number: `${num}-${z}`, amount, date, symbols: [z] });
+        addLine({
+          game: primary.id,
+          bet_type: "zodiac",
+          number: `${num}-${z}`,
+          amount,
+          date,
+          symbols: [z],
+        });
       }
       setNum("");
       setZodiacPick([]);
@@ -317,8 +330,9 @@ export function SellScreen() {
     } else if (primary.format === "zodiac") {
       const z = ZODIAC_SYMBOLS[Math.floor(Math.random() * ZODIAC_SYMBOLS.length)];
       setZodiacPick([z.id]);
+      setAllZodiac(false);
       let s = "";
-      for (let i = 0; i < (primary.digits || 2); i++) s += Math.floor(Math.random() * 10);
+      for (let i = 0; i < (primary.digits || 4); i++) s += Math.floor(Math.random() * 10);
       setNum(s);
     } else if (primary.format === "whe") {
       const n = Math.floor(Math.random() * 36) + 1;
@@ -430,7 +444,7 @@ export function SellScreen() {
                         : g.format === "jackpot"
                           ? "JACKPOT"
                           : g.format === "zodiac"
-                            ? "ZODIAC"
+                            ? "4d+SIGN"
                             : "1-36"}
                     </span>
                     <span>
@@ -470,6 +484,24 @@ export function SellScreen() {
           ))}
           {!primary && <span className="text-xs text-slate-400">Tap a game to start</span>}
         </div>
+
+        <SessionsPicker primary={primary} session={session} setSession={setSession} />
+        <MultiDrawPicker primary={primary} multiDraw={multiDraw} setMultiDraw={setMultiDraw} />
+        <ZodiacPicker
+          primary={primary}
+          zodiacPick={zodiacPick}
+          setZodiacPick={setZodiacPick}
+          allZodiac={allZodiac}
+          setAllZodiac={setAllZodiac}
+        />
+        <PlayWhePicker primary={primary} whePick={whePick} setWhePick={setWhePick} setNum={setNum} />
+        <JackpotPicker
+          primary={primary}
+          jackBalls={jackBalls}
+          setJackBalls={setJackBalls}
+          jackMega={jackMega}
+          setJackMega={setJackMega}
+        />
 
         <div className="space-y-3 rounded-2xl border-2 border-indigo-200 bg-white p-3.5 shadow-sm dark:border-indigo-900/50 dark:bg-slate-800">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
