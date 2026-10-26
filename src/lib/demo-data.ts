@@ -15,6 +15,8 @@ import {
   defaultZodiacPrizeTiers,
 } from "./prize-tiers";
 
+export { DEMO_FAST_PLAY } from "./fast-play-demo";
+
 export const DEMO_GAMES: Game[] = [
   {
     id: "diario",
@@ -92,7 +94,6 @@ export const DEMO_GAMES: Game[] = [
     draw_time: "18:45",
     cutoff: "18:15",
     enabled: true,
-    // Progressive first prize: seed 50k, grows via 30% of sales + 5k fixed per rollover
     jackpot_base: 50_000,
     jackpot_current: 150_000,
     jackpot_previous: 140_000,
@@ -100,7 +101,6 @@ export const DEMO_GAMES: Game[] = [
     jackpot_sales_pct: 30,
     jackpot_cap: 5_000_000,
     jackpot_reserve_pct: 0,
-    /** Short code → {jackpot_lm} / {prev_jackpot_lm} on tickets */
     jackpot_token: "lm",
     bet_types: ["jackpot"],
     min_stake: 1,
@@ -154,6 +154,7 @@ export const DEMO_BET_TYPES: BetType[] = [
   { key: "zodiac", label: "Zodiac", digits: 4, mode: "zodiac", multiplier: 50, enabled: true, min_stake: 1, max_stake: 50 },
   { key: "play_whe", label: "Play Whe", digits: 2, mode: "whe", multiplier: 24, enabled: true, min_stake: 1, max_stake: 100 },
   { key: "jackpot", label: "Jackpot", digits: 0, mode: "jackpot", multiplier: 1, enabled: true, min_stake: 1, max_stake: 20 },
+  { key: "fast_play", label: "Fast Play", digits: 0, mode: "fast_play", multiplier: 1, enabled: true, min_stake: 2, max_stake: 7 },
 ];
 
 export const DEMO_RETAILERS: Retailer[] = [
