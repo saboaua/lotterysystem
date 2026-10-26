@@ -4,21 +4,25 @@ import { useEffect, useMemo, useState } from "react";
 import { Megaphone, Printer, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { expandBroadcastText } from "@/lib/broadcast-tokens";
+import type { BroadcastMessage } from "@/lib/types";
 
-/**
- * Seller-side popup for active owner broadcasts.
- * Auto-hides when duration elapses; optional print once.
- */
+const KEY = "lottery_broadcast";
+
+function readBroadcast(): BroadcastMessage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as BroadcastMessage;
+  } catch {
+    return null;
+  }
+}
+
+/** Seller-side popup for active owner broadcasts. */
 export function BroadcastPopup() {
-  const {
-    user,
-    broadcast,
-    clearBroadcast,
-    games,
-    retailers,
-    selectedRetailerId,
-    currency,
-  } = useStore();
+  const { user, games, retailers, selectedRetailerId, currency } = useStore();
+  const [broadcast, setBroadcast] = useState<BroadcastMessage | null>(null);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const [printedId, setPrintedId] = useState<string | null>(null);
   const [, setTick] = useState(0);
@@ -26,10 +30,24 @@ export function BroadcastPopup() {
   const isSeller = user?.role === "retailer";
 
   useEffect(() => {
-    if (!broadcast) return;
-    const id = setInterval(() => setTick((t) => t + 1), 15_000);
-    return () => clearInterval(id);
-  }, [broadcast?.id]);
+    const load = () => setBroadcast(readBroadcast());
+    load();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY) load();
+    };
+    const onCustom = () => load();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("lottery-broadcast", onCustom);
+    const id = setInterval(() => {
+      load();
+      setTick((t) => t + 1);
+    }, 10_000);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("lottery-broadcast", onCustom);
+      clearInterval(id);
+    };
+  }, []);
 
   const stillActive = useMemo(() => {
     if (!broadcast) return false;
