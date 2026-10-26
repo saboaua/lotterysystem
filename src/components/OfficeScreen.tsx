@@ -10,6 +10,7 @@ import {
   HelpCircle,
   MessageSquare,
   Network,
+  Sparkles,
   Store,
   Ticket,
   Trophy,
@@ -19,6 +20,7 @@ import { useStore } from "@/lib/store";
 import { PromosPanel } from "./office/PromosPanel";
 import { ResultsPanel } from "./office/ResultsPanel";
 import { GamesPanel } from "./office/GamesPanel";
+import { FastPlayPanel } from "./office/FastPlayPanel";
 import { BrandPanel } from "./office/BrandPanel";
 import { TicketDesignPanel } from "./office/TicketDesignPanel";
 import { RetailersPanel } from "./office/RetailersPanel";
@@ -28,6 +30,7 @@ import { DrawSchedulePanel } from "./office/DrawSchedule";
 
 type Sub =
   | "games"
+  | "fast_play"
   | "calendar"
   | "brand"
   | "ticket"
@@ -45,6 +48,7 @@ const ICON_STROKE = 1.75;
 
 const TABS: { id: Sub; label: string; icon: typeof Gamepad2 }[] = [
   { id: "games", label: "Games & schedule", icon: Gamepad2 },
+  { id: "fast_play", label: "Fast Play", icon: Sparkles },
   { id: "calendar", label: "Draw calendar", icon: CalendarDays },
   { id: "brand", label: "Branding & message", icon: MessageSquare },
   { id: "ticket", label: "Ticket design", icon: Ticket },
@@ -115,6 +119,7 @@ export function OfficeScreen() {
 
       <div className="min-h-0 flex-1 overflow-auto p-4 text-[15px]">
         {sub === "games" && <GamesPanel />}
+        {sub === "fast_play" && <FastPlayPanel />}
         {sub === "calendar" && (
           <div className="space-y-6">
             <DrawSchedulePanel />
