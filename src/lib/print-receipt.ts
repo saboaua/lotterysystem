@@ -136,15 +136,24 @@ export function printReceipt(opts: {
 
   const ticketGameIds = new Set(ticket.lines.map((l) => l.game));
   const schedule = (design.schedule_messages || []).filter((m) => m.enabled);
-  const place = (placement: string) =>
+  const scheduleAt = (
+    placement: string,
+    relative?: "before_manual" | "after_manual" | "any"
+  ) =>
     schedule
       .filter((m) => m.placement === placement)
       .filter(
         (m) =>
           !m.game_ids?.length || m.game_ids.some((id) => ticketGameIds.has(id))
       )
+      .filter((m) => {
+        if (relative === "any" || relative == null) return true;
+        const rel = m.relative_to_motd || "after_manual";
+        return rel === relative;
+      })
       .map((m) => '<div class="msg">' + fillTokens(m.text, ctx) + "</div>")
       .join("");
+  const place = (placement: string) => scheduleAt(placement, "any");
 
   const linesHtml = ticket.lines
     .map((l) => {
@@ -270,11 +279,17 @@ export function printReceipt(opts: {
     " " +
     ticket.total.toFixed(2) +
     "</div>" +
-    (motdPlacement === "after_total" ? motdHtml : "") +
-    place("after_total") +
+    (motdPlacement === "after_total"
+      ? scheduleAt("after_total", "before_manual") +
+        motdHtml +
+        scheduleAt("after_total", "after_manual")
+      : place("after_total")) +
     promoHtml +
-    (motdPlacement === "after_promo" ? motdHtml : "") +
-    place("after_promo") +
+    (motdPlacement === "after_promo"
+      ? scheduleAt("after_promo", "before_manual") +
+        motdHtml +
+        scheduleAt("after_promo", "after_manual")
+      : place("after_promo")) +
     barcodeHtml +
     qrHtml +
     '<div class="footer">' +
