@@ -24,6 +24,7 @@ import { TicketDesignPanel } from "./office/TicketDesignPanel";
 import { RetailersPanel } from "./office/RetailersPanel";
 import { HelpPanel } from "./office/HelpPanel";
 import { IspPanel } from "./office/IspPanel";
+import { DrawSchedulePanel } from "./office/DrawSchedule";
 
 type Sub =
   | "games"
@@ -79,7 +80,6 @@ export function OfficeScreen() {
           </div>
         </div>
 
-        {/* Pill nav — icons same size, stacked like design */}
         <div className="mb-3 overflow-x-auto">
           <div className="inline-flex min-w-full items-stretch gap-0.5 rounded-[1.25rem] bg-slate-100/90 p-1.5 dark:bg-slate-800/80">
             {TABS.map((t) => {
@@ -113,13 +113,23 @@ export function OfficeScreen() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+      <div className="min-h-0 flex-1 overflow-auto p-4 text-[15px]">
         {sub === "games" && <GamesPanel />}
-        {sub === "calendar" && <ResultsPanel mode="calendar" />}
+        {sub === "calendar" && (
+          <div className="space-y-6">
+            <DrawSchedulePanel />
+            <ResultsPanel mode="calendar" />
+          </div>
+        )}
         {sub === "brand" && <BrandPanel />}
         {sub === "ticket" && <TicketDesignPanel />}
         {sub === "promos" && <PromosPanel />}
-        {sub === "results" && <ResultsPanel mode="results" />}
+        {sub === "results" && (
+          <div className="space-y-6">
+            <DrawSchedulePanel />
+            <ResultsPanel mode="results" />
+          </div>
+        )}
         {sub === "draw_reports" && <ResultsPanel mode="reports" />}
         {sub === "reports" && <ReportsPanel />}
         {sub === "retailers" && <RetailersPanel />}
