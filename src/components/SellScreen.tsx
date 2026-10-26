@@ -101,6 +101,12 @@ export function SellScreen() {
     } else setSession("");
   }, [primary, session]);
 
+  useEffect(() => {
+    if (primary?.format === "jackpot" && primary.min_stake != null) {
+      setAmt(String(primary.min_stake));
+    }
+  }, [primary?.id, primary?.format, primary?.min_stake]);
+
   function toggleGame(id: string) {
     const g = enabled.find((x) => x.id === id);
     if (!g) return;
@@ -154,8 +160,17 @@ export function SellScreen() {
 
   function addPlay() {
     if (!primary) return toast("Select a game", true);
-    const amount = parseFloat(amt);
+    let amount = parseFloat(amt);
+    if (primary.format === "jackpot" && primary.min_stake != null) {
+      amount = primary.min_stake;
+    }
     if (!amount || amount <= 0) return toast("Enter amount", true);
+    if (primary.format !== "jackpot") {
+      if (primary.min_stake != null && amount < primary.min_stake)
+        return toast(`Min stake ${currency} ${primary.min_stake}`, true);
+      if (primary.max_stake != null && amount > primary.max_stake)
+        return toast(`Max stake ${currency} ${primary.max_stake}`, true);
+    }
     const dates = [date];
     if (multiDraw > 1 && primary.format === "digit") {
       const d0 = new Date(date + "T12:00:00");
@@ -169,8 +184,8 @@ export function SellScreen() {
       if (num.length < digits) return toast(`Enter ${digits}-digit number`, true);
       const number = num.padStart(digits, "0").slice(0, digits);
       for (const gid of sel) {
-        for (const d of dates) {
-          addLine({ game: gid, bet_type: bt, number, amount, date: d, session: session || undefined });
+        for (const dd of dates) {
+          addLine({ game: gid, bet_type: bt, number, amount, date: dd, session: session || undefined });
         }
       }
       setNum("");
@@ -338,18 +353,27 @@ export function SellScreen() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <div
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/30 text-xs font-black shadow-inner"
-                        style={{ background: "rgba(0,0,0,0.25)" }}
-                      >
-                        {g.format === "jackpot"
-                          ? "*"
-                          : g.format === "zodiac"
-                            ? "Z"
-                            : g.format === "whe"
-                              ? "W"
-                              : `${g.digits}D`}
-                      </div>
+                      {g.logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={g.logo}
+                          alt=""
+                          className="h-8 w-8 shrink-0 rounded-lg border border-white/40 object-cover shadow-inner"
+                        />
+                      ) : (
+                        <div
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/30 text-xs font-black shadow-inner"
+                          style={{ background: "rgba(0,0,0,0.25)" }}
+                        >
+                          {g.format === "jackpot"
+                            ? "*"
+                            : g.format === "zodiac"
+                              ? "Z"
+                              : g.format === "whe"
+                                ? "W"
+                                : `${g.digits}D`}
+                        </div>
+                      )}
                       <span className="text-base font-black leading-tight tracking-tight">{g.name}</span>
                     </div>
                     {on && (
@@ -409,203 +433,14 @@ export function SellScreen() {
           {!primary && <span className="text-xs text-slate-400">Tap a game to start</span>}
         </div>
 
-        {primary?.sessions && primary.sessions.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {primary.sessions.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setSession(s.id)}
-                className={`btn-tactile h-9 rounded-full px-3 text-sm font-semibold ${
-                  session === s.id
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white text-slate-600 dark:bg-slate-800"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {primary?.format === "digit" && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold uppercase text-slate-400">Multi-draw</span>
-            {MULTI_DRAW.map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setMultiDraw(n)}
-                className={`btn-tactile h-8 rounded-lg px-2.5 text-xs font-bold ${
-                  multiDraw === n ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-700"
-                }`}
-              >
-                {n}x
-              </button>
-            ))}
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setMultiDraw((m) => Math.max(1, m - 1))}
-                className="btn-tactile h-8 w-8 rounded-lg bg-slate-100 font-bold dark:bg-slate-700"
-              >
-                -
-              </button>
-              <span className="w-8 text-center text-sm font-bold">{multiDraw}</span>
-              <button
-                type="button"
-                onClick={() => setMultiDraw((m) => Math.min(28, m + 1))}
-                className="btn-tactile h-8 w-8 rounded-lg bg-slate-100 font-bold dark:bg-slate-700"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        )}
-
-        {primary?.format === "whe" && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-              Play Whe - pick 1-36
-            </div>
-            <div className="grid max-h-52 grid-cols-5 gap-1.5 overflow-auto sm:grid-cols-10">
-              {PLAY_WHE_MARKS.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    setWhePick(m.num);
-                    setNum(String(m.num));
-                  }}
-                  className={`btn-tactile flex flex-col items-center rounded-xl border p-1.5 text-center ${
-                    whePick === m.num
-                      ? "border-rose-400 bg-rose-500/15 ring-2 ring-rose-400"
-                      : "border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-700"
-                  }`}
-                >
-                  <span className="text-lg leading-none">{m.emoji}</span>
-                  <span className="text-[10px] font-bold">{String(m.num).padStart(2, "0")}</span>
-                  <span className="w-full truncate text-[8px] text-slate-400">{m.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {primary?.format === "zodiac" && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase text-slate-400">Zodiac</span>
-              <button
-                type="button"
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  allZodiac ? "bg-indigo-500 text-white" : "bg-slate-100 dark:bg-slate-700"
-                }`}
-                onClick={() => {
-                  setAllZodiac(true);
-                  setZodiacPick(ZODIAC_SYMBOLS.map((z) => z.id));
-                }}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold dark:bg-slate-700"
-                onClick={() => {
-                  setAllZodiac(false);
-                  setZodiacPick([]);
-                }}
-              >
-                Clear
-              </button>
-            </div>
-            <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
-              {ZODIAC_SYMBOLS.map((z) => {
-                const on = allZodiac || zodiacPick.includes(z.id);
-                return (
-                  <button
-                    key={z.id}
-                    type="button"
-                    onClick={() => {
-                      setAllZodiac(false);
-                      setZodiacPick((p) =>
-                        p.includes(z.id) ? p.filter((x) => x !== z.id) : [...p, z.id]
-                      );
-                    }}
-                    className={`btn-tactile rounded-xl p-2 text-center text-xs font-semibold ${
-                      on ? "bg-indigo-500 text-white" : "bg-slate-100 dark:bg-slate-700"
-                    }`}
-                  >
-                    <span className="block text-xl">{z.emoji}</span>
-                    {z.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {primary?.format === "jackpot" && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="mb-2 text-xs font-bold uppercase text-slate-400">
-              Jackpot - pick {primary.main_count} of {primary.main_max}
-              {primary.mega_count ? ` + mega 1-${primary.mega_max}` : ""}
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {Array.from({ length: primary.main_max ?? 30 }, (_, i) =>
-                String(i + 1).padStart(2, "0")
-              ).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => {
-                    setJackBalls((prev) => {
-                      if (prev.includes(v)) return prev.filter((x) => x !== v);
-                      if (prev.length >= (primary.main_count ?? 5)) return prev;
-                      return [...prev, v];
-                    });
-                  }}
-                  className={`btn-tactile h-9 w-9 rounded-full text-xs font-bold ${
-                    jackBalls.includes(v)
-                      ? "bg-indigo-500 text-white"
-                      : "bg-slate-100 dark:bg-slate-700"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-            {!!primary.mega_count && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {Array.from({ length: primary.mega_max ?? 10 }, (_, i) =>
-                  String(i + 1).padStart(2, "0")
-                ).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setJackMega(v)}
-                    className={`btn-tactile h-9 w-9 rounded-full text-xs font-bold ${
-                      jackMega === v
-                        ? "bg-rose-500 text-white"
-                        : "bg-slate-100 dark:bg-slate-700"
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="space-y-3 rounded-2xl border-2 border-indigo-200 bg-white p-3.5 shadow-sm dark:border-indigo-900/50 dark:bg-slate-800">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="flex flex-col space-y-2.5">
               <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900/50">
                 <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <span>Number ({activeBet?.label || `${digits}D`})</span>
+                  <span>Number</span>
                   <span className="text-xs font-semibold text-indigo-600">
-                    {num.length}/{digits} digits
+                    {num.length}/{digits}
                   </span>
                 </div>
                 <button
@@ -617,16 +452,14 @@ export function SellScreen() {
                       : "border-transparent"
                   }`}
                 >
-                  {digitSlots.map((d, i) => (
+                  {digitSlots.map((dd, i) => (
                     <span
                       key={i}
                       className={`grid h-10 w-8 place-items-center rounded-md ${
-                        d
-                          ? "bg-indigo-600 text-white"
-                          : "bg-slate-200 text-slate-400 dark:bg-slate-700"
+                        dd ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-400 dark:bg-slate-700"
                       }`}
                     >
-                      {d || "-"}
+                      {dd || "-"}
                     </span>
                   ))}
                 </button>
@@ -651,12 +484,10 @@ export function SellScreen() {
                 ))}
               </div>
             </div>
-
             <div className="flex flex-col space-y-2.5">
               <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900/50">
-                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <span>Amount ({currency})</span>
-                  <span className="text-xs font-semibold text-emerald-600">stake</span>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Amount ({currency})
                 </div>
                 <button
                   type="button"
@@ -706,7 +537,6 @@ export function SellScreen() {
               </div>
             </div>
           </div>
-
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -744,13 +574,12 @@ export function SellScreen() {
           </div>
           <div className="text-xs text-slate-400">{lines.length} play(s)</div>
         </div>
-
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
           {lines.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-400">No plays yet. Add a number and amount.</p>
+            <p className="py-8 text-center text-sm text-slate-400">No plays yet.</p>
           )}
           {lines.map((l) => {
-            const g = games.find((x) => x.id === l.game);
+            const gg = games.find((x) => x.id === l.game);
             return (
               <div
                 key={l.id}
@@ -758,70 +587,45 @@ export function SellScreen() {
               >
                 <span
                   className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ background: g?.color || "#6366f1" }}
+                  style={{ background: gg?.color || "#6366f1" }}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-bold">{g?.name || l.game}</div>
+                  <div className="text-sm font-bold">{gg?.name || l.game}</div>
                   <div className="font-mono text-xs text-slate-500">
                     {l.bet_type} · {l.number} · {currency} {l.amount.toFixed(2)}
-                    {l.date ? ` · ${l.date}` : ""}
-                    {l.session ? ` · ${l.session}` : ""}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeLine(l.id)}
-                  className="text-rose-500 hover:text-rose-700"
-                  aria-label="Remove"
-                >
+                <button type="button" onClick={() => removeLine(l.id)} className="text-rose-500">
                   <X size={14} />
                 </button>
               </div>
             );
           })}
         </div>
-
         <div className="space-y-2 border-t border-slate-200 p-3 dark:border-slate-700">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={clearLines}
-              className="btn-tactile flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-300"
+              className="btn-tactile flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-bold"
             >
-              <Trash2 size={14} /> Clear Ticket
+              <Trash2 size={14} /> Clear
             </button>
             <button
               type="button"
               onClick={holdOrder}
-              className="btn-tactile flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-300"
+              className="btn-tactile flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-bold"
             >
-              <Bookmark size={14} /> {heldLines && !lines.length ? "Recall Order" : "Hold Order"}
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => lastTicketId && cancelTicket(lastTicketId)}
-              className="btn-tactile rounded-lg border border-slate-300 py-2 text-xs font-bold dark:border-slate-600"
-            >
-              Cancel last
-            </button>
-            <button
-              type="button"
-              onClick={() => lastTicketId && replayTicket(lastTicketId)}
-              className="btn-tactile flex items-center justify-center gap-1 rounded-lg border border-slate-300 py-2 text-xs font-bold dark:border-slate-600"
-            >
-              <Copy size={12} /> Replay
+              <Bookmark size={14} /> {heldLines && !lines.length ? "Recall" : "Hold"}
             </button>
           </div>
           <button
             type="button"
             onClick={sendTicket}
-            className="btn-tactile flex h-14 w-full items-center justify-center gap-2.5 rounded-xl bg-emerald-500 text-base font-extrabold tracking-wide text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-600 active:bg-emerald-700"
+            className="btn-tactile flex h-14 w-full items-center justify-center gap-2.5 rounded-xl bg-emerald-500 text-base font-extrabold text-white shadow-lg"
           >
             <Printer size={18} />
             <span>Send & Print</span>
-            <span className="ml-1 rounded bg-emerald-950/20 px-2 py-0.5 font-mono text-xs">F12</span>
           </button>
         </div>
       </aside>
@@ -829,16 +633,16 @@ export function SellScreen() {
       {modal === "support" && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-md space-y-3 rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-800">
-            <h3 className="font-bold">Support ticket</h3>
+            <h3 className="font-bold">Support</h3>
             <input
-              className="h-10 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-700"
+              className="h-10 w-full rounded-xl border px-3 text-sm"
               placeholder="Subject"
               value={supSub}
               onChange={(e) => setSupSub(e.target.value)}
             />
             <textarea
-              className="h-28 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm dark:border-slate-600 dark:bg-slate-700"
-              placeholder="Describe the issue"
+              className="h-28 w-full rounded-xl border p-3 text-sm"
+              placeholder="Issue"
               value={supBody}
               onChange={(e) => setSupBody(e.target.value)}
             />
@@ -855,11 +659,7 @@ export function SellScreen() {
               >
                 Submit
               </button>
-              <button
-                type="button"
-                onClick={() => setModal(null)}
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold dark:bg-slate-700"
-              >
+              <button type="button" onClick={() => setModal(null)} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold">
                 Close
               </button>
             </div>
