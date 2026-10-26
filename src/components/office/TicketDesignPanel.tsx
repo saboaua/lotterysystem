@@ -15,7 +15,7 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 function fillTokens(tpl: string, ctx: Record<string, string>): string {
-  return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => ctx[k] ?? `{${k}}`);
+  return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
 }
 
 export function TicketDesignPanel() {
@@ -55,11 +55,7 @@ export function TicketDesignPanel() {
 
   const retailerBlock = fillTokens(
     d.retailer_template ||
-      "#{number} {name}\n{address}\n{phone}"
-        .replace("{number}", shop?.number || "")
-        .replace("{name}", shop?.name || "")
-        .replace("{address}", shop?.address || "")
-        .replace("{phone}", shop?.phone || ""),
+      "Shop #{number} · {name}\n{address}\nTel {phone}",
     {
       ...ctx,
       number: shop?.number || "",
@@ -76,14 +72,16 @@ export function TicketDesignPanel() {
   }
 
   const logoSrc = d.logo || brand.logo;
+  const paper = d.paper_size || "80mm";
+  const previewWidth = paper === "58mm" ? 200 : paper === "A4" ? 320 : 280;
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-2">
-      <div className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
-        <h2 className="text-lg font-bold">Ticket design</h2>
+    <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-2">
+      <div className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm text-[15px]">
+        <h2 className="text-xl font-bold">Ticket design</h2>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-[11px] font-semibold text-[var(--mut)]">
+          <label className="text-xs font-semibold text-[var(--mut)]">
             Header
             <input
               className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
@@ -91,7 +89,7 @@ export function TicketDesignPanel() {
               onBlur={(e) => updateTicketDesign({ header: e.target.value })}
             />
           </label>
-          <label className="text-[11px] font-semibold text-[var(--mut)]">
+          <label className="text-xs font-semibold text-[var(--mut)]">
             Footer
             <input
               className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
@@ -99,7 +97,7 @@ export function TicketDesignPanel() {
               onBlur={(e) => updateTicketDesign({ footer: e.target.value })}
             />
           </label>
-          <label className="text-[11px] font-semibold text-[var(--mut)]">
+          <label className="text-xs font-semibold text-[var(--mut)]">
             Font
             <select
               className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
@@ -111,16 +109,32 @@ export function TicketDesignPanel() {
               <option value="serif">Serif</option>
             </select>
           </label>
-          <label className="text-[11px] font-semibold text-[var(--mut)]">
+          <label className="text-xs font-semibold text-[var(--mut)]">
             Body size (px)
             <input
               type="number"
+              min={10}
+              max={28}
               className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
               value={d.size}
-              onChange={(e) => updateTicketDesign({ size: parseInt(e.target.value, 10) || 12 })}
+              onChange={(e) => updateTicketDesign({ size: parseInt(e.target.value, 10) || 13 })}
             />
           </label>
-          <label className="text-[11px] font-semibold text-[var(--mut)]">
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Text align
+            <select
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={d.align || "center"}
+              onChange={(e) =>
+                updateTicketDesign({ align: e.target.value as "left" | "center" | "right" })
+              }
+            >
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
             Logo height (px)
             <input
               type="number"
@@ -131,7 +145,32 @@ export function TicketDesignPanel() {
               }
             />
           </label>
-          <label className="text-[11px] font-semibold text-[var(--mut)]">
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Paper size
+            <select
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={paper}
+              onChange={(e) =>
+                updateTicketDesign({
+                  paper_size: e.target.value as "58mm" | "80mm" | "A4",
+                })
+              }
+            >
+              <option value="58mm">58mm thermal</option>
+              <option value="80mm">80mm thermal</option>
+              <option value="A4">A4</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Printer name (hint)
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              placeholder="e.g. Epson TM-T88"
+              defaultValue={d.printer_name || ""}
+              onBlur={(e) => updateTicketDesign({ printer_name: e.target.value })}
+            />
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
             Preview game
             <select
               className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
@@ -145,19 +184,34 @@ export function TicketDesignPanel() {
               ))}
             </select>
           </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            QR size (px)
+            <input
+              type="number"
+              min={64}
+              max={200}
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={d.qr_size || 100}
+              onChange={(e) => updateTicketDesign({ qr_size: parseInt(e.target.value, 10) || 100 })}
+            />
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            QR prefix (optional)
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              placeholder="https://check.example/"
+              defaultValue={d.qr_prefix || ""}
+              onBlur={(e) => updateTicketDesign({ qr_prefix: e.target.value })}
+            />
+          </label>
         </div>
 
         <div className="rounded-xl border border-[var(--line)] bg-[var(--key)]/40 p-3">
-          <div className="mb-2 text-[11px] font-bold uppercase text-[var(--mut)]">Ticket logo</div>
+          <div className="mb-2 text-xs font-bold uppercase text-[var(--mut)]">Ticket logo</div>
           <div className="flex flex-wrap items-center gap-3">
             {logoSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoSrc}
-                alt=""
-                style={{ height: d.logo_height }}
-                className="object-contain"
-              />
+              <img src={logoSrc} alt="" style={{ height: d.logo_height }} className="object-contain" />
             ) : (
               <span className="text-xs text-[var(--mut)]">Using brand logo if set</span>
             )}
@@ -178,7 +232,7 @@ export function TicketDesignPanel() {
           </div>
         </div>
 
-        <label className="block text-[11px] font-semibold text-[var(--mut)]">
+        <label className="block text-xs font-semibold text-[var(--mut)]">
           Retailer info under logo (tokens: {"{name} {number} {address} {phone} {date}"})
           <textarea
             className="mt-1 h-20 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] p-3 text-sm"
@@ -189,8 +243,8 @@ export function TicketDesignPanel() {
           />
         </label>
 
-        <label className="block text-[11px] font-semibold text-[var(--mut)]">
-          Message of the day (below plays)
+        <label className="block text-xs font-semibold text-[var(--mut)]">
+          Message of the day (shown below TOTAL / price)
           <textarea
             className="mt-1 h-16 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] p-3 text-sm"
             defaultValue={d.manual_text || ""}
@@ -205,8 +259,9 @@ export function TicketDesignPanel() {
               ["show_logo", "Logo"],
               ["show_name", "Name"],
               ["show_retailer", "Retailer"],
-              ["show_barcode", "Barcode"],
-              ["show_qr", "QR"],
+              ["show_datetime", "Date/time"],
+              ["show_barcode", "Barcode (Code 128)"],
+              ["show_qr", "QR Code"],
               ["bold_total", "Bold total"],
               ["show_jackpot", "Jackpot line"],
             ] as const
@@ -224,8 +279,8 @@ export function TicketDesignPanel() {
 
         <div className="space-y-2 border-t border-[var(--line)] pt-3">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold uppercase text-[var(--mut)]">
-              Scheduled ticket messages
+            <div className="text-xs font-bold uppercase text-[var(--mut)]">
+              Scheduled ticket messages · placement
             </div>
             <button
               type="button"
@@ -247,8 +302,8 @@ export function TicketDesignPanel() {
               <Plus size={12} /> Add
             </button>
           </div>
-          <p className="text-[10px] text-[var(--mut)]">
-            Tokens: {"{game} {game1} {amount1} {jackpot} {date} {draw_time} {currency} {promo}"}
+          <p className="text-[11px] text-[var(--mut)]">
+            Tokens: {"{game} {jackpot} {date} {draw_time} {currency} {promo}"} — choose where each message appears.
           </p>
           {schedule.map((m, idx) => (
             <div key={m.id} className="space-y-2 rounded-xl border border-[var(--line)] p-2">
@@ -314,31 +369,6 @@ export function TicketDesignPanel() {
                   setSchedule(next);
                 }}
               />
-              <div className="flex flex-wrap gap-1">
-                {games.map((g) => {
-                  const on = !m.game_ids?.length || m.game_ids.includes(g.id);
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => {
-                        const ids = new Set(m.game_ids || []);
-                        if (ids.has(g.id)) ids.delete(g.id);
-                        else ids.add(g.id);
-                        const next = schedule.map((x, i) =>
-                          i === idx ? { ...x, game_ids: [...ids] } : x
-                        );
-                        setSchedule(next);
-                      }}
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        on ? "bg-indigo-600 text-white" : "bg-[var(--key)]"
-                      }`}
-                    >
-                      {g.name}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           ))}
         </div>
@@ -354,11 +384,12 @@ export function TicketDesignPanel() {
 
       <div className="rounded-2xl border border-[var(--line)] bg-slate-200/80 p-4 dark:bg-slate-950">
         <div className="mb-2 text-center text-[11px] font-bold uppercase text-slate-500">
-          Live ticket preview
+          Live ticket preview · {paper}
         </div>
         <div
-          className="mx-auto max-w-[280px] rounded-sm bg-white p-4 text-slate-900 shadow-lg"
+          className="mx-auto rounded-sm bg-white p-4 text-slate-900 shadow-lg"
           style={{
+            width: previewWidth,
             fontFamily:
               d.font === "serif"
                 ? "Georgia, serif"
@@ -398,46 +429,77 @@ export function TicketDesignPanel() {
           </div>
           {schedule
             .filter((m) => m.enabled && m.placement === "after_lines")
-            .filter(
-              (m) => !m.game_ids?.length || (previewGame && m.game_ids.includes(previewGame.id))
-            )
             .map((m) => (
               <div key={m.id} className="text-[11px] italic">
                 {fillTokens(m.text, ctx)}
               </div>
             ))}
-          {d.manual_text && (
-            <div className="mt-2 text-[11px] text-slate-600">{fillTokens(d.manual_text, ctx)}</div>
-          )}
           {d.show_jackpot && previewGame?.jackpot_current != null && (
             <div className="mt-1 text-[11px] font-semibold">
               {fillTokens(d.jackpot_text || "Jackpot: {currency} {jackpot}", ctx)}
             </div>
           )}
-          {activePromo && (
-            <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-left text-[11px]">
-              <div className="font-bold text-amber-800">{activePromo.label}</div>
-              <div className="font-mono">CODE 482915</div>
-              <div className="text-amber-900/80">{activePromo.instruction}</div>
-            </div>
-          )}
+          {schedule
+            .filter((m) => m.enabled && m.placement === "before_total")
+            .map((m) => (
+              <div key={m.id} className="text-[11px]">
+                {fillTokens(m.text, ctx)}
+              </div>
+            ))}
           <div className="my-2 border-t border-dashed border-slate-300" />
           <div className={d.bold_total ? "text-base font-extrabold" : "font-bold"}>
             TOTAL {currency} 2.00
           </div>
-          <div className="mt-2 text-[11px] opacity-70">{d.footer}</div>
+          {d.manual_text && (
+            <div className="mt-2 text-[11px] text-slate-600">{fillTokens(d.manual_text, ctx)}</div>
+          )}
+          {activePromo && (
+            <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-center text-[11px]">
+              <div className="font-bold text-amber-800">{activePromo.label}</div>
+              <div className="mt-0.5">Qualified for promotion</div>
+              <div className="mt-1 font-mono text-base font-black tracking-widest">CODE 482915</div>
+              <div className="mt-0.5 text-amber-900/80">{activePromo.instruction}</div>
+            </div>
+          )}
           {d.show_barcode && (
-            <div className="mt-2 flex justify-center gap-0.5">
-              {Array.from({ length: 24 }).map((_, i) => (
+            <div className="mt-2 flex justify-center gap-px">
+              {Array.from({ length: 40 }).map((_, i) => (
                 <span
                   key={i}
                   className="inline-block bg-slate-900"
-                  style={{ width: i % 3 === 0 ? 2 : 1, height: 28 }}
+                  style={{ width: (i * 7) % 3 === 0 ? 2 : 1, height: 32 }}
                 />
               ))}
             </div>
           )}
           <div className="mt-1 font-mono text-[10px]">{ctx.ticket_id}</div>
+          {d.show_qr && (
+            <div className="mt-2 flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={
+                  "https://api.qrserver.com/v1/create-qr-code/?size=" +
+                  (d.qr_size || 100) +
+                  "x" +
+                  (d.qr_size || 100) +
+                  "&data=" +
+                  encodeURIComponent((d.qr_prefix || "") + ctx.ticket_id) +
+                  "&margin=1"
+                }
+                width={d.qr_size || 100}
+                height={d.qr_size || 100}
+                alt="QR preview"
+              />
+            </div>
+          )}
+          <div className="mt-2 text-[11px] opacity-70">{d.footer}</div>
+          {schedule
+            .filter((m) => m.enabled && m.placement === "footer")
+            .map((m) => (
+              <div key={m.id} className="text-[11px]">
+                {fillTokens(m.text, ctx)}
+              </div>
+            ))}
         </div>
       </div>
     </div>
