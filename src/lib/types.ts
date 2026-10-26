@@ -10,7 +10,8 @@ export type BetMode =
   | "chances"
   | "zodiac"
   | "jackpot"
-  | "whe";
+  | "whe"
+  | "fast_play";
 
 export interface GameSession {
   id: string;
@@ -80,6 +81,29 @@ export interface Game {
   max_stake?: number;
   sort_order?: number;
   prize_tiers?: PrizeTier[];
+}
+
+/** Fixed-price instant / Fast Play games sold from the sell screen. */
+export type FastPlayPrice = 2 | 3 | 5 | 7;
+
+export interface FastPlayGame {
+  id: string;
+  name: string;
+  color: string;
+  logo?: string;
+  /** Ticket price points available for this title (AWG). */
+  prices: FastPlayPrice[];
+  /** Default price when clerk taps the tile. */
+  default_price: FastPlayPrice;
+  /** Master switch — inactive games are hidden from sell and reports. */
+  active: boolean;
+  /** When true and active, tile appears on the sell Fast Play tab. */
+  show_on_sell: boolean;
+  /** Optional short description shown under the name in back office. */
+  description?: string;
+  sort_order?: number;
+  /** Top prize amount for display (not used for settlement yet). */
+  top_prize?: number;
 }
 
 /** Account status for a retailer shop (separate from live online/offline ping). */
