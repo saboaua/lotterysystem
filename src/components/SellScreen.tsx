@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Dice5,
-  LifeBuoy,
   Printer,
   Trash2,
   X,
@@ -42,7 +41,6 @@ export function SellScreen() {
     retailers,
     total,
     toast,
-    addSupport,
     brand,
     ticketDesign,
   } = useStore();
@@ -57,9 +55,6 @@ export function SellScreen() {
   const [session, setSession] = useState("");
   const [multiDraw, setMultiDraw] = useState(1);
   const [heldLines, setHeldLines] = useState<TicketLine[] | null>(null);
-  const [modal, setModal] = useState<"support" | null>(null);
-  const [supSub, setSupSub] = useState("");
-  const [supBody, setSupBody] = useState("");
   const [zodiacPick, setZodiacPick] = useState<string[]>([]);
   const [allZodiac, setAllZodiac] = useState(false);
   const [whePick, setWhePick] = useState<number | null>(null);
@@ -86,7 +81,12 @@ export function SellScreen() {
   }, [primary, betTypes]);
 
   const activeBet = allowedBets.find((b) => b.key === bt) || allowedBets[0];
-  const digits = activeBet?.digits ?? primary?.digits ?? 4;
+  const digits =
+    primary?.format === "zodiac"
+      ? primary.digits || 4
+      : primary?.format === "whe"
+        ? 2
+        : activeBet?.digits ?? primary?.digits ?? 4;
 
   useEffect(() => {
     if (allowedBets.length && !allowedBets.find((b) => b.key === bt)) {
@@ -209,15 +209,17 @@ export function SellScreen() {
         toast("Pick at least one sign", true);
         return;
       }
-      if (num.length < (primary.digits || 4)) {
-        toast(`Enter ${primary.digits || 4}-digit number`, true);
+      const need = primary.digits || 4;
+      if (num.length < need) {
+        toast(`Enter ${need}-digit number`, true);
         return;
       }
+      const number = num.padStart(need, "0").slice(0, need);
       for (const z of syms) {
         addLine({
           game: primary.id,
           bet_type: "zodiac",
-          number: `${num}-${z}`,
+          number: `${number}-${z}`,
           amount,
           date,
           symbols: [z],
@@ -331,9 +333,11 @@ export function SellScreen() {
       const z = ZODIAC_SYMBOLS[Math.floor(Math.random() * ZODIAC_SYMBOLS.length)];
       setZodiacPick([z.id]);
       setAllZodiac(false);
+      const need = primary.digits || 4;
       let s = "";
-      for (let i = 0; i < (primary.digits || 4); i++) s += Math.floor(Math.random() * 10);
+      for (let i = 0; i < need; i++) s += Math.floor(Math.random() * 10);
       setNum(s);
+      setField("num");
     } else if (primary.format === "whe") {
       const n = Math.floor(Math.random() * 36) + 1;
       setWhePick(n);
@@ -444,7 +448,7 @@ export function SellScreen() {
                         : g.format === "jackpot"
                           ? "JACKPOT"
                           : g.format === "zodiac"
-                            ? "4d+SIGN"
+                            ? `${g.digits || 4}d+SIGN"
                             : "1-36"}
                     </span>
                     <span>
@@ -590,7 +594,7 @@ export function SellScreen() {
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {PRESETS.map((p) => (
                   <button
                     key={p}
@@ -599,7 +603,7 @@ export function SellScreen() {
                       setAmt(String(p));
                       setField("amt");
                     }}
-                    className="btn-tactile rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                    className="btn-tactile min-h-12 min-w-[3.25rem] rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-extrabold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
                   >
                     {p}
                   </button>
@@ -611,23 +615,16 @@ export function SellScreen() {
             <button
               type="button"
               onClick={addPlay}
-              className="btn-tactile flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-extrabold text-white shadow-md"
+              className="btn-tactile flex min-h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-base font-extrabold text-white shadow-md"
             >
-              <Banknote size={16} /> Add Play
+              <Banknote size={20} /> Add Play
             </button>
             <button
               type="button"
               onClick={quickPick}
-              className="btn-tactile flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold dark:border-slate-600 dark:bg-slate-700"
+              className="btn-tactile flex min-h-14 min-w-[5.5rem] items-center justify-center gap-2 rounded-xl border-2 border-slate-300 bg-white px-5 py-3.5 text-base font-extrabold dark:border-slate-600 dark:bg-slate-700"
             >
-              <Dice5 size={16} /> QP
-            </button>
-            <button
-              type="button"
-              onClick={() => setModal("support")}
-              className="btn-tactile flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold dark:border-slate-600 dark:bg-slate-700"
-            >
-              <LifeBuoy size={16} /> Help
+              <Dice5 size={20} /> QP
             </button>
           </div>
         </div>
@@ -699,47 +696,6 @@ export function SellScreen() {
           </button>
         </div>
       </aside>
-
-      {modal === "support" && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-          <div className="w-full max-w-md space-y-3 rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-800">
-            <h3 className="font-bold">Support</h3>
-            <input
-              className="h-10 w-full rounded-xl border px-3 text-sm"
-              placeholder="Subject"
-              value={supSub}
-              onChange={(e) => setSupSub(e.target.value)}
-            />
-            <textarea
-              className="h-28 w-full rounded-xl border p-3 text-sm"
-              placeholder="Issue"
-              value={supBody}
-              onChange={(e) => setSupBody(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  addSupport(supSub || "Support", supBody);
-                  setSupSub("");
-                  setSupBody("");
-                  setModal(null);
-                }}
-                className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
-              >
-                Submit
-              </button>
-              <button
-                type="button"
-                onClick={() => setModal(null)}
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
