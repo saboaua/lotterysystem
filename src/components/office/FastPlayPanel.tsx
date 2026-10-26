@@ -82,7 +82,7 @@ export function FastPlayPanel() {
               >
                 {g.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={g.logo} alt="" className="h-10 w-10 rounded-xl object-cover" />
+                  <img src={g.logo} alt="" className="h-10 w-10 rounded-xl object-contain bg-white/10" />
                 ) : (
                   <span
                     className="grid h-10 w-10 place-items-center rounded-xl text-xs font-black text-white"
@@ -244,7 +244,7 @@ export function FastPlayPanel() {
                         <img
                           src={g.logo}
                           alt=""
-                          className="h-14 w-14 rounded-xl border border-[var(--line)] object-cover"
+                          className="h-14 w-14 rounded-xl border border-[var(--line)] object-contain bg-white/10"
                         />
                       ) : (
                         <div
