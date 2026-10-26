@@ -76,7 +76,9 @@ export function DrawSchedulePanel({
     return () => window.clearInterval(id);
   }, []);
 
-  const slots = useMemo(() => buildTodayDrawSlots(games), [games, tick]);
+  // tick advances every 30s so cutoff countdown stays live
+  const now = useMemo(() => new Date(), [tick]);
+  const slots = useMemo(() => buildTodayDrawSlots(games, now), [games, now]);
   const open = slots.filter((s) => s.status === "open");
   const passed = slots.filter((s) => s.status === "passed");
 
