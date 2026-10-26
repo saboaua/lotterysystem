@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
+import { PresencePing } from "./PresencePing";
 
 export function Shell({ children }: { children: ReactNode }) {
   const {
@@ -75,6 +76,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+      <PresencePing />
       <aside className="z-30 flex w-20 shrink-0 flex-col items-center justify-between border-r border-slate-800 bg-slate-950 py-4">
         <div className="flex w-full flex-col items-center gap-5">
           {brand.logo ? (
@@ -220,7 +222,6 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {/* Full-width scrolling LED ticker under header (retailer) */}
         {brand.led_on && !isOwner && tickerText && (
           <div className="relative z-10 shrink-0 overflow-hidden border-b border-emerald-800/40 bg-slate-950 py-2.5">
             <div
