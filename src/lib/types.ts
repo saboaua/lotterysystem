@@ -228,13 +228,21 @@ export interface BrandSettings {
   led_schedule?: LedScheduleMessage[];
 }
 
+export type TicketMessagePlacement =
+  | "header"
+  | "footer"
+  | "after_lines"
+  | "before_total"
+  | "after_total"
+  | "after_promo";
+
 export interface TicketScheduleMessage {
   id: string;
   label: string;
   text: string;
   game_ids: string[];
   enabled: boolean;
-  placement: "header" | "footer" | "after_lines" | "before_total";
+  placement: TicketMessagePlacement;
 }
 
 export interface TicketDesign {
@@ -266,13 +274,17 @@ export interface TicketDesign {
   line_gap?: number;
   messages?: string[];
   schedule_messages?: TicketScheduleMessage[];
+  /** Manual message of the day (MOTD) */
   manual_text?: string;
+  /** Games this MOTD applies to; empty = all tickets */
+  manual_text_game_ids?: string[];
+  /** Where to place the MOTD relative to total / promo */
+  motd_placement?: "after_total" | "after_promo";
   retailer_template?: string;
   preview_game_id?: string;
   logo?: string;
   paper_size?: "58mm" | "80mm" | "A4";
   printer_name?: string;
-  motd_placement?: "after_total" | "after_lines" | "footer";
   promo_placement?: "after_total" | "before_total" | "footer";
 }
 
