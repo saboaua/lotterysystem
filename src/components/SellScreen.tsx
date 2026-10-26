@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Game, TicketLine } from "@/lib/types";
-import { PLAY_WHE_MARKS, ZODIAC_SYMBOLS } from "@/lib/constants";
+import { ZODIAC_SYMBOLS } from "@/lib/constants";
 import { printReceipt } from "@/lib/print-receipt";
 import {
   SessionsPicker,
