@@ -1,6 +1,7 @@
 "use client";
 
 import type { Game } from "@/lib/types";
+import { sanitizeToken } from "@/lib/jackpot-tokens";
 
 export function ProgressiveJackpotEditor({
   game: g,
@@ -12,6 +13,14 @@ export function ProgressiveJackpotEditor({
   updateGame: (id: string, patch: Partial<Game>) => void;
 }) {
   if (g.format !== "jackpot") return null;
+
+  const tokenKey = sanitizeToken(g.jackpot_token || g.id) || "jp";
+  const pool =
+    g.jackpot_current != null
+      ? Number(g.jackpot_current).toLocaleString()
+      : g.jackpot_base != null
+        ? Number(g.jackpot_base).toLocaleString()
+        : "-";
 
   return (
     <div className="space-y-3">
@@ -43,8 +52,33 @@ export function ProgressiveJackpotEditor({
           <span className="font-semibold">
             next = current + fixed boost + (draw sales × %)
           </span>
-          . On a win the pool resets to the seed. Tickets use {"{jackpot}"} / {"{prev_jackpot}"} .
+          . On a win the pool resets to the seed.
         </p>
+
+        <label className="mb-3 block text-[11px] font-semibold text-[var(--mut)]">
+          Ticket token code
+          <input
+            className="mt-1 h-10 w-full max-w-xs rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 font-mono text-sm uppercase"
+            defaultValue={g.jackpot_token || ""}
+            placeholder="lm"
+            onBlur={(e) => {
+              const v = sanitizeToken(e.target.value);
+              updateGame(g.id, { jackpot_token: v || undefined });
+            }}
+          />
+          <span className="mt-1 block text-[10px] font-normal text-[var(--mut)]">
+            Use on tickets as{" "}
+            <code className="rounded bg-white/80 px-1 font-mono text-amber-900 dark:bg-black/30">
+              {"{jackpot_" + tokenKey + "}"}
+            </code>{" "}
+            → currently <strong>{currency} {pool}</strong>. Also{" "}
+            <code className="rounded bg-white/80 px-1 font-mono dark:bg-black/30">
+              {"{prev_jackpot_" + tokenKey + "}"}
+            </code>
+            . Generic {"{jackpot}"} uses the primary game on the ticket.
+          </span>
+        </label>
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="text-[11px] font-semibold text-[var(--mut)]">
             Current advertised ({currency})
@@ -171,10 +205,6 @@ export function ProgressiveJackpotEditor({
             </div>
           </label>
         </div>
-        <p className="mt-2 text-[10px] text-[var(--mut)]">
-          Example: pool 150,000 · sales 10,000 · 30% + 5,000 fixed → next ≈ 158,000.
-          Multiple rank-1 winners split the advertised pool equally.
-        </p>
       </div>
     </div>
   );
