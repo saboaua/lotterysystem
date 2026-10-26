@@ -5,15 +5,6 @@ import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { TicketScheduleMessage } from "@/lib/types";
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-
 function fillTokens(tpl: string, ctx: Record<string, string>): string {
   return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
 }
@@ -38,6 +29,10 @@ export function TicketDesignPanel() {
 
   const ctx = useMemo(() => {
     const jack = previewGame?.jackpot_current != null ? String(previewGame.jackpot_current) : "-";
+    const prev =
+      previewGame?.jackpot_previous != null
+        ? String(previewGame.jackpot_previous)
+        : jack;
     return {
       date: new Date().toLocaleDateString(),
       draw_time: previewGame?.draw_time || "",
@@ -46,6 +41,7 @@ export function TicketDesignPanel() {
       amount: "2.00",
       amount1: jack,
       jackpot: jack,
+      prev_jackpot: prev,
       currency,
       retailer: shop?.name || "",
       ticket_id: "T00001234",
@@ -54,8 +50,7 @@ export function TicketDesignPanel() {
   }, [previewGame, shop, currency, activePromo]);
 
   const retailerBlock = fillTokens(
-    d.retailer_template ||
-      "Shop #{number} · {name}\n{address}\nTel {phone}",
+    d.retailer_template || "Shop #{number} · {name}\n{address}\nTel {phone}",
     {
       ...ctx,
       number: shop?.number || "",
@@ -99,8 +94,7 @@ export function TicketDesignPanel() {
           </label>
         </div>
 
-        {/* Message of the day (manual) */}
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--key)]/40 p-3 space-y-2">
+        <div className="space-y-2 rounded-xl border border-[var(--line)] bg-[var(--key)]/40 p-3">
           <div className="text-xs font-bold uppercase text-[var(--mut)]">
             Message of the day (manual)
           </div>
@@ -114,23 +108,21 @@ export function TicketDesignPanel() {
             placeholder="Manual text of the day…"
             onBlur={(e) => updateTicketDesign({ manual_text: e.target.value })}
           />
-          <div className="flex flex-wrap gap-3">
-            <label className="text-[11px] font-semibold text-[var(--mut)]">
-              Place MOTD
-              <select
-                className="ml-2 h-8 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-xs"
-                value={d.motd_placement || "after_total"}
-                onChange={(e) =>
-                  updateTicketDesign({
-                    motd_placement: e.target.value as "after_total" | "after_promo",
-                  })
-                }
-              >
-                <option value="after_total">After total</option>
-                <option value="after_promo">After promo code</option>
-              </select>
-            </label>
-          </div>
+          <label className="text-[11px] font-semibold text-[var(--mut)]">
+            Place MOTD
+            <select
+              className="ml-2 h-8 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-xs"
+              value={d.motd_placement || "after_total"}
+              onChange={(e) =>
+                updateTicketDesign({
+                  motd_placement: e.target.value as "after_total" | "after_promo",
+                })
+              }
+            >
+              <option value="after_total">After total</option>
+              <option value="after_promo">After promo code</option>
+            </select>
+          </label>
           <div className="text-[11px] font-semibold text-[var(--mut)]">Games (empty = all)</div>
           <div className="flex flex-wrap gap-2">
             {games.map((g) => {
@@ -161,7 +153,6 @@ export function TicketDesignPanel() {
           </div>
         </div>
 
-        {/* Scheduled messages */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="text-xs font-bold uppercase text-[var(--mut)]">
@@ -189,8 +180,8 @@ export function TicketDesignPanel() {
             </button>
           </div>
           <p className="text-[11px] text-[var(--mut)]">
-            Tokens: {"{game} {jackpot} {date} {draw_time} {currency} {promo}"}. After total/promo:
-            choose before or after manual text (manual is under total; schedule on its own line).
+            Tokens: {"{game} {jackpot} {prev_jackpot} {date} {draw_time} {currency} {promo}"}. After
+            total/promo: choose before or after manual text.
           </p>
           {schedule.map((m, idx) => (
             <div
@@ -297,7 +288,6 @@ export function TicketDesignPanel() {
         </button>
       </div>
 
-      {/* Live preview */}
       <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
         <h3 className="mb-3 text-sm font-bold uppercase text-[var(--mut)]">Preview</h3>
         <div
@@ -314,7 +304,7 @@ export function TicketDesignPanel() {
             textAlign: d.align || "center",
           }}
         >
-          {d.show_logo && logoSrc && (
+          {d.show_logo && logoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoSrc}
@@ -322,13 +312,13 @@ export function TicketDesignPanel() {
               className="mx-auto mb-2 object-contain"
               style={{ height: d.logo_height || 40 }}
             />
-          )}
-          {d.show_name !== false && (
+          ) : null}
+          {d.show_name !== false ? (
             <div className="text-base font-extrabold">{d.header || brand.name}</div>
-          )}
-          {d.show_retailer && (
+          ) : null}
+          {d.show_retailer ? (
             <div className="mt-1 whitespace-pre-line text-[11px] text-slate-600">{retailerBlock}</div>
-          )}
+          ) : null}
           <div className="my-2 border-t border-dashed border-slate-300" />
           <div className="text-left text-[12px]">
             <div className="flex justify-between border-b border-dotted border-slate-200 py-0.5">
@@ -337,13 +327,14 @@ export function TicketDesignPanel() {
                 <br />
                 <span className="text-[11px]">1234 · Today</span>
               </span>
-              <span className="font-semibold">{currency} 2.00</span>
+              <span className="font-semibold">
+                {currency} 2.00
+              </span>
             </div>
           </div>
           <div className="mt-2 border-t border-dashed border-black pt-1 text-base font-extrabold">
             TOTAL {currency} 2.00
           </div>
-          {/* after_total: schedule before_manual, then MOTD, then after_manual */}
           {(d.motd_placement || "after_total") === "after_total" &&
             schedule
               .filter((m) => m.enabled && m.placement === "after_total")
@@ -354,11 +345,11 @@ export function TicketDesignPanel() {
                 </div>
               ))}
           {(d.motd_placement || "after_total") === "after_total" &&
-            d.manual_text &&
-            (!(d.manual_text_game_ids || []).length ||
-              (previewGame && (d.manual_text_game_ids || []).includes(previewGame.id))) && (
-              <div className="mt-2 text-[11px] text-slate-600">{fillTokens(d.manual_text, ctx)}</div>
-            )}
+          d.manual_text &&
+          (!(d.manual_text_game_ids || []).length ||
+            (previewGame && (d.manual_text_game_ids || []).includes(previewGame.id))) ? (
+            <div className="mt-2 text-[11px] text-slate-600">{fillTokens(d.manual_text, ctx)}</div>
+          ) : null}
           {(d.motd_placement || "after_total") === "after_total" &&
             schedule
               .filter((m) => m.enabled && m.placement === "after_total")
@@ -368,12 +359,12 @@ export function TicketDesignPanel() {
                   {fillTokens(m.text, ctx)}
                 </div>
               ))}
-          {activePromo && (
+          {activePromo ? (
             <div className="mt-2 border border-dashed border-black p-2 text-center text-[11px]">
               <div className="font-extrabold">{activePromo.label}</div>
               <div className="font-mono text-sm font-black tracking-widest">DEMOCODE</div>
             </div>
-          )}
+          ) : null}
           {(d.motd_placement || "after_total") === "after_promo" &&
             schedule
               .filter((m) => m.enabled && m.placement === "after_promo")
@@ -384,11 +375,11 @@ export function TicketDesignPanel() {
                 </div>
               ))}
           {(d.motd_placement || "after_total") === "after_promo" &&
-            d.manual_text &&
-            (!(d.manual_text_game_ids || []).length ||
-              (previewGame && (d.manual_text_game_ids || []).includes(previewGame.id))) && (
-              <div className="mt-2 text-[11px] text-slate-600">{fillTokens(d.manual_text, ctx)}</div>
-            )}
+          d.manual_text &&
+          (!(d.manual_text_game_ids || []).length ||
+            (previewGame && (d.manual_text_game_ids || []).includes(previewGame.id))) ? (
+            <div className="mt-2 text-[11px] text-slate-600">{fillTokens(d.manual_text, ctx)}</div>
+          ) : null}
           {(d.motd_placement || "after_total") === "after_promo" &&
             schedule
               .filter((m) => m.enabled && m.placement === "after_promo")
