@@ -64,6 +64,11 @@ export interface Game {
   jackpot_cap?: number;
   /** Optional % of won jackpot reserved to help fund the next seed (0–100) */
   jackpot_reserve_pct?: number;
+  /**
+   * Short code for ticket tokens, e.g. "lm" → {jackpot_lm} and {prev_jackpot_lm}.
+   * Also always available as {jackpot_<game_id>}.
+   */
+  jackpot_token?: string;
   main_count?: number;
   main_max?: number;
   mega_count?: number;
@@ -174,11 +179,8 @@ export interface DrawResult {
   zodiac?: string;
   whe?: number;
   source?: string;
-  /** Progressive pool advertised at close of this draw */
   jackpot_at_draw?: number;
-  /** Progressive pool for the next draw after rollover or reset */
   jackpot_next?: number;
-  /** True if progressive (rank-1) tier had at least one winner */
   jackpot_won?: boolean;
 }
 
@@ -272,10 +274,6 @@ export interface TicketScheduleMessage {
   game_ids: string[];
   enabled: boolean;
   placement: TicketMessagePlacement;
-  /**
-   * When placement is after_total or after_promo: render this schedule line
-   * before or after the manual MOTD. Default after_manual.
-   */
   relative_to_motd?: "before_manual" | "after_manual";
 }
 
