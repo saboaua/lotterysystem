@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
 import { PresencePing } from "./PresencePing";
+import { BroadcastPopup } from "./BroadcastPopup";
 
 export function Shell({ children }: { children: ReactNode }) {
   const {
@@ -247,6 +248,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
       </div>
       <ToastHost />
+      <BroadcastPopup />
 
       {helpOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
