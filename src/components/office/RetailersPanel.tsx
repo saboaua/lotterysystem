@@ -1,47 +1,48 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MapPin, Plus } from "lucide-react";
+import { MapPin, Plus, Radio } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { OsmMap } from "./OsmMap";
+import type { Retailer } from "@/lib/types";
 
-/** Project lat/lng into a simple Aruba map viewBox for pin overlay */
-function toXY(lat: number, lng: number) {
-  // Aruba rough bounds
-  const west = -70.07;
-  const east = -69.86;
-  const south = 12.41;
-  const north = 12.63;
-  const x = ((lng - west) / (east - west)) * 100;
-  const y = ((north - lat) / (north - south)) * 100;
-  return {
-    x: Math.min(98, Math.max(2, x)),
-    y: Math.min(98, Math.max(2, y)),
-  };
+function isOnline(r: Retailer, offlineAfterSec: number): boolean {
+  if (!r.last_seen) return false;
+  const age = (Date.now() - new Date(r.last_seen).getTime()) / 1000;
+  return age <= offlineAfterSec;
+}
+
+function formatAgo(iso?: string): string {
+  if (!iso) return "never";
+  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (sec < 60) return sec + "s ago";
+  if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+  if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+  return Math.floor(sec / 86400) + "d ago";
 }
 
 export function RetailersPanel() {
-  const { retailers, updateRetailer, addRetailer, toast } = useStore();
+  const { retailers, updateRetailer, addRetailer, toast, brand, updateBrand } = useStore();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const withCoords = useMemo(
-    () => retailers.filter((r) => r.lat != null && r.lng != null),
-    [retailers]
+  const pingInterval = brand.ping_interval_sec ?? 60;
+  const offlineAfter = brand.offline_after_sec ?? Math.max(120, pingInterval * 3);
+
+  const onlineCount = useMemo(
+    () => retailers.filter((r) => r.active && isOnline(r, offlineAfter)).length,
+    [retailers, offlineAfter]
   );
-
-  const bbox = useMemo(() => {
-    const west = -70.07;
-    const east = -69.86;
-    const south = 12.41;
-    const north = 12.63;
-    return `${west},${south},${east},${north}`;
-  }, []);
-
-  const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=12.52%2C-70.03`;
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Retailers</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-bold">Retailers</h2>
+          <p className="text-xs text-[var(--mut)]">
+            Map · presence ping · {onlineCount} online now
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -55,6 +56,7 @@ export function RetailersPanel() {
               lng: -70.03,
             });
             setOpenId(r.id);
+            setSelectedId(r.id);
             toast("Retailer added");
           }}
           className="flex items-center gap-1 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
@@ -63,88 +65,61 @@ export function RetailersPanel() {
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--card)] shadow-sm">
-        <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2">
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-[var(--mut)]">
-            <MapPin size={14} className="text-emerald-500" />
-            OpenStreetMap · {withCoords.length} pin(s)
+            <Radio size={14} className="text-emerald-500" />
+            POS presence ping
           </div>
-          <a
-            href="https://www.openstreetmap.org/#map=12/12.52/-70.0"
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs font-bold text-indigo-600"
-          >
-            Open full map
-          </a>
-        </div>
-
-        {/* OSM base + HTML pin overlay */}
-        <div className="relative aspect-[16/9] w-full bg-slate-200 dark:bg-slate-800">
-          <iframe
-            title="OpenStreetMap"
-            className="absolute inset-0 h-full w-full border-0 opacity-90"
-            src={embedUrl}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-          {/* Pin layer (pointer-events for clicks) */}
-          <div className="pointer-events-none absolute inset-0">
-            {withCoords.map((r) => {
-              const { x, y } = toXY(r.lat!, r.lng!);
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  title={`#${r.number} ${r.name}`}
-                  onClick={() => setOpenId(r.id)}
-                  className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full"
-                  style={{ left: `${x}%`, top: `${y}%` }}
-                >
-                  <span
-                    className={`flex flex-col items-center drop-shadow-md ${
-                      r.active ? "text-emerald-600" : "text-rose-500"
-                    }`}
-                  >
-                    <MapPin size={28} fill="currentColor" className="opacity-95" />
-                    <span className="rounded bg-white/95 px-1 text-[9px] font-bold text-slate-800 shadow">
-                      {r.number}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 border-t border-[var(--line)] p-3">
-          {withCoords.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setOpenId(r.id)}
-              className="flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--key)] px-2.5 py-1 text-[11px] font-semibold hover:border-indigo-400"
+          <label className="text-[11px] font-semibold text-[var(--mut)]">
+            Frequency (seconds)
+            <select
+              className="ml-2 h-8 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-xs"
+              value={pingInterval}
+              onChange={(e) =>
+                updateBrand({ ping_interval_sec: parseInt(e.target.value, 10) || 60 })
+              }
             >
-              <span
-                className={`h-2 w-2 rounded-full ${r.active ? "bg-emerald-500" : "bg-rose-500"}`}
-              />
-              #{r.number} {r.name}
-            </button>
-          ))}
-          {!withCoords.length && (
-            <span className="text-xs text-[var(--mut)]">
-              Set latitude &amp; longitude on a retailer to show a pin.
-            </span>
-          )}
+              <option value={15}>Every 15s</option>
+              <option value={30}>Every 30s</option>
+              <option value={60}>Every 60s</option>
+              <option value={120}>Every 2 min</option>
+              <option value={300}>Every 5 min</option>
+            </select>
+          </label>
+          <label className="text-[11px] font-semibold text-[var(--mut)]">
+            Offline after (seconds)
+            <input
+              type="number"
+              min={30}
+              className="ml-2 h-8 w-24 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-xs"
+              value={offlineAfter}
+              onChange={(e) =>
+                updateBrand({ offline_after_sec: parseInt(e.target.value, 10) || 180 })
+              }
+            />
+          </label>
         </div>
-        <p className="px-3 pb-3 text-[10px] text-[var(--mut)]">
-          Map data © OpenStreetMap contributors. Pins overlay shop coordinates from the list below.
+        <p className="mb-3 text-[11px] text-[var(--mut)]">
+          When a seller POS is open it pings base at this interval; base acknowledges (last_ack).
+          Shops with no ping within the offline window show as offline on the map.
         </p>
       </div>
+
+      <OsmMap
+        retailers={retailers}
+        selectedId={selectedId || openId}
+        offlineAfterSec={offlineAfter}
+        onSelect={(id) => {
+          setSelectedId(id);
+          setOpenId(id);
+        }}
+      />
 
       <div className="space-y-2">
         {retailers.map((r) => {
           const open = openId === r.id;
+          const online = isOnline(r, offlineAfter);
           return (
             <div
               key={r.id}
@@ -152,7 +127,10 @@ export function RetailersPanel() {
             >
               <button
                 type="button"
-                onClick={() => setOpenId(open ? null : r.id)}
+                onClick={() => {
+                  setOpenId(open ? null : r.id);
+                  setSelectedId(r.id);
+                }}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left"
               >
                 <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[11px] font-bold text-indigo-600">
@@ -160,18 +138,24 @@ export function RetailersPanel() {
                 </span>
                 <span className="min-w-0 flex-1 text-sm font-bold">{r.name}</span>
                 {r.lat != null && r.lng != null && (
-                  <span className="hidden text-[10px] text-[var(--mut)] sm:inline">
+                  <span className="hidden items-center gap-1 text-[10px] text-[var(--mut)] sm:flex">
+                    <MapPin size={10} />
                     {r.lat.toFixed(4)}, {r.lng.toFixed(4)}
                   </span>
                 )}
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                    r.active
-                      ? "bg-emerald-500/15 text-emerald-700"
-                      : "bg-rose-500/15 text-rose-600"
+                    !r.active
+                      ? "bg-rose-500/15 text-rose-600"
+                      : online
+                        ? "bg-emerald-500/15 text-emerald-700"
+                        : "bg-slate-500/15 text-slate-600"
                   }`}
                 >
-                  {r.active ? "Active" : "Off"}
+                  {!r.active ? "Off" : online ? "Online" : "Offline"}
+                </span>
+                <span className="hidden text-[10px] text-[var(--mut)] md:inline">
+                  ping {formatAgo(r.last_seen)}
                 </span>
               </button>
               {open && (
@@ -211,6 +195,11 @@ export function RetailersPanel() {
                     />
                     Active
                   </label>
+                  <div className="text-[11px] text-[var(--mut)] sm:col-span-2">
+                    Last ping: {r.last_seen ? new Date(r.last_seen).toLocaleString() : "never"}
+                    {" · "}
+                    Base ack: {r.last_ack ? new Date(r.last_ack).toLocaleString() : "—"}
+                  </div>
                   {r.lat != null && r.lng != null && (
                     <a
                       className="text-xs font-bold text-indigo-600 sm:col-span-2"
