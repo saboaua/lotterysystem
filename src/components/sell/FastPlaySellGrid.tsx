@@ -107,7 +107,7 @@ export function FastPlaySellGrid() {
         </div>
       </div>
 
-      {/* Game tiles — shorter height, larger logos */}
+      {/* Game tiles — logo fills tile, no outline box */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         {available.map((g) => {
           const can = g.prices.includes(price);
@@ -128,7 +128,7 @@ export function FastPlaySellGrid() {
                 sellOne(g, price, qty);
               }}
               className={
-                "group relative flex min-h-[11.5rem] flex-col overflow-hidden rounded-2xl text-left shadow-md transition " +
+                "group relative flex min-h-[13.5rem] flex-col overflow-hidden rounded-2xl text-left shadow-md transition " +
                 (can
                   ? "text-white hover:brightness-105 active:scale-[0.98]"
                   : "cursor-not-allowed bg-slate-100 text-slate-400 ring-1 ring-slate-200/80 dark:bg-slate-800/60 dark:text-slate-500 dark:ring-slate-700")
@@ -158,24 +158,22 @@ export function FastPlaySellGrid() {
                 {currency} {badge}
               </span>
 
-              {/* Logo dominates the tile — object-contain so full logo is visible */}
-              <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-2 pb-1 pt-7">
+              {/* Logo fills most of the tile — no border/outline box */}
+              <div className="flex flex-1 flex-col items-center justify-center gap-1 px-1.5 pb-0.5 pt-6">
                 {g.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={g.logo}
                     alt=""
                     className={
-                      "h-20 w-20 shrink-0 rounded-2xl object-contain bg-white/10 shadow-lg sm:h-24 sm:w-24 " +
-                      (can
-                        ? "border-2 border-white/50"
-                        : "border-2 border-slate-200 opacity-70 dark:border-slate-600")
+                      "h-28 w-full max-w-[9.5rem] shrink-0 object-contain drop-shadow-md sm:h-32 " +
+                      (can ? "" : "opacity-70")
                     }
                   />
                 ) : (
                   <div
                     className={
-                      "grid h-20 w-20 shrink-0 place-items-center rounded-2xl text-xl font-black sm:h-24 sm:w-24 " +
+                      "grid h-28 w-28 shrink-0 place-items-center rounded-2xl text-2xl font-black sm:h-32 sm:w-32 " +
                       (can
                         ? "bg-black/25 text-white"
                         : "bg-slate-200 text-slate-400 dark:bg-slate-700")
