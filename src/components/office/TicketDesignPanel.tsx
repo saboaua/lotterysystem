@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { TicketScheduleMessage } from "@/lib/types";
@@ -14,10 +14,7 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-function fillTokens(
-  tpl: string,
-  ctx: Record<string, string>
-): string {
+function fillTokens(tpl: string, ctx: Record<string, string>): string {
   return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => ctx[k] ?? `{${k}}`);
 }
 
@@ -40,7 +37,7 @@ export function TicketDesignPanel() {
   const activePromo = promotions.find((p) => p.active);
 
   const ctx = useMemo(() => {
-    const jack = previewGame?.jackpot_current != null ? String(previewGame.jackpot_current) : "—";
+    const jack = previewGame?.jackpot_current != null ? String(previewGame.jackpot_current) : "-";
     return {
       date: new Date().toLocaleDateString(),
       draw_time: previewGame?.draw_time || "",
@@ -58,7 +55,8 @@ export function TicketDesignPanel() {
 
   const retailerBlock = fillTokens(
     d.retailer_template ||
-      "#{number} {name}\n{address}\n{phone}".replace("{number}", shop?.number || "")
+      "#{number} {name}\n{address}\n{phone}"
+        .replace("{number}", shop?.number || "")
         .replace("{name}", shop?.name || "")
         .replace("{address}", shop?.address || "")
         .replace("{phone}", shop?.phone || ""),
@@ -185,8 +183,7 @@ export function TicketDesignPanel() {
           <textarea
             className="mt-1 h-20 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] p-3 text-sm"
             defaultValue={
-              d.retailer_template ||
-              "Shop #{number} · {name}\n{address}\nTel {phone}"
+              d.retailer_template || "Shop #{number} · {name}\n{address}\nTel {phone}"
             }
             onBlur={(e) => updateTicketDesign({ retailer_template: e.target.value })}
           />
@@ -225,7 +222,6 @@ export function TicketDesignPanel() {
           ))}
         </div>
 
-        {/* Schedule messages */}
         <div className="space-y-2 border-t border-[var(--line)] pt-3">
           <div className="flex items-center justify-between">
             <div className="text-[11px] font-bold uppercase text-[var(--mut)]">
@@ -356,7 +352,6 @@ export function TicketDesignPanel() {
         </button>
       </div>
 
-      {/* Live thermal preview */}
       <div className="rounded-2xl border border-[var(--line)] bg-slate-200/80 p-4 dark:bg-slate-950">
         <div className="mb-2 text-center text-[11px] font-bold uppercase text-slate-500">
           Live ticket preview
@@ -374,7 +369,7 @@ export function TicketDesignPanel() {
             textAlign: d.align,
           }}
         >
-          {d.show_logo && logoSrc && (
+          {d.show_logo && logoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoSrc}
@@ -382,7 +377,7 @@ export function TicketDesignPanel() {
               className="mx-auto mb-2 object-contain"
               style={{ height: d.logo_height }}
             />
-          )}
+          ) : null}
           {d.show_name && <div className="font-bold">{d.header || brand.name}</div>}
           {d.show_retailer && (
             <pre className="mt-1 whitespace-pre-wrap text-[11px] opacity-80">{retailerBlock}</pre>
@@ -397,14 +392,14 @@ export function TicketDesignPanel() {
             ))}
           <div className="my-1 text-left text-[11px]">
             <div className="font-bold">{previewGame?.name} · 4 Cifra</div>
-            <div>1234 · {currency} 2.00 · {ctx.date}</div>
+            <div>
+              1234 · {currency} 2.00 · {ctx.date}
+            </div>
           </div>
           {schedule
             .filter((m) => m.enabled && m.placement === "after_lines")
             .filter(
-              (m) =>
-                !m.game_ids?.length ||
-                (previewGame && m.game_ids.includes(previewGame.id))
+              (m) => !m.game_ids?.length || (previewGame && m.game_ids.includes(previewGame.id))
             )
             .map((m) => (
               <div key={m.id} className="text-[11px] italic">
@@ -416,10 +411,7 @@ export function TicketDesignPanel() {
           )}
           {d.show_jackpot && previewGame?.jackpot_current != null && (
             <div className="mt-1 text-[11px] font-semibold">
-              {fillTokens(
-                d.jackpot_text || "Jackpot: {currency} {jackpot}",
-                ctx
-              )}
+              {fillTokens(d.jackpot_text || "Jackpot: {currency} {jackpot}", ctx)}
             </div>
           )}
           {activePromo && (

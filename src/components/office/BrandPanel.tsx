@@ -24,7 +24,7 @@ export function BrandPanel() {
   const { brand, updateBrand, toast } = useStore();
   const [manual, setManual] = useState(brand.led_message);
 
-  const schedule = brand.led_schedule || [];
+  const schedule = useMemo(() => brand.led_schedule || [], [brand.led_schedule]);
   const activeCount = schedule.filter((m) => m.enabled).length;
 
   const previewText = useMemo(() => {
@@ -36,7 +36,7 @@ export function BrandPanel() {
       if (m.end && today > m.end) continue;
       parts.push(m.text);
     }
-    return parts.filter(Boolean).join("   ·   ") || "Ticker preview…";
+    return parts.filter(Boolean).join("   ·   ") || "Ticker preview...";
   }, [manual, schedule]);
 
   const duration = Math.max(8, 120 / Math.max(10, brand.led_speed));
@@ -69,7 +69,6 @@ export function BrandPanel() {
           </label>
         </div>
 
-        {/* Office / app logo */}
         <div className="rounded-xl border border-[var(--line)] bg-[var(--key)]/50 p-3">
           <div className="mb-2 text-[11px] font-bold uppercase text-[var(--mut)]">
             Logo (back office & login)
@@ -77,7 +76,11 @@ export function BrandPanel() {
           <div className="flex flex-wrap items-center gap-3">
             {brand.logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={brand.logo} alt="" className="h-14 w-14 rounded-xl object-contain border border-[var(--line)] bg-white p-1" />
+              <img
+                src={brand.logo}
+                alt=""
+                className="h-14 w-14 rounded-xl border border-[var(--line)] bg-white object-contain p-1"
+              />
             ) : (
               <div className="grid h-14 w-14 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-extrabold text-white">
                 SL
@@ -110,7 +113,7 @@ export function BrandPanel() {
           </div>
         </div>
 
-        <label className="text-[11px] font-semibold text-[var(--mut)] block">
+        <label className="block text-[11px] font-semibold text-[var(--mut)]">
           Manual ticker message (always on when LED is on)
           <input
             className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
@@ -151,7 +154,7 @@ export function BrandPanel() {
                 className={`rounded-full px-4 py-1.5 text-xs font-bold ${
                   brand.led_speed === p.value
                     ? "bg-indigo-600 text-white"
-                    : "bg-[var(--key)] border border-[var(--line)]"
+                    : "border border-[var(--line)] bg-[var(--key)]"
                 }`}
               >
                 {p.label}
@@ -169,7 +172,6 @@ export function BrandPanel() {
           </div>
         </div>
 
-        {/* Live ticker preview */}
         <div>
           <div className="mb-2 text-[11px] font-bold uppercase text-[var(--mut)]">
             Sell-screen ticker preview
@@ -205,12 +207,13 @@ export function BrandPanel() {
         </button>
       </div>
 
-      {/* Scheduled messages */}
       <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-bold">Scheduled ticker messages</h3>
-            <p className="text-xs text-[var(--mut)]">{activeCount} active · appended to manual message</p>
+            <p className="text-xs text-[var(--mut)]">
+              {activeCount} active · appended to manual message
+            </p>
           </div>
           <button
             type="button"
@@ -231,7 +234,10 @@ export function BrandPanel() {
           </button>
         </div>
         {schedule.map((m, idx) => (
-          <div key={m.id} className="space-y-2 rounded-xl border border-[var(--line)] bg-[var(--key)]/40 p-3">
+          <div
+            key={m.id}
+            className="space-y-2 rounded-xl border border-[var(--line)] bg-[var(--key)]/40 p-3"
+          >
             <div className="flex items-center gap-2">
               <input
                 className="h-9 flex-1 rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-sm font-semibold"
