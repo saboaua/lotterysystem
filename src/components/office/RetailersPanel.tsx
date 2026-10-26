@@ -1,10 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MapPin, Plus, Radio } from "lucide-react";
+import { MapPin, Plus, Radio, BarChart3 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { OsmMap } from "./OsmMap";
-import type { Retailer } from "@/lib/types";
+import type { Retailer, RetailerStatus } from "@/lib/types";
+
+function resolveStatus(r: Retailer): RetailerStatus {
+  if (r.status) return r.status;
+  return r.active ? "active" : "disabled";
+}
 
 function isOnline(r: Retailer, offlineAfterSec: number): boolean {
   if (!r.last_seen) return false;
@@ -21,6 +26,18 @@ function formatAgo(iso?: string): string {
   return Math.floor(sec / 86400) + "d ago";
 }
 
+/** Demo: how many shops were "open" (had a ping) each weekday this week. */
+function buildWeeklyOpenDemo(retailers: Retailer[]) {
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const active = retailers.filter((r) => resolveStatus(r) === "active");
+  const n = Math.max(1, active.length);
+  // Deterministic demo curve based on shop count
+  const opens = [0.92, 0.95, 0.93, 0.94, 0.96, 0.78, 0.55].map((p) =>
+    Math.max(1, Math.round(n * p))
+  );
+  return days.map((day, i) => ({ day, open: opens[i], total: n }));
+}
+
 export function RetailersPanel() {
   const { retailers, updateRetailer, addRetailer, toast, brand, updateBrand } = useStore();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -30,9 +47,31 @@ export function RetailersPanel() {
   const offlineAfter = brand.offline_after_sec ?? Math.max(120, pingInterval * 3);
 
   const onlineCount = useMemo(
-    () => retailers.filter((r) => r.active && isOnline(r, offlineAfter)).length,
+    () =>
+      retailers.filter(
+        (r) => resolveStatus(r) === "active" && isOnline(r, offlineAfter)
+      ).length,
     [retailers, offlineAfter]
   );
+
+  const statusCounts = useMemo(() => {
+    const c = { active: 0, suspended: 0, disabled: 0 };
+    for (const r of retailers) c[resolveStatus(r)]++;
+    return c;
+  }, [retailers]);
+
+  const weekly = useMemo(() => buildWeeklyOpenDemo(retailers), [retailers]);
+  const withCoords = useMemo(
+    () => retailers.filter((r) => r.lat != null && r.lng != null),
+    [retailers]
+  );
+
+  function setStatus(id: string, status: RetailerStatus) {
+    updateRetailer(id, {
+      status,
+      active: status === "active",
+    });
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -40,7 +79,9 @@ export function RetailersPanel() {
         <div>
           <h2 className="text-lg font-bold">Retailers</h2>
           <p className="text-xs text-[var(--mut)]">
-            Map · presence ping · {onlineCount} online now
+            Map · {withCoords.length} on map · {onlineCount} online ·{" "}
+            {statusCounts.active} active · {statusCounts.suspended} suspended ·{" "}
+            {statusCounts.disabled} disabled
           </p>
         </div>
         <button
@@ -52,8 +93,9 @@ export function RetailersPanel() {
               commission_sell: 10,
               commission_redeem: 2,
               active: true,
-              lat: 12.52,
-              lng: -70.03,
+              status: "active",
+              lat: 12.52 + (Math.random() - 0.5) * 0.04,
+              lng: -70.03 + (Math.random() - 0.5) * 0.04,
             });
             setOpenId(r.id);
             setSelectedId(r.id);
@@ -63,6 +105,42 @@ export function RetailersPanel() {
         >
           <Plus size={16} /> Add
         </button>
+      </div>
+
+      {/* Weekly open report (demo) */}
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-4 shadow-sm">
+        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase text-[var(--mut)]">
+          <BarChart3 size={14} className="text-indigo-500" />
+          Retailers open during the week
+          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold normal-case text-amber-700">
+            Demo data
+          </span>
+        </div>
+        <p className="mb-3 text-[11px] text-[var(--mut)]">
+          Shops that were open (had POS activity) each day this week among active
+          retailers. Replace with live logs when backend is connected.
+        </p>
+        <div className="grid grid-cols-7 gap-2">
+          {weekly.map((w) => {
+            const pct = w.total ? Math.round((w.open / w.total) * 100) : 0;
+            return (
+              <div
+                key={w.day}
+                className="rounded-xl border border-[var(--line)] bg-[var(--key)]/50 p-2 text-center"
+              >
+                <div className="text-[10px] font-bold uppercase text-[var(--mut)]">{w.day}</div>
+                <div className="mt-1 text-lg font-extrabold text-indigo-600">{w.open}</div>
+                <div className="text-[10px] text-[var(--mut)]">of {w.total}</div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div
+                    className="h-full rounded-full bg-indigo-500"
+                    style={{ width: pct + "%" }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-4 shadow-sm">
@@ -100,9 +178,9 @@ export function RetailersPanel() {
             />
           </label>
         </div>
-        <p className="mb-3 text-[11px] text-[var(--mut)]">
-          When a seller POS is open it pings base at this interval; base acknowledges (last_ack).
-          Shops with no ping within the offline window show as offline on the map.
+        <p className="text-[11px] text-[var(--mut)]">
+          Seller POS pings base at this interval; base acknowledges (last_ack). Map pins use live
+          coordinates from the list below.
         </p>
       </div>
 
@@ -120,6 +198,7 @@ export function RetailersPanel() {
         {retailers.map((r) => {
           const open = openId === r.id;
           const online = isOnline(r, offlineAfter);
+          const st = resolveStatus(r);
           return (
             <div
               key={r.id}
@@ -131,7 +210,7 @@ export function RetailersPanel() {
                   setOpenId(open ? null : r.id);
                   setSelectedId(r.id);
                 }}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                className="flex w-full flex-wrap items-center gap-2 px-4 py-3 text-left sm:gap-3"
               >
                 <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[11px] font-bold text-indigo-600">
                   #{r.number}
@@ -143,16 +222,27 @@ export function RetailersPanel() {
                     {r.lat.toFixed(4)}, {r.lng.toFixed(4)}
                   </span>
                 )}
+                {/* Presence */}
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                    !r.active
-                      ? "bg-rose-500/15 text-rose-600"
-                      : online
-                        ? "bg-emerald-500/15 text-emerald-700"
-                        : "bg-slate-500/15 text-slate-600"
+                    online
+                      ? "bg-emerald-500/15 text-emerald-700"
+                      : "bg-slate-500/15 text-slate-600"
                   }`}
                 >
-                  {!r.active ? "Off" : online ? "Online" : "Offline"}
+                  {online ? "Online" : "Offline"}
+                </span>
+                {/* Account status */}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    st === "active"
+                      ? "bg-sky-500/15 text-sky-700"
+                      : st === "suspended"
+                        ? "bg-amber-500/15 text-amber-700"
+                        : "bg-rose-500/15 text-rose-600"
+                  }`}
+                >
+                  {st === "active" ? "Active" : st === "suspended" ? "Suspended" : "Disabled"}
                 </span>
                 <span className="hidden text-[10px] text-[var(--mut)] md:inline">
                   ping {formatAgo(r.last_seen)}
@@ -187,13 +277,17 @@ export function RetailersPanel() {
                     defaultValue={r.lng != null ? String(r.lng) : ""}
                     onBlur={(v) => updateRetailer(r.id, { lng: v ? parseFloat(v) : undefined })}
                   />
-                  <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={r.active}
-                      onChange={(e) => updateRetailer(r.id, { active: e.target.checked })}
-                    />
-                    Active
+                  <label className="text-[11px] font-semibold text-[var(--mut)] sm:col-span-2">
+                    Account status
+                    <select
+                      className="mt-1 h-10 w-full max-w-xs rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+                      value={st}
+                      onChange={(e) => setStatus(r.id, e.target.value as RetailerStatus)}
+                    >
+                      <option value="active">Active</option>
+                      <option value="suspended">Suspended</option>
+                      <option value="disabled">Disabled</option>
+                    </select>
                   </label>
                   <div className="text-[11px] text-[var(--mut)] sm:col-span-2">
                     Last ping: {r.last_seen ? new Date(r.last_seen).toLocaleString() : "never"}
