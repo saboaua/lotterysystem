@@ -19,6 +19,30 @@ export interface GameSession {
   cutoff: string;
 }
 
+/** Prize tier used in draw calculation / settlement */
+export type PrizeMatchRule =
+  | "exact" // full number match
+  | "exact_and_sign" // full number + zodiac sign
+  | "last_n" // last N digits of winning number
+  | "last_n_and_sign" // last N digits + zodiac sign
+  | "whe_mark" // play whe mark
+  | "jackpot_main" // all main balls
+  | "jackpot_main_mega" // main + mega
+  | "fixed"; // fixed payout label only
+
+export interface PrizeTier {
+  id: string;
+  rank: number;
+  label: string;
+  /** Human description e.g. match 4 numbers & Zodiac Sign */
+  description: string;
+  amount: number;
+  rule: PrizeMatchRule;
+  /** For last_n / last_n_and_sign */
+  digits?: number;
+  enabled: boolean;
+}
+
 export interface Game {
   id: string;
   name: string;
@@ -39,10 +63,12 @@ export interface Game {
   bet_types?: string[];
   /** Data URL or URL shown on sell tiles */
   logo?: string;
-  /** Digit games only — stake limits */
+  /** Digit / number games — stake limits */
   min_stake?: number;
   max_stake?: number;
   sort_order?: number;
+  /** Winning prize structure for draw calculation */
+  prize_tiers?: PrizeTier[];
 }
 
 export interface Retailer {
@@ -85,6 +111,8 @@ export interface TicketLine {
   mega?: number;
   prize?: number;
   status?: string;
+  prize_tier_id?: string;
+  prize_rank?: number;
 }
 
 export interface Ticket {
