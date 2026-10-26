@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Game, GameSession } from "@/lib/types";
+import { PrizeTiersEditor } from "./PrizeTiersEditor";
+import { defaultPrizeTiersForFormat } from "@/lib/prize-tiers";
 
 const WEEKDAYS = [
   { d: 0, label: "Sun" },
@@ -45,6 +47,7 @@ export function GamesPanel() {
       max_stake: 100,
       bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
       sessions: [{ id: "midday", label: "Midday", draw_time: "13:00", cutoff: "12:45" }],
+      prize_tiers: defaultPrizeTiersForFormat("digit", 4),
     };
     addGame(g);
     setOpenId(id);
@@ -57,7 +60,7 @@ export function GamesPanel() {
         <div>
           <h2 className="text-lg font-bold">Games & schedule</h2>
           <p className="text-xs text-[var(--mut)]">
-            Logo · draws · min/max · weekdays · Zodiac digits + signs · Play Whe marks
+            Logo · draws · min/max · weekdays · prize tiers · Zodiac + Play Whe
           </p>
         </div>
         <button
@@ -101,6 +104,7 @@ export function GamesPanel() {
                     {" · "}draw {g.draw_time}
                     {g.sessions?.length ? ` · ${g.sessions.length} session(s)` : ""}
                     {g.min_stake != null ? ` · min ${currency} ${g.min_stake}` : ""}
+                    {g.prize_tiers?.length ? ` · ${g.prize_tiers.length} prize tier(s)` : ""}
                   </span>
                 </span>
                 <span className="text-[var(--mut)]">{open ? "▲" : "▼"}</span>
@@ -128,13 +132,21 @@ export function GamesPanel() {
                           if (format === "zodiac") {
                             patch.digits = g.digits && g.digits >= 2 ? g.digits : 4;
                             patch.bet_types = ["zodiac"];
+                            if (!g.prize_tiers?.length)
+                              patch.prize_tiers = defaultPrizeTiersForFormat("zodiac", patch.digits);
                           } else if (format === "whe") {
                             patch.digits = 2;
                             patch.bet_types = ["play_whe"];
+                            if (!g.prize_tiers?.length)
+                              patch.prize_tiers = defaultPrizeTiersForFormat("whe");
                           } else if (format === "digit") {
                             patch.digits = g.digits || 4;
+                            if (!g.prize_tiers?.length)
+                              patch.prize_tiers = defaultPrizeTiersForFormat("digit", patch.digits);
                           } else if (format === "jackpot") {
                             patch.bet_types = ["jackpot"];
+                            if (!g.prize_tiers?.length)
+                              patch.prize_tiers = defaultPrizeTiersForFormat("jackpot");
                           }
                           updateGame(g.id, patch);
                         }}
@@ -183,42 +195,26 @@ export function GamesPanel() {
                   {(g.format === "digit" || g.format === "zodiac") && (
                     <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-900 dark:bg-indigo-950/30">
                       <div className="mb-2 text-[11px] font-bold uppercase text-indigo-700 dark:text-indigo-300">
-                        {g.format === "zodiac"
-                          ? "Zodiac: number length + signs"
-                          : "Digit length"}
+                        {g.format === "zodiac" ? "Zodiac: number length + signs" : "Digit length"}
                       </div>
-                      <div className="flex flex-wrap items-end gap-4">
-                        <label className="text-[11px] font-semibold text-[var(--mut)]">
-                          Digits (number pad)
-                          <select
-                            className="mt-1 h-10 rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm font-bold"
-                            value={g.digits || (g.format === "zodiac" ? 4 : 4)}
-                            onChange={(e) =>
-                              updateGame(g.id, { digits: parseInt(e.target.value, 10) })
-                            }
-                          >
-                            {[2, 3, 4].map((d) => (
-                              <option key={d} value={d}>
-                                {d}-digit
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        {g.format === "zodiac" && (
-                          <p className="max-w-sm text-xs text-[var(--mut)]">
-                            Player picks a <b>zodiac sign</b> on sell screen and enters a{" "}
-                            <b>{g.digits || 4}-digit</b> number. Recommended: <b>4-digit</b>.
-                          </p>
-                        )}
-                      </div>
+                      <label className="text-[11px] font-semibold text-[var(--mut)]">
+                        Digits (number pad)
+                        <select
+                          className="mt-1 h-10 rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm font-bold"
+                          value={g.digits || 4}
+                          onChange={(e) => updateGame(g.id, { digits: parseInt(e.target.value, 10) })}
+                        >
+                          {[2, 3, 4].map((d) => (
+                            <option key={d} value={d}>
+                              {d}-digit
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                   )}
 
-                  {g.format === "whe" && (
-                    <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3 text-xs text-[var(--mut)] dark:border-rose-900 dark:bg-rose-950/20">
-                      Play Whe uses marks <b>1–36</b> with symbols on the sell screen (2-digit).
-                    </div>
-                  )}
+                  <PrizeTiersEditor game={g} />
 
                   <div className="rounded-xl border border-[var(--line)] bg-[var(--card)] p-3">
                     <div className="mb-2 text-[11px] font-bold uppercase text-[var(--mut)]">
@@ -252,7 +248,7 @@ export function GamesPanel() {
                             if (f.size > 400_000) return toast("Logo max 400KB", true);
                             const url = await fileToDataUrl(f);
                             updateGame(g.id, { logo: url });
-                            toast("Logo saved (persisted in this browser)");
+                            toast("Logo saved");
                           }}
                         />
                       </label>
@@ -313,9 +309,7 @@ export function GamesPanel() {
                           className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
                           defaultValue={g.min_stake ?? 0.5}
                           onBlur={(e) =>
-                            updateGame(g.id, {
-                              min_stake: parseFloat(e.target.value) || 0.5,
-                            })
+                            updateGame(g.id, { min_stake: parseFloat(e.target.value) || 0.5 })
                           }
                         />
                       </label>
@@ -327,9 +321,7 @@ export function GamesPanel() {
                           className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
                           defaultValue={g.max_stake ?? 100}
                           onBlur={(e) =>
-                            updateGame(g.id, {
-                              max_stake: parseFloat(e.target.value) || 100,
-                            })
+                            updateGame(g.id, { max_stake: parseFloat(e.target.value) || 100 })
                           }
                         />
                       </label>
@@ -480,9 +472,7 @@ function SessionsEditor({ game }: { game: Game }) {
         </button>
       </div>
       {sessions.length === 0 && (
-        <p className="mb-2 text-xs text-[var(--mut)]">
-          No sessions — sell uses default draw/cut-off above.
-        </p>
+        <p className="mb-2 text-xs text-[var(--mut)]">No sessions — uses default draw/cut-off.</p>
       )}
       <div className="space-y-2">
         {sessions.map((s, idx) => (
