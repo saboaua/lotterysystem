@@ -8,6 +8,7 @@ import {
   Gamepad2,
   Gift,
   HelpCircle,
+  Megaphone,
   MessageSquare,
   Network,
   Sparkles,
@@ -27,12 +28,14 @@ import { RetailersPanel } from "./office/RetailersPanel";
 import { HelpPanel } from "./office/HelpPanel";
 import { IspPanel } from "./office/IspPanel";
 import { DrawSchedulePanel } from "./office/DrawSchedule";
+import { BroadcastPanel } from "./office/BroadcastPanel";
 
 type Sub =
   | "games"
   | "fast_play"
   | "calendar"
   | "brand"
+  | "broadcast"
   | "ticket"
   | "promos"
   | "results"
@@ -51,6 +54,7 @@ const TABS: { id: Sub; label: string; icon: typeof Gamepad2 }[] = [
   { id: "fast_play", label: "Fast Play", icon: Sparkles },
   { id: "calendar", label: "Draw calendar", icon: CalendarDays },
   { id: "brand", label: "Branding & message", icon: MessageSquare },
+  { id: "broadcast", label: "Broadcast", icon: Megaphone },
   { id: "ticket", label: "Ticket design", icon: Ticket },
   { id: "promos", label: "Promotions", icon: Gift },
   { id: "results", label: "Results & winners", icon: Trophy },
@@ -127,6 +131,7 @@ export function OfficeScreen() {
           </div>
         )}
         {sub === "brand" && <BrandPanel />}
+        {sub === "broadcast" && <BroadcastPanel />}
         {sub === "ticket" && <TicketDesignPanel />}
         {sub === "promos" && <PromosPanel />}
         {sub === "results" && (
