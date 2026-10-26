@@ -34,20 +34,27 @@ function encodeCode128(text: string): string {
     for (let i = 0; i < pat.length; i++) {
       const w = parseInt(pat[i], 10);
       const isBar = i % 2 === 0;
-      if (isBar) parts.push(`<i style=\"width:${w}px\"></i>`);
-      else parts.push(`<b style=\"width:${w}px\"></b>`);
+      if (isBar) parts.push("<i style=\"width:" + w + "px\"></i>");
+      else parts.push("<b style=\"width:" + w + "px\"></b>");
     }
   }
   return parts.join("");
 }
 
 function fillTokens(tpl: string, ctx: Record<string, string>): string {
-  return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => ctx[k] ?? `{${k}`);
+  return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
 }
 
-function qrSvgDataUrl(payload: string, size = 120): string {
-  const encoded = encodeURIComponent(payload);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&margin=1`;
+function qrImageUrl(payload: string, size = 120): string {
+  return (
+    "https://api.qrserver.com/v1/create-qr-code/?size=" +
+    size +
+    "x" +
+    size +
+    "&data=" +
+    encodeURIComponent(payload) +
+    "&margin=1"
+  );
 }
 
 /** Open a print window matching the back-office ticket preview. */
@@ -69,13 +76,9 @@ export function printReceipt(opts: {
   const align = design.align || "center";
   const paper = design.paper_size || "80mm";
   const paperCss =
-    paper === "58mm"
-      ? "58mm auto"
-      : paper === "A4"
-        ? "A4"
-        : "80mm auto";
+    paper === "58mm" ? "58mm auto" : paper === "A4" ? "A4" : "80mm auto";
   const bodyWidth =
-    paper === "58mm" ? "48mm" : paper === "A4" ? "180mm" : `${design.width || 72}mm`;
+    paper === "58mm" ? "48mm" : paper === "A4" ? "180mm" : (design.width || 72) + "mm";
 
   const primaryGameId = ticket.lines[0]?.game;
   const primaryGame = games.find((g) => g.id === primaryGameId);
@@ -102,12 +105,15 @@ export function printReceipt(opts: {
   const logoSrc = design.logo || brand.logo;
   const logoHtml =
     design.show_logo && logoSrc
-      ? `<img src=\"${logoSrc}\" alt=\"\" style=\"height:${design.logo_height || 40}px;object-fit:contain;display:block;margin:0 auto 6px;\" />`
+      ? '<img src="' +
+        logoSrc +
+        '" alt="" style="height:' +
+        (design.logo_height || 40) +
+        'px;object-fit:contain;display:block;margin:0 auto 6px;" />'
       : "";
 
   const retailerTpl =
-    design.retailer_template ||
-    "Shop #{number} · {name}\n{address}\nTel {phone}";
+    design.retailer_template || "Shop #{number} · {name}\n{address}\nTel {phone}";
   const retailerBlock =
     design.show_retailer && retailer
       ? fillTokens(retailerTpl, {
@@ -118,7 +124,7 @@ export function printReceipt(opts: {
           phone: retailer.phone || "",
         })
           .split("\n")
-          .map((l) => `<div class=\"mut\">${l}</div>`)
+          .map((l) => '<div class="mut">' + l + "</div>")
           .join("")
       : "";
 
@@ -131,53 +137,71 @@ export function printReceipt(opts: {
           !m.game_ids?.length ||
           ticket.lines.some((l) => m.game_ids.includes(l.game))
       )
-      .map((m) => `<div class=\"msg\">${fillTokens(m.text, ctx)}</div>`)
+      .map((m) => '<div class="msg">' + fillTokens(m.text, ctx) + "</div>")
       .join("");
 
   const linesHtml = ticket.lines
     .map((l) => {
-      return `<div class=\"line\">
-        <div class=\"line-main\">
-          <span class=\"line-game\">${gameName(l.game)} · ${betLabel(l.bet_type)}</span>
-          <span class=\"line-num\">${l.number}${l.session ? " · " + l.session : ""}${l.date ? " · " + l.date : ""}</span>
-        </div>
-        <span class=\"line-amt\">${currency} ${l.amount.toFixed(2)}</span>
-      </div>`;
+      return (
+        '<div class="line"><div class="line-main"><span class="line-game">' +
+        gameName(l.game) +
+        " · " +
+        betLabel(l.bet_type) +
+        '</span><span class="line-num">' +
+        l.number +
+        (l.session ? " · " + l.session : "") +
+        (l.date ? " · " + l.date : "") +
+        '</span></div><span class="line-amt">' +
+        currency +
+        " " +
+        l.amount.toFixed(2) +
+        "</span></div>"
+      );
     })
     .join("");
 
   const promoHtml = ticket.promo_code
-    ? `<div class=\"promo\">
-        <div class=\"promo-label\">${activePromo?.label || "FREE PLAY"}</div>
-        <div class=\"promo-qualified\">Qualified for promotion</div>
-        <div class=\"promo-code\">${ticket.promo_code}</div>
-        <div class=\"promo-inst\">${activePromo?.instruction || "Check at /check"}</div>
-      </div>`
+    ? '<div class="promo"><div class="promo-label">' +
+      (activePromo?.label || "FREE PLAY") +
+      '</div><div class="promo-qualified">Qualified for promotion</div><div class="promo-code">' +
+      ticket.promo_code +
+      '</div><div class="promo-inst">' +
+      (activePromo?.instruction || "Check at /check") +
+      "</div></div>"
     : "";
 
   const motd =
     design.manual_text && design.manual_text.trim()
-      ? `<div class=\"motd\">${fillTokens(design.manual_text, ctx)}</div>`
+      ? '<div class="motd">' + fillTokens(design.manual_text, ctx) + "</div>"
       : "";
 
   const jackpotHtml =
     design.show_jackpot && primaryGame?.jackpot_current != null
-      ? `<div class=\"jackpot\">${fillTokens(
-          design.jackpot_text || "Jackpot: {currency} {jackpot}",
-          ctx
-        )}</div>`
+      ? '<div class="jackpot">' +
+        fillTokens(design.jackpot_text || "Jackpot: {currency} {jackpot}", ctx) +
+        "</div>"
       : "";
 
   const barcodeHtml =
     design.show_barcode !== false
-      ? `<div class=\"barcode\">${encodeCode128(ticket.id)}</div><div class=\"mut bc-text\">${ticket.id}</div>`
+      ? '<div class="barcode">' +
+        encodeCode128(ticket.id) +
+        '</div><div class="mut bc-text">' +
+        ticket.id +
+        "</div>"
       : "";
 
   const qrSize = design.qr_size || 100;
-  const qrPayload = `${design.qr_prefix || ""}${ticket.id}`;
+  const qrPayload = (design.qr_prefix || "") + ticket.id;
   const qrHtml = design.show_qr
-    ? `<div class=\"qr\"><img src=\"${qrSvgDataUrl(qrPayload, qrSize)}\" width=\"${qrSize}\" height=\"${qrSize}\" alt=\"QR\" /></div>`
-      : "";
+    ? '<div class="qr"><img src="' +
+      qrImageUrl(qrPayload, qrSize) +
+      '" width="' +
+      qrSize +
+      '" height="' +
+      qrSize +
+      '" alt="QR" /></div>'
+    : "";
 
   const fontFamily =
     design.font === "serif"
@@ -188,106 +212,62 @@ export function printReceipt(opts: {
 
   const baseSize = design.size || 13;
 
-  w.document.write(`<!DOCTYPE html><html><head><title>${ticket.id}</title>
-<meta charset=\"utf-8\"/>
-<style>
-  @page { margin: 3mm; size: ${paperCss}; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: ${fontFamily};
-    font-size: ${baseSize}px;
-    width: ${bodyWidth};
-    max-width: 100%;
-    margin: 0 auto;
-    color: #000;
-    text-align: ${align};
-    padding: ${design.padding ?? 4}px;
-    line-height: 1.25;
-  }
-  h1 { font-size: 1.25em; margin: 0 0 4px; font-weight: 800; }
-  .mut { color: #333; font-size: 0.88em; }
-  .msg { font-size: 0.9em; margin: 3px 0; }
-  .line {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 6px;
-    margin: ${design.line_gap ?? 3}px 0;
-    text-align: left;
-    border-bottom: 1px dotted #ccc;
-    padding-bottom: 2px;
-  }
-  .line-main { flex: 1; min-width: 0; }
-  .line-game { display: block; font-weight: 700; font-size: 0.95em; }
-  .line-num { display: block; font-size: 0.9em; }
-  .line-amt { font-weight: 600; white-space: nowrap; }
-  .total {
-    font-weight: ${design.bold_total ? "800" : "600"};
-    font-size: 1.2em;
-    margin-top: 8px;
-    border-top: 1px dashed #000;
-    padding-top: 6px;
-  }
-  .motd { margin-top: 8px; font-size: 0.92em; color: #222; }
-  .promo {
-    margin: 10px 0;
-    border: 1.5px dashed #000;
-    padding: 8px 6px;
-    text-align: center;
-  }
-  .promo-label { font-weight: 800; font-size: 1.05em; letter-spacing: 0.04em; }
-  .promo-qualified { margin-top: 2px; font-size: 0.95em; }
-  .promo-code {
-    margin-top: 4px;
-    font-family: ui-monospace, monospace;
-    font-weight: 900;
-    font-size: 1.45em;
-    letter-spacing: 0.12em;
-  }
-  .promo-inst { margin-top: 3px; font-size: 0.85em; color: #333; }
-  .barcode {
-    display: flex;
-    justify-content: center;
-    align-items: stretch;
-    height: 42px;
-    margin: 10px 0 2px;
-    gap: 0;
-  }
-  .barcode i { display: block; background: #000; height: 100%; }
-  .barcode b { display: block; background: transparent; height: 100%; }
-  .bc-text { letter-spacing: 0.08em; }
-  .qr { margin: 8px auto; text-align: center; }
-  .qr img { display: inline-block; }
-  .footer { margin-top: 10px; font-size: 0.88em; }
-  .jackpot { margin-top: 4px; font-size: 0.9em; font-weight: 600; }
-  .divider { border-top: 1px dashed #999; margin: 6px 0; }
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  }
-</style></head><body>
-  ${logoHtml}
-  ${design.show_name !== false ? `<h1>${design.header || brand.name}</h1>` : ""}
-  ${retailerBlock}
-  ${design.show_datetime !== false ? `<div class=\"mut\">${ticket.id} · ${new Date(ticket.created_at).toLocaleString()}</div>` : `<div class=\"mut\">${ticket.id}</div>`}
-  <div class=\"divider\"></div>
-  ${place("header")}
-  <div style=\"margin:6px 0\">${linesHtml}</div>
-  ${place("after_lines")}
-  ${jackpotHtml}
-  ${place("before_total")}
-  <div class=\"total\">TOTAL ${currency} ${ticket.total.toFixed(2)}</div>
-  ${motd}
-  ${promoHtml}
-  ${barcodeHtml}
-  ${qrHtml}
-  <div class=\"footer\">${design.footer || "Good luck!"}</div>
-  ${place("footer")}
-  <script>
-    window.onload = function() {
-      setTimeout(function(){ window.print(); }, 350);
-    };
-  </script>
-</body></html>`);
+  const html =
+    "<!DOCTYPE html><html><head><title>" +
+    ticket.id +
+    "</title><meta charset=\"utf-8\"/><style>" +
+    "@page { margin: 3mm; size: " +
+    paperCss +
+    "; } * { box-sizing: border-box; } body { font-family: " +
+    fontFamily +
+    "; font-size: " +
+    baseSize +
+    "px; width: " +
+    bodyWidth +
+    "; max-width: 100%; margin: 0 auto; color: #000; text-align: " +
+    align +
+    "; padding: " +
+    (design.padding ?? 4) +
+    "px; line-height: 1.25; } h1 { font-size: 1.25em; margin: 0 0 4px; font-weight: 800; } .mut { color: #333; font-size: 0.88em; } .msg { font-size: 0.9em; margin: 3px 0; } .line { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; margin: " +
+    (design.line_gap ?? 3) +
+    "px 0; text-align: left; border-bottom: 1px dotted #ccc; padding-bottom: 2px; } .line-main { flex: 1; min-width: 0; } .line-game { display: block; font-weight: 700; font-size: 0.95em; } .line-num { display: block; font-size: 0.9em; } .line-amt { font-weight: 600; white-space: nowrap; } .total { font-weight: " +
+    (design.bold_total ? "800" : "600") +
+    "; font-size: 1.2em; margin-top: 8px; border-top: 1px dashed #000; padding-top: 6px; } .motd { margin-top: 8px; font-size: 0.92em; color: #222; } .promo { margin: 10px 0; border: 1.5px dashed #000; padding: 8px 6px; text-align: center; } .promo-label { font-weight: 800; font-size: 1.05em; letter-spacing: 0.04em; } .promo-qualified { margin-top: 2px; font-size: 0.95em; } .promo-code { margin-top: 4px; font-family: ui-monospace, monospace; font-weight: 900; font-size: 1.45em; letter-spacing: 0.12em; } .promo-inst { margin-top: 3px; font-size: 0.85em; color: #333; } .barcode { display: flex; justify-content: center; align-items: stretch; height: 42px; margin: 10px 0 2px; gap: 0; } .barcode i { display: block; background: #000; height: 100%; } .barcode b { display: block; background: transparent; height: 100%; } .bc-text { letter-spacing: 0.08em; } .qr { margin: 8px auto; text-align: center; } .qr img { display: inline-block; } .footer { margin-top: 10px; font-size: 0.88em; } .jackpot { margin-top: 4px; font-size: 0.9em; font-weight: 600; } .divider { border-top: 1px dashed #999; margin: 6px 0; } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }" +
+    "</style></head><body>" +
+    logoHtml +
+    (design.show_name !== false ? "<h1>" + (design.header || brand.name) + "</h1>" : "") +
+    retailerBlock +
+    (design.show_datetime !== false
+      ? '<div class="mut">' +
+        ticket.id +
+        " · " +
+        new Date(ticket.created_at).toLocaleString() +
+        "</div>"
+      : '<div class="mut">' + ticket.id + "</div>") +
+    '<div class="divider"></div>' +
+    place("header") +
+    '<div style="margin:6px 0">' +
+    linesHtml +
+    "</div>" +
+    place("after_lines") +
+    jackpotHtml +
+    place("before_total") +
+    '<div class="total">TOTAL ' +
+    currency +
+    " " +
+    ticket.total.toFixed(2) +
+    "</div>" +
+    motd +
+    promoHtml +
+    barcodeHtml +
+    qrHtml +
+    '<div class="footer">' +
+    (design.footer || "Good luck!") +
+    "</div>" +
+    place("footer") +
+    "<script>window.onload=function(){setTimeout(function(){window.print();},350);};</script></body></html>";
+
+  w.document.write(html);
   w.document.close();
 }
 
@@ -301,7 +281,7 @@ export function handleScan(
 ) {
   const cleaned = code.trim().toUpperCase();
   if (/^T\d{6,}$/.test(cleaned) || /^\d{6,}$/.test(cleaned)) {
-    handlers.onTicket(cleaned.startsWith("T") ? cleaned : `T${cleaned.padStart(8, "0")}`);
+    handlers.onTicket(cleaned.startsWith("T") ? cleaned : "T" + cleaned.padStart(8, "0"));
   } else {
     handlers.onUnknown?.(cleaned);
   }
