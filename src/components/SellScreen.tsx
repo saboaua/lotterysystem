@@ -9,7 +9,6 @@ import {
   X,
   Banknote,
   Bookmark,
-  Copy,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Game, TicketLine } from "@/lib/types";
@@ -33,10 +32,6 @@ export function SellScreen() {
     removeLine,
     clearLines,
     sellTicket,
-    cancelTicket,
-    redeemTicket,
-    replayTicket,
-    lastTicketId,
     selectedRetailerId,
     retailers,
     total,
@@ -159,17 +154,27 @@ export function SellScreen() {
   }
 
   function addPlay() {
-    if (!primary) return toast("Select a game", true);
+    if (!primary) {
+      toast("Select a game", true);
+      return;
+    }
     let amount = parseFloat(amt);
     if (primary.format === "jackpot" && primary.min_stake != null) {
       amount = primary.min_stake;
     }
-    if (!amount || amount <= 0) return toast("Enter amount", true);
+    if (!amount || amount <= 0) {
+      toast("Enter amount", true);
+      return;
+    }
     if (primary.format !== "jackpot") {
-      if (primary.min_stake != null && amount < primary.min_stake)
-        return toast(`Min stake ${currency} ${primary.min_stake}`, true);
-      if (primary.max_stake != null && amount > primary.max_stake)
-        return toast(`Max stake ${currency} ${primary.max_stake}`, true);
+      if (primary.min_stake != null && amount < primary.min_stake) {
+        toast(`Min stake ${currency} ${primary.min_stake}`, true);
+        return;
+      }
+      if (primary.max_stake != null && amount > primary.max_stake) {
+        toast(`Max stake ${currency} ${primary.max_stake}`, true);
+        return;
+      }
     }
     const dates = [date];
     if (multiDraw > 1 && primary.format === "digit") {
@@ -181,7 +186,10 @@ export function SellScreen() {
       }
     }
     if (primary.format === "digit") {
-      if (num.length < digits) return toast(`Enter ${digits}-digit number`, true);
+      if (num.length < digits) {
+        toast(`Enter ${digits}-digit number`, true);
+        return;
+      }
       const number = num.padStart(digits, "0").slice(0, digits);
       for (const gid of sel) {
         for (const dd of dates) {
@@ -191,8 +199,14 @@ export function SellScreen() {
       setNum("");
     } else if (primary.format === "zodiac") {
       const syms = allZodiac ? ZODIAC_SYMBOLS.map((z) => z.id) : zodiacPick;
-      if (!syms.length) return toast("Pick at least one sign", true);
-      if (num.length < (primary.digits || 2)) return toast("Enter number", true);
+      if (!syms.length) {
+        toast("Pick at least one sign", true);
+        return;
+      }
+      if (num.length < (primary.digits || 2)) {
+        toast("Enter number", true);
+        return;
+      }
       for (const z of syms) {
         addLine({ game: primary.id, bet_type: "zodiac", number: `${num}-${z}`, amount, date, symbols: [z] });
       }
@@ -200,7 +214,10 @@ export function SellScreen() {
       setZodiacPick([]);
       setAllZodiac(false);
     } else if (primary.format === "whe") {
-      if (whePick == null) return toast("Pick a Play Whe mark", true);
+      if (whePick == null) {
+        toast("Pick a Play Whe mark", true);
+        return;
+      }
       addLine({
         game: primary.id,
         bet_type: "play_whe",
@@ -213,8 +230,14 @@ export function SellScreen() {
       setNum("");
     } else if (primary.format === "jackpot") {
       const need = primary.main_count ?? 5;
-      if (jackBalls.length !== need) return toast(`Pick ${need} numbers`, true);
-      if (primary.mega_count && !jackMega) return toast("Pick mega", true);
+      if (jackBalls.length !== need) {
+        toast(`Pick ${need} numbers`, true);
+        return;
+      }
+      if (primary.mega_count && !jackMega) {
+        toast("Pick mega", true);
+        return;
+      }
       addLine({
         game: primary.id,
         bet_type: "jackpot",
@@ -232,7 +255,10 @@ export function SellScreen() {
   }
 
   function sendTicket() {
-    if (!lines.length) return toast("No plays on ticket", true);
+    if (!lines.length) {
+      toast("No plays on ticket", true);
+      return;
+    }
     const t = sellTicket();
     if (!t) return;
     try {
@@ -259,8 +285,17 @@ export function SellScreen() {
     }
     if (heldLines && heldLines.length) {
       heldLines.forEach((l) => {
-        const { id: _id, ...rest } = l;
-        addLine(rest);
+        addLine({
+          game: l.game,
+          bet_type: l.bet_type,
+          number: l.number,
+          amount: l.amount,
+          date: l.date,
+          session: l.session,
+          symbols: l.symbols,
+          balls: l.balls,
+          mega: l.mega,
+        });
       });
       setHeldLines(null);
       toast("Order recalled");
@@ -270,7 +305,10 @@ export function SellScreen() {
   }
 
   function quickPick() {
-    if (!primary) return toast("Select a game", true);
+    if (!primary) {
+      toast("Select a game", true);
+      return;
+    }
     if (primary.format === "digit") {
       let s = "";
       for (let i = 0; i < digits; i++) s += Math.floor(Math.random() * 10);
@@ -659,7 +697,11 @@ export function SellScreen() {
               >
                 Submit
               </button>
-              <button type="button" onClick={() => setModal(null)} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold">
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold"
+              >
                 Close
               </button>
             </div>
