@@ -74,13 +74,22 @@ export function ResultsPanel() {
   }, [calCursor, games, holidays]);
 
   function saveResults() {
-    if (!gameId) return toast("Select a game", true);
+    if (!gameId) {
+      toast("Select a game", true);
+      return;
+    }
     if (g?.format === "whe") {
       const n = parseInt(whe, 10);
-      if (!n || n < 1 || n > 36) return toast("Play Whe mark 1-36 required", true);
+      if (!n || n < 1 || n > 36) {
+        toast("Play Whe mark 1-36 required", true);
+        return;
+      }
       setResults({ game_id: gameId, draw_date: d, session: session || undefined, whe: n, source: "manual" });
     } else if (g?.format === "digit") {
-      if (!first.trim()) return toast("1st number required", true);
+      if (!first.trim()) {
+        toast("1st number required", true);
+        return;
+      }
       setResults({
         game_id: gameId,
         draw_date: d,
@@ -144,7 +153,7 @@ export function ResultsPanel() {
                 })
               }
             >
-              ←
+              Prev
             </button>
             <span className="min-w-[140px] text-center text-sm font-bold">{monthLabel}</span>
             <button
@@ -157,7 +166,7 @@ export function ResultsPanel() {
                 })
               }
             >
-              →
+              Next
             </button>
           </div>
         </div>
@@ -172,7 +181,9 @@ export function ResultsPanel() {
               key={i}
               type="button"
               disabled={!c.day}
-              onClick={() => c.dateStr && setD(c.dateStr)}
+              onClick={() => {
+                if (c.dateStr) setD(c.dateStr);
+              }}
               className={`min-h-[64px] rounded-lg border p-1 text-left ${
                 !c.day
                   ? "border-transparent"
@@ -183,7 +194,7 @@ export function ResultsPanel() {
                       : "border-[var(--line)] bg-[var(--key)]/30 hover:border-indigo-400"
               } ${c.dateStr === d ? "ring-2 ring-indigo-500" : ""}`}
             >
-              {c.day && (
+              {c.day ? (
                 <>
                   <div className="text-xs font-bold">{c.day}</div>
                   {c.holiday ? (
@@ -203,7 +214,7 @@ export function ResultsPanel() {
                     </div>
                   )}
                 </>
-              )}
+              ) : null}
             </button>
           ))}
         </div>
@@ -247,7 +258,7 @@ export function ResultsPanel() {
                 value={session}
                 onChange={(e) => setSession(e.target.value)}
               >
-                <option value="">—</option>
+                <option value="">-</option>
                 {sessions.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.label}
@@ -326,11 +337,11 @@ export function ResultsPanel() {
                 <tr key={r.id} className="border-b border-[var(--line)] last:border-0">
                   <td className="px-2 py-2 font-mono">{r.draw_date}</td>
                   <td className="px-2 py-2 font-semibold">{game?.name || r.game_id}</td>
-                  <td className="px-2 py-2">{r.session || "—"}</td>
+                  <td className="px-2 py-2">{r.session || "-"}</td>
                   <td className="px-2 py-2 font-mono font-bold">
                     {r.whe != null
                       ? `Whe ${r.whe}`
-                      : [r.first, r.second, r.third].filter(Boolean).join(" / ") || "—"}
+                      : [r.first, r.second, r.third].filter(Boolean).join(" / ") || "-"}
                   </td>
                   <td className="px-2 py-2">{r.source || "manual"}</td>
                   <td className="px-2 py-2">{tickets}</td>
@@ -342,7 +353,7 @@ export function ResultsPanel() {
               {!drawCalcRows.length && (
                 <tr>
                   <td colSpan={7} className="px-2 py-4 text-center text-[var(--mut)]">
-                    No results yet — use Import winning numbers or enter manually.
+                    No results yet - use Import winning numbers or enter manually.
                   </td>
                 </tr>
               )}
@@ -383,7 +394,10 @@ export function ResultsPanel() {
           <button
             type="button"
             onClick={() => {
-              if (!holidayName.trim()) return toast("Name required", true);
+              if (!holidayName.trim()) {
+                toast("Name required", true);
+                return;
+              }
               addHoliday({ date: holidayDate, name: holidayName.trim() });
               setHolidayName("");
               toast("Holiday saved");
@@ -415,7 +429,7 @@ export function ResultsPanel() {
             </div>
           ))}
           {!holidays.length && (
-            <p className="text-xs text-[var(--mut)]">No holidays — import Aruba set or add manually.</p>
+            <p className="text-xs text-[var(--mut)]">No holidays - import Aruba set or add manually.</p>
           )}
         </div>
       </div>
