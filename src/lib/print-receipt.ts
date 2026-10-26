@@ -1,4 +1,5 @@
 import type { Ticket, TicketDesign, BrandSettings, Retailer, Game, Promotion } from "./types";
+import { buildJackpotTokenContext } from "./jackpot-tokens";
 
 /** Code 128B pattern table (start B = 104, stop = 106). Values are bar/space widths. */
 const CODE128_PATTERNS: string[] = [
@@ -82,9 +83,16 @@ export function printReceipt(opts: {
 
   const primaryGameId = ticket.lines[0]?.game;
   const primaryGame = games.find((g) => g.id === primaryGameId);
+  // Prefer a jackpot line on the ticket as primary for generic {jackpot}
+  const jackpotLineGame = ticket.lines
+    .map((l) => games.find((g) => g.id === l.game))
+    .find((g) => g?.format === "jackpot");
+  const jpPrimary = jackpotLineGame || primaryGame;
   const activePromo =
     (ticket.promo_id && promotions.find((p) => p.id === ticket.promo_id)) ||
     promotions.find((p) => p.active);
+
+  const jpCtx = buildJackpotTokenContext(games, jpPrimary);
 
   const ctx: Record<string, string> = {
     date: new Date(ticket.created_at).toLocaleDateString(),
@@ -92,20 +100,11 @@ export function printReceipt(opts: {
     game: primaryGame?.name || "",
     game1: primaryGame?.name || "",
     amount: ticket.total.toFixed(2),
-    amount1:
-      primaryGame?.jackpot_current != null ? String(primaryGame.jackpot_current) : "-",
-    jackpot:
-      primaryGame?.jackpot_current != null ? String(primaryGame.jackpot_current) : "-",
-    prev_jackpot:
-      primaryGame?.jackpot_previous != null
-        ? String(primaryGame.jackpot_previous)
-        : primaryGame?.jackpot_current != null
-          ? String(primaryGame.jackpot_current)
-          : "-",
     currency,
     retailer: retailer?.name || "",
     ticket_id: ticket.id,
     promo: ticket.promo_code || activePromo?.label || "",
+    ...jpCtx,
   };
 
   const logoSrc = design.logo || brand.logo;
@@ -197,8 +196,11 @@ export function printReceipt(opts: {
 
   const motdPlacement = design.motd_placement || "after_total";
 
+  const hasAnyJackpotPool = Object.keys(jpCtx).some(
+    (k) => k.startsWith("jackpot") && jpCtx[k] && jpCtx[k] !== "-"
+  );
   const jackpotHtml =
-    design.show_jackpot && primaryGame?.jackpot_current != null
+    design.show_jackpot !== false && hasAnyJackpotPool
       ? '<div class="jackpot">' +
         fillTokens(design.jackpot_text || "Jackpot: {currency} {jackpot}", ctx) +
         "</div>"
