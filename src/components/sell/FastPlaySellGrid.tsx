@@ -158,7 +158,7 @@ export function FastPlaySellGrid() {
                 {currency} {badge}
               </span>
 
-              {/* Logo dominates the tile */}
+              {/* Logo dominates the tile — object-contain so full logo is visible */}
               <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-2 pb-1 pt-7">
                 {g.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -166,7 +166,7 @@ export function FastPlaySellGrid() {
                     src={g.logo}
                     alt=""
                     className={
-                      "h-20 w-20 shrink-0 rounded-2xl object-cover shadow-lg sm:h-24 sm:w-24 " +
+                      "h-20 w-20 shrink-0 rounded-2xl object-contain bg-white/10 shadow-lg sm:h-24 sm:w-24 " +
                       (can
                         ? "border-2 border-white/50"
                         : "border-2 border-slate-200 opacity-70 dark:border-slate-600")
