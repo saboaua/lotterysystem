@@ -61,7 +61,7 @@ export function FastPlaySellGrid() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Price point + Qty toolbar */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -107,8 +107,8 @@ export function FastPlaySellGrid() {
         </div>
       </div>
 
-      {/* Game tiles */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+      {/* Game tiles — shorter height, larger logos */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         {available.map((g) => {
           const can = g.prices.includes(price);
           const badge = can ? price : g.default_price;
@@ -128,7 +128,7 @@ export function FastPlaySellGrid() {
                 sellOne(g, price, qty);
               }}
               className={
-                "group relative flex aspect-[3/4] flex-col overflow-hidden rounded-2xl text-left shadow-md transition " +
+                "group relative flex min-h-[11.5rem] flex-col overflow-hidden rounded-2xl text-left shadow-md transition " +
                 (can
                   ? "text-white hover:brightness-105 active:scale-[0.98]"
                   : "cursor-not-allowed bg-slate-100 text-slate-400 ring-1 ring-slate-200/80 dark:bg-slate-800/60 dark:text-slate-500 dark:ring-slate-700")
@@ -158,15 +158,15 @@ export function FastPlaySellGrid() {
                 {currency} {badge}
               </span>
 
-              {/* Logo + name + top prize */}
-              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-3 pb-2 pt-9">
+              {/* Logo dominates the tile */}
+              <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-2 pb-1 pt-7">
                 {g.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={g.logo}
                     alt=""
                     className={
-                      "h-[4.25rem] w-[4.25rem] rounded-2xl object-cover shadow-lg " +
+                      "h-20 w-20 shrink-0 rounded-2xl object-cover shadow-lg sm:h-24 sm:w-24 " +
                       (can
                         ? "border-2 border-white/50"
                         : "border-2 border-slate-200 opacity-70 dark:border-slate-600")
@@ -175,7 +175,7 @@ export function FastPlaySellGrid() {
                 ) : (
                   <div
                     className={
-                      "grid h-[4.25rem] w-[4.25rem] place-items-center rounded-2xl text-lg font-black " +
+                      "grid h-20 w-20 shrink-0 place-items-center rounded-2xl text-xl font-black sm:h-24 sm:w-24 " +
                       (can
                         ? "bg-black/25 text-white"
                         : "bg-slate-200 text-slate-400 dark:bg-slate-700")
@@ -196,7 +196,7 @@ export function FastPlaySellGrid() {
                   {g.top_prize != null ? (
                     <div
                       className={
-                        "mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold " +
+                        "mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold " +
                         (can
                           ? "bg-black/25 text-white/95"
                           : "bg-slate-200/80 text-slate-500 dark:bg-slate-700/80")
@@ -204,7 +204,7 @@ export function FastPlaySellGrid() {
                     >
                       <span
                         className={
-                          "grid h-4 w-4 place-items-center rounded-full text-[9px] " +
+                          "grid h-3.5 w-3.5 place-items-center rounded-full text-[8px] " +
                           (can
                             ? "bg-amber-400/90 text-amber-950"
                             : "bg-slate-300 text-slate-500")
@@ -224,7 +224,7 @@ export function FastPlaySellGrid() {
               {/* Footer CTA */}
               <div
                 className={
-                  "px-2 py-2 text-center text-[10px] font-extrabold uppercase tracking-wide " +
+                  "px-2 py-1.5 text-center text-[10px] font-extrabold uppercase tracking-wide " +
                   (can
                     ? "bg-black/30 text-white"
                     : "bg-slate-200/90 text-slate-500 dark:bg-slate-700/80 dark:text-slate-400")
