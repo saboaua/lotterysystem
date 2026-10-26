@@ -50,7 +50,16 @@ export interface Game {
   cutoff: string;
   enabled: boolean;
   draw_days?: number[];
+  /** Current advertised jackpot for next draw */
   jackpot_current?: number;
+  /** Jackpot before last rollover (for MOTD / reports) */
+  jackpot_previous?: number;
+  /** Floor / reset amount after a jackpot win */
+  jackpot_base?: number;
+  /** Fixed amount added when a draw closes with no jackpot winner */
+  jackpot_increment?: number;
+  /** Percent of that draw's sales added to the pool when no jackpot winner (0–100) */
+  jackpot_sales_pct?: number;
   main_count?: number;
   main_max?: number;
   mega_count?: number;
@@ -78,6 +87,10 @@ export interface Retailer {
   lat?: number;
   lng?: number;
   username?: string;
+  /** ISO timestamp of last successful ping from POS */
+  last_seen?: string;
+  /** Server-side acknowledgement timestamp (base ping-back) */
+  last_ack?: string;
 }
 
 export interface BetType {
@@ -153,6 +166,12 @@ export interface DrawResult {
   zodiac?: string;
   whe?: number;
   source?: string;
+  /** Jackpot amount at close of this draw (before rollover) */
+  jackpot_at_draw?: number;
+  /** New jackpot advertised for next draw after rollover / reset */
+  jackpot_next?: number;
+  /** True if jackpot tier had at least one winner */
+  jackpot_won?: boolean;
 }
 
 export interface Holiday {
@@ -226,6 +245,10 @@ export interface BrandSettings {
   led_color: string;
   logo?: string;
   led_schedule?: LedScheduleMessage[];
+  /** How often POS sends a presence ping (seconds). Default 60. */
+  ping_interval_sec?: number;
+  /** Seconds without a ping before a shop is considered offline. Default 3x interval. */
+  offline_after_sec?: number;
 }
 
 export type TicketMessagePlacement =
@@ -274,7 +297,7 @@ export interface TicketDesign {
   line_gap?: number;
   messages?: string[];
   schedule_messages?: TicketScheduleMessage[];
-  /** Manual message of the day (MOTD) */
+  /** Manual message of the day (MOTD) — always rendered before scheduled messages at the same placement */
   manual_text?: string;
   /** Games this MOTD applies to; empty = all tickets */
   manual_text_game_ids?: string[];
