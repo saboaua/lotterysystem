@@ -5,9 +5,14 @@ import { useStore } from "@/lib/store";
 import type { FastPlayGame, FastPlayPrice } from "@/lib/types";
 
 const PRICE_POINTS: FastPlayPrice[] = [2, 3, 5, 7];
+const QTY_OPTIONS = [1, 2, 5, 10];
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function formatPrize(n: number) {
+  return n.toLocaleString("en-US");
 }
 
 export function FastPlaySellGrid() {
@@ -19,7 +24,10 @@ export function FastPlaySellGrid() {
     () =>
       [...fastPlayGames]
         .filter((g) => g.active && g.show_on_sell)
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)),
+        .sort(
+          (a, b) =>
+            (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
+        ),
     [fastPlayGames]
   );
 
@@ -53,92 +61,176 @@ export function FastPlaySellGrid() {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-4">
+      {/* Price point + Qty toolbar */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
           Price point
         </span>
-        {PRICE_POINTS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setPrice(p)}
-            className={
-              "h-10 min-w-[3.25rem] rounded-full px-3 text-sm font-extrabold shadow-sm " +
-              (price === p
-                ? "bg-rose-600 text-white ring-2 ring-rose-300"
-                : "bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200")
-            }
-          >
-            {currency} {p}
-          </button>
-        ))}
-        <span className="ml-2 text-[11px] font-bold uppercase text-slate-400">Qty</span>
-        {[1, 2, 5, 10].map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => setQty(n)}
-            className={
-              "h-9 min-w-[2.5rem] rounded-full px-2.5 text-xs font-bold " +
-              (qty === n ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-700")
-            }
-          >
-            {n}×
-          </button>
-        ))}
+        <div className="flex flex-wrap gap-1.5">
+          {PRICE_POINTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPrice(p)}
+              className={
+                "h-9 min-w-[4.25rem] rounded-full px-3.5 text-sm font-extrabold transition " +
+                (price === p
+                  ? "bg-rose-500 text-white shadow-md shadow-rose-500/30"
+                  : "bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700")
+              }
+            >
+              {currency} {p}
+            </button>
+          ))}
+        </div>
+
+        <span className="ml-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+          Qty
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {QTY_OPTIONS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setQty(n)}
+              className={
+                "grid h-9 min-w-[2.75rem] place-items-center rounded-full px-2.5 text-xs font-extrabold transition " +
+                (qty === n
+                  ? "bg-slate-900 text-white shadow-md dark:bg-white dark:text-slate-900"
+                  : "bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700")
+              }
+            >
+              {n}×
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+      {/* Game tiles */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         {available.map((g) => {
           const can = g.prices.includes(price);
           const badge = can ? price : g.default_price;
+          const footer = can
+            ? `ADD ${qty}× @ ${currency} ${price}`
+            : g.prices.length === 1
+              ? `ONLY ${currency} ${g.prices[0]}`
+              : `ONLY ${currency} ${g.prices.join(" · ")}`;
+
           return (
             <button
               key={g.id}
               type="button"
               disabled={!can}
-              onClick={() => sellOne(g, can ? price : g.default_price, qty)}
-              className={
-                "relative flex aspect-[4/5] flex-col overflow-hidden rounded-2xl text-left text-white shadow-md transition " +
-                (can ? "hover:brightness-110 active:scale-[0.98]" : "cursor-not-allowed opacity-40 grayscale")
-              }
-              style={{
-                background:
-                  "linear-gradient(160deg, " +
-                  g.color +
-                  ", color-mix(in srgb, " +
-                  g.color +
-                  " 45%, #111))",
+              onClick={() => {
+                if (!can) return;
+                sellOne(g, price, qty);
               }}
+              className={
+                "group relative flex aspect-[3/4] flex-col overflow-hidden rounded-2xl text-left shadow-md transition " +
+                (can
+                  ? "text-white hover:brightness-105 active:scale-[0.98]"
+                  : "cursor-not-allowed bg-slate-100 text-slate-400 ring-1 ring-slate-200/80 dark:bg-slate-800/60 dark:text-slate-500 dark:ring-slate-700")
+              }
+              style={
+                can
+                  ? {
+                      background:
+                        "linear-gradient(165deg, " +
+                        g.color +
+                        " 0%, color-mix(in srgb, " +
+                        g.color +
+                        " 55%, #0f172a) 100%)",
+                    }
+                  : undefined
+              }
             >
-              <span className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-black tabular-nums shadow">
+              {/* Corner price badge */}
+              <span
+                className={
+                  "absolute right-2 top-2 z-10 rounded-full px-2 py-0.5 text-[11px] font-black tabular-nums shadow " +
+                  (can
+                    ? "bg-black/60 text-white"
+                    : "bg-slate-300/90 text-slate-600 dark:bg-slate-700 dark:text-slate-300")
+                }
+              >
                 {currency} {badge}
               </span>
-              <div className="flex flex-1 flex-col items-center justify-center gap-2 p-3 pt-8">
+
+              {/* Logo + name + top prize */}
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-3 pb-2 pt-9">
                 {g.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={g.logo}
                     alt=""
-                    className="h-16 w-16 rounded-2xl border-2 border-white/40 object-cover shadow-lg"
+                    className={
+                      "h-[4.25rem] w-[4.25rem] rounded-2xl object-cover shadow-lg " +
+                      (can
+                        ? "border-2 border-white/50"
+                        : "border-2 border-slate-200 opacity-70 dark:border-slate-600")
+                    }
                   />
                 ) : (
-                  <div className="grid h-16 w-16 place-items-center rounded-2xl bg-black/25 text-lg font-black">
+                  <div
+                    className={
+                      "grid h-[4.25rem] w-[4.25rem] place-items-center rounded-2xl text-lg font-black " +
+                      (can
+                        ? "bg-black/25 text-white"
+                        : "bg-slate-200 text-slate-400 dark:bg-slate-700")
+                    }
+                  >
                     FP
                   </div>
                 )}
+
                 <div className="text-center">
-                  <div className="text-sm font-extrabold leading-tight drop-shadow">{g.name}</div>
+                  <div
+                    className={
+                      "text-[13px] font-extrabold leading-tight " + (can ? "drop-shadow-sm" : "")
+                    }
+                  >
+                    {g.name}
+                  </div>
                   {g.top_prize != null ? (
-                    <div className="mt-0.5 text-[10px] font-semibold opacity-90">
-                      Top {currency} {Number(g.top_prize).toLocaleString()}
+                    <div
+                      className={
+                        "mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold " +
+                        (can
+                          ? "bg-black/25 text-white/95"
+                          : "bg-slate-200/80 text-slate-500 dark:bg-slate-700/80")
+                      }
+                    >
+                      <span
+                        className={
+                          "grid h-4 w-4 place-items-center rounded-full text-[9px] " +
+                          (can
+                            ? "bg-amber-400/90 text-amber-950"
+                            : "bg-slate-300 text-slate-500")
+                        }
+                        aria-hidden
+                      >
+                        ¢
+                      </span>
+                      <span>
+                        TOP {currency} {formatPrize(Number(g.top_prize))}
+                      </span>
                     </div>
                   ) : null}
                 </div>
               </div>
-              <div className="bg-black/25 px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide">
-                {can ? `Add ${qty}× @ ${currency} ${price}` : `Only ${g.prices.map((p) => currency + " " + p).join(" · ")}`}
+
+              {/* Footer CTA */}
+              <div
+                className={
+                  "px-2 py-2 text-center text-[10px] font-extrabold uppercase tracking-wide " +
+                  (can
+                    ? "bg-black/30 text-white"
+                    : "bg-slate-200/90 text-slate-500 dark:bg-slate-700/80 dark:text-slate-400")
+                }
+              >
+                {footer}
               </div>
             </button>
           );
