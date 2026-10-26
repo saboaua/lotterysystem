@@ -5,6 +5,15 @@ import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { TicketScheduleMessage } from "@/lib/types";
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
 function fillTokens(tpl: string, ctx: Record<string, string>): string {
   return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
 }
@@ -24,14 +33,18 @@ export function TicketDesignPanel() {
 
   const shop = retailers.find((r) => r.id === selectedRetailerId) || retailers[0];
   const previewGame =
-    games.find((g) => g.id === d.preview_game_id) || games.find((g) => g.enabled) || games[0];
+    games.find((g) => g.id === d.preview_game_id) ||
+    games.find((g) => g.format === "jackpot" && g.enabled) ||
+    games.find((g) => g.enabled) ||
+    games[0];
   const activePromo = promotions.find((p) => p.active);
 
   const ctx = useMemo(() => {
-    const jack = previewGame?.jackpot_current != null ? String(previewGame.jackpot_current) : "-";
+    const rawJack = previewGame?.jackpot_current ?? previewGame?.jackpot_base ?? null;
+    const jack = rawJack != null ? Number(rawJack).toLocaleString() : "-";
     const prev =
       previewGame?.jackpot_previous != null
-        ? String(previewGame.jackpot_previous)
+        ? Number(previewGame.jackpot_previous).toLocaleString()
         : jack;
     return {
       date: new Date().toLocaleDateString(),
@@ -92,7 +105,147 @@ export function TicketDesignPanel() {
               onBlur={(e) => updateTicketDesign({ footer: e.target.value })}
             />
           </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Font
+            <select
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={d.font || "mono"}
+              onChange={(e) => updateTicketDesign({ font: e.target.value })}
+            >
+              <option value="mono">Monospace</option>
+              <option value="sans">Sans</option>
+              <option value="serif">Serif</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Body size (px)
+            <input
+              type="number"
+              min={10}
+              max={28}
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={d.size || 13}
+              onChange={(e) => updateTicketDesign({ size: parseInt(e.target.value, 10) || 13 })}
+            />
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Text align
+            <select
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={d.align || "center"}
+              onChange={(e) =>
+                updateTicketDesign({ align: e.target.value as "left" | "center" | "right" })
+              }
+            >
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Logo height (px)
+            <input
+              type="number"
+              min={20}
+              max={120}
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={d.logo_height || 40}
+              onChange={(e) =>
+                updateTicketDesign({ logo_height: parseInt(e.target.value, 10) || 40 })
+              }
+            />
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Paper size
+            <select
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={paper}
+              onChange={(e) =>
+                updateTicketDesign({
+                  paper_size: e.target.value as "58mm" | "80mm" | "A4",
+                })
+              }
+            >
+              <option value="58mm">58mm</option>
+              <option value="80mm">80mm</option>
+              <option value="A4">A4</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            Preview game
+            <select
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={d.preview_game_id || previewGame?.id || ""}
+              onChange={(e) => updateTicketDesign({ preview_game_id: e.target.value })}
+            >
+              {games.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                  {g.format === "jackpot" && g.jackpot_current != null
+                    ? ` · JP ${Number(g.jackpot_current).toLocaleString()}`
+                    : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            QR size (px)
+            <input
+              type="number"
+              min={60}
+              max={200}
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              value={d.qr_size || 100}
+              onChange={(e) => updateTicketDesign({ qr_size: parseInt(e.target.value, 10) || 100 })}
+            />
+          </label>
+          <label className="text-xs font-semibold text-[var(--mut)]">
+            QR prefix (optional)
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+              defaultValue={d.qr_prefix || ""}
+              onBlur={(e) => updateTicketDesign({ qr_prefix: e.target.value })}
+            />
+          </label>
         </div>
+
+        <div className="flex flex-wrap gap-3 text-xs font-semibold">
+          {(
+            [
+              ["show_logo", "Logo"],
+              ["show_name", "Name"],
+              ["show_retailer", "Retailer"],
+              ["show_datetime", "Date/time"],
+              ["show_barcode", "Barcode (Code 128)"],
+              ["show_qr", "QR Code"],
+              ["show_jackpot", "Jackpot line"],
+              ["bold_total", "Bold total"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={d[key] !== false && !!d[key]}
+                onChange={(e) => updateTicketDesign({ [key]: e.target.checked })}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+
+        <label className="block text-[11px] font-semibold text-[var(--mut)]">
+          Jackpot line text
+          <input
+            className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+            defaultValue={d.jackpot_text || "Jackpot: {currency} {jackpot}"}
+            onBlur={(e) => updateTicketDesign({ jackpot_text: e.target.value })}
+            placeholder="Jackpot: {currency} {jackpot}"
+          />
+          <span className="mt-0.5 block text-[10px] font-normal text-[var(--mut)]">
+            Tokens: {"{currency} {jackpot} {prev_jackpot}"}. Enable “Jackpot line” and choose a
+            jackpot Preview game (e.g. Lotto Mac) to see the pool amount.
+          </span>
+        </label>
 
         <div className="space-y-2 rounded-xl border border-[var(--line)] bg-[var(--key)]/40 p-3">
           <div className="text-xs font-bold uppercase text-[var(--mut)]">
@@ -100,7 +253,7 @@ export function TicketDesignPanel() {
           </div>
           <p className="text-[11px] text-[var(--mut)]">
             Always prints under TOTAL (or after promo). Schedule lines at the same placement can sit
-            before or after this text (each on its own line). example: BBO and AZV included!
+            before or after this text. example: BBO and AZV included!
           </p>
           <textarea
             className="min-h-[64px] w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 py-2 text-sm"
@@ -289,7 +442,9 @@ export function TicketDesignPanel() {
       </div>
 
       <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
-        <h3 className="mb-3 text-sm font-bold uppercase text-[var(--mut)]">Preview</h3>
+        <h3 className="mb-3 text-sm font-bold uppercase text-[var(--mut)]">
+          Live ticket preview · {paper}
+        </h3>
         <div
           className="mx-auto rounded-lg border border-dashed border-slate-300 bg-white p-3 text-black shadow-inner"
           style={{
@@ -319,6 +474,9 @@ export function TicketDesignPanel() {
           {d.show_retailer ? (
             <div className="mt-1 whitespace-pre-line text-[11px] text-slate-600">{retailerBlock}</div>
           ) : null}
+          {d.show_datetime !== false ? (
+            <div className="text-[10px] text-slate-500">T00001234 · {ctx.date}</div>
+          ) : null}
           <div className="my-2 border-t border-dashed border-slate-300" />
           <div className="text-left text-[12px]">
             <div className="flex justify-between border-b border-dotted border-slate-200 py-0.5">
@@ -332,7 +490,15 @@ export function TicketDesignPanel() {
               </span>
             </div>
           </div>
-          <div className="mt-2 border-t border-dashed border-black pt-1 text-base font-extrabold">
+          {d.show_jackpot && ctx.jackpot !== "-" ? (
+            <div className="mt-1 text-[11px] font-semibold text-amber-800">
+              {fillTokens(d.jackpot_text || "Jackpot: {currency} {jackpot}", ctx)}
+            </div>
+          ) : null}
+          <div
+            className="mt-2 border-t border-dashed border-black pt-1 text-base"
+            style={{ fontWeight: d.bold_total !== false ? 800 : 600 }}
+          >
             TOTAL {currency} 2.00
           </div>
           {(d.motd_placement || "after_total") === "after_total" &&
@@ -389,8 +555,25 @@ export function TicketDesignPanel() {
                   {fillTokens(m.text, ctx)}
                 </div>
               ))}
+          {d.show_barcode !== false ? (
+            <div className="mt-2 text-center text-[10px] tracking-widest text-slate-400">
+              ║║▌║█║▌│║▌║║▌║█║▌│║▌║
+              <div className="font-mono text-[9px] text-slate-500">T00001234</div>
+            </div>
+          ) : null}
+          {d.show_qr ? (
+            <div className="mt-2 text-center text-[10px] text-slate-400">[QR {d.qr_size || 100}px]</div>
+          ) : null}
           <div className="mt-3 text-[11px] text-slate-500">{d.footer || "Good luck!"}</div>
         </div>
+        {previewGame?.format === "jackpot" && (
+          <p className="mt-2 text-center text-[11px] text-[var(--mut)]">
+            Preview game: <strong>{previewGame.name}</strong> · pool{" "}
+            <strong className="text-amber-700">
+              {currency} {ctx.jackpot}
+            </strong>
+          </p>
+        )}
       </div>
     </div>
   );
