@@ -31,7 +31,7 @@ export function TicketDesignPanel() {
     games[0];
   const activePromo = promotions.find((p) => p.active);
 
-  const ctx = useMemo(() => {
+  const ctx = useMemo((): Record<string, string> => {
     // Full progressive-pool tokens ({jackpot}, {jackpot_lm}, {prev_jackpot_*}, …)
     // so scheduled MOTD lines resolve the same way as print-receipt.
     const jpCtx = buildJackpotTokenContext(games, previewGame);
