@@ -3,16 +3,20 @@
 import { useEffect, useRef } from "react";
 import type { Retailer } from "@/lib/types";
 
+// Leaflet is loaded from CDN at runtime (no npm dependency).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LeafletNS = any;
+
 declare global {
   interface Window {
-    L?: typeof import("leaflet");
+    L?: LeafletNS;
   }
 }
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
-function loadLeaflet(): Promise<NonNullable<typeof window.L>> {
+function loadLeaflet(): Promise<LeafletNS> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined") {
       reject(new Error("no window"));
@@ -68,9 +72,9 @@ export function OsmMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<{
-    map: import("leaflet").Map;
-    markers: import("leaflet").LayerGroup;
-    L: NonNullable<typeof window.L>;
+    map: LeafletNS;
+    markers: LeafletNS;
+    L: LeafletNS;
   } | null>(null);
 
   const withCoords = retailers.filter((r) => r.lat != null && r.lng != null);
@@ -96,7 +100,6 @@ export function OsmMap({
         const markers = L.layerGroup().addTo(map);
         mapRef.current = { map, markers, L };
 
-        // Fix grey tiles when container was hidden at init
         setTimeout(() => map.invalidateSize(), 80);
       })
       .catch(() => {
@@ -179,7 +182,8 @@ export function OsmMap({
           <span className="h-2 w-2 rounded-full bg-rose-500" /> Inactive
         </span>
         <span className="ml-auto font-semibold">
-          {withCoords.length} located · {withCoords.filter((r) => isOnline(r, offlineAfterSec)).length} online
+          {withCoords.length} located ·{" "}
+          {withCoords.filter((r) => isOnline(r, offlineAfterSec)).length} online
         </span>
       </div>
       <p className="border-t border-[var(--line)] px-3 py-1.5 text-[10px] text-[var(--mut)]">
