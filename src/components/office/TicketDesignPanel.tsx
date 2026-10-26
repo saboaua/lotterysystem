@@ -5,15 +5,6 @@ import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { TicketScheduleMessage } from "@/lib/types";
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-
 function fillTokens(tpl: string, ctx: Record<string, string>): string {
   return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
 }
@@ -161,9 +152,7 @@ export function TicketDesignPanel() {
               className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
               value={paper}
               onChange={(e) =>
-                updateTicketDesign({
-                  paper_size: e.target.value as "58mm" | "80mm" | "A4",
-                })
+                updateTicketDesign({ paper_size: e.target.value as "58mm" | "80mm" | "A4" })
               }
             >
               <option value="58mm">58mm</option>
@@ -225,7 +214,7 @@ export function TicketDesignPanel() {
             <label key={key} className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={d[key] !== false && !!d[key]}
+                checked={key === "show_qr" ? !!d[key] : d[key] !== false}
                 onChange={(e) => updateTicketDesign({ [key]: e.target.checked })}
               />
               {label}
@@ -242,8 +231,8 @@ export function TicketDesignPanel() {
             placeholder="Jackpot: {currency} {jackpot}"
           />
           <span className="mt-0.5 block text-[10px] font-normal text-[var(--mut)]">
-            Tokens: {"{currency} {jackpot} {prev_jackpot}"}. Enable “Jackpot line” and choose a
-            jackpot Preview game (e.g. Lotto Mac) to see the pool amount.
+            Tokens: {"{currency} {jackpot} {prev_jackpot}"}. Choose Preview game = Lotto Mac to see the
+            progressive pool on the ticket.
           </span>
         </label>
 
@@ -333,8 +322,7 @@ export function TicketDesignPanel() {
             </button>
           </div>
           <p className="text-[11px] text-[var(--mut)]">
-            Tokens: {"{game} {jackpot} {prev_jackpot} {date} {draw_time} {currency} {promo}"}. After
-            total/promo: choose before or after manual text.
+            Tokens: {"{game} {jackpot} {prev_jackpot} {date} {draw_time} {currency} {promo}"}.
           </p>
           {schedule.map((m, idx) => (
             <div
@@ -459,7 +447,7 @@ export function TicketDesignPanel() {
             textAlign: d.align || "center",
           }}
         >
-          {d.show_logo && logoSrc ? (
+          {d.show_logo !== false && logoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoSrc}
@@ -471,7 +459,7 @@ export function TicketDesignPanel() {
           {d.show_name !== false ? (
             <div className="text-base font-extrabold">{d.header || brand.name}</div>
           ) : null}
-          {d.show_retailer ? (
+          {d.show_retailer !== false ? (
             <div className="mt-1 whitespace-pre-line text-[11px] text-slate-600">{retailerBlock}</div>
           ) : null}
           {d.show_datetime !== false ? (
@@ -490,7 +478,7 @@ export function TicketDesignPanel() {
               </span>
             </div>
           </div>
-          {d.show_jackpot && ctx.jackpot !== "-" ? (
+          {d.show_jackpot !== false && ctx.jackpot !== "-" ? (
             <div className="mt-1 text-[11px] font-semibold text-amber-800">
               {fillTokens(d.jackpot_text || "Jackpot: {currency} {jackpot}", ctx)}
             </div>
