@@ -39,6 +39,9 @@ type Sub =
   | "account"
   | "help";
 
+const ICON_SIZE = 20;
+const ICON_STROKE = 1.75;
+
 const TABS: { id: Sub; label: string; icon: typeof Gamepad2 }[] = [
   { id: "games", label: "Games & schedule", icon: Gamepad2 },
   { id: "calendar", label: "Draw calendar", icon: CalendarDays },
@@ -75,28 +78,41 @@ export function OfficeScreen() {
             <div className="text-[11px] text-slate-500">Owner back office</div>
           </div>
         </div>
-        <div className="flex gap-1 overflow-x-auto pb-3">
-          {TABS.map((t) => {
-            const Icon = t.icon;
-            const on = sub === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setSub(t.id)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-2xl px-3.5 py-2.5 text-xs font-semibold transition ${
-                  on
-                    ? "bg-violet-600 text-white shadow-md shadow-violet-600/30"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
-                }`}
-              >
-                <Icon size={14} />
-                {t.label}
-              </button>
-            );
-          })}
+
+        {/* Pill nav — icons same size, stacked like design */}
+        <div className="mb-3 overflow-x-auto">
+          <div className="inline-flex min-w-full items-stretch gap-0.5 rounded-[1.25rem] bg-slate-100/90 p-1.5 dark:bg-slate-800/80">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const on = sub === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSub(t.id)}
+                  className={
+                    "flex min-w-[5.5rem] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2.5 transition " +
+                    (on
+                      ? "bg-violet-600 text-white shadow-md shadow-violet-600/25"
+                      : "text-slate-500 hover:bg-white/70 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200")
+                  }
+                >
+                  <Icon
+                    size={ICON_SIZE}
+                    strokeWidth={ICON_STROKE}
+                    className="h-5 w-5 shrink-0"
+                    aria-hidden
+                  />
+                  <span className="max-w-[6.5rem] text-center text-[10px] font-semibold leading-tight">
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
+
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {sub === "games" && <GamesPanel />}
         {sub === "calendar" && <ResultsPanel mode="calendar" />}
