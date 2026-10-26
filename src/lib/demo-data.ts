@@ -100,6 +100,8 @@ export const DEMO_GAMES: Game[] = [
     jackpot_sales_pct: 30,
     jackpot_cap: 5_000_000,
     jackpot_reserve_pct: 0,
+    /** Short code → {jackpot_lm} / {prev_jackpot_lm} on tickets */
+    jackpot_token: "lm",
     bet_types: ["jackpot"],
     min_stake: 1,
     max_stake: 1,
@@ -228,7 +230,7 @@ export const DEMO_TICKET_DESIGN: TicketDesign = {
     {
       id: "sm1",
       label: "Jackpot banner",
-      text: "★ Lotto Mac progressive: {currency} {jackpot} · prev {currency} {prev_jackpot} · Draw {draw_time}",
+      text: "★ Lotto Mac progressive: {currency} {jackpot_lm} · prev {currency} {prev_jackpot_lm} · Draw {draw_time}",
       game_ids: ["lottomac"],
       enabled: true,
       placement: "after_lines",
