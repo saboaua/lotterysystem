@@ -5,9 +5,15 @@ import { Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { ScrapeButtons } from "./ScrapeButtons";
 import { arubaHolidaysForYear } from "@/lib/aruba-holidays";
+import { ZODIAC_SYMBOLS } from "@/lib/constants";
+import { buildDrawCalcReport } from "@/lib/prize-tiers";
 
 function daysInMonth(y: number, m: number) {
   return new Date(y, m + 1, 0).getDate();
+}
+
+function formatAfl(n: number) {
+  return n.toLocaleString("nl-AW", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function ResultsPanel() {
@@ -30,12 +36,14 @@ export function ResultsPanel() {
   const [second, setSecond] = useState("");
   const [third, setThird] = useState("");
   const [whe, setWhe] = useState("");
+  const [zodiac, setZodiac] = useState("");
   const [holidayName, setHolidayName] = useState("");
   const [holidayDate, setHolidayDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [calCursor, setCalCursor] = useState(() => {
     const n = new Date();
     return { y: n.getFullYear(), m: n.getMonth() };
   });
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const g = games.find((x) => x.id === gameId);
   const sessions = g?.sessions || [];
@@ -85,6 +93,23 @@ export function ResultsPanel() {
         return;
       }
       setResults({ game_id: gameId, draw_date: d, session: session || undefined, whe: n, source: "manual" });
+    } else if (g?.format === "zodiac") {
+      if (!first.trim()) {
+        toast("Winning number required", true);
+        return;
+      }
+      if (!zodiac) {
+        toast("Zodiac sign required", true);
+        return;
+      }
+      setResults({
+        game_id: gameId,
+        draw_date: d,
+        session: session || undefined,
+        first: first.trim(),
+        zodiac,
+        source: "manual",
+      });
     } else if (g?.format === "digit") {
       if (!first.trim()) {
         toast("1st number required", true);
@@ -112,6 +137,8 @@ export function ResultsPanel() {
     setSecond("");
     setThird("");
     setWhe("");
+    setZodiac("");
+    toast("Results saved — open Draw calculation for payout tiers");
   }
 
   const monthLabel = new Date(calCursor.y, calCursor.m, 1).toLocaleString("en", {
@@ -122,18 +149,7 @@ export function ResultsPanel() {
   const drawCalcRows = useMemo(() => {
     return drawResults.map((r) => {
       const game = games.find((x) => x.id === r.game_id);
-      const tickets = soldTickets.filter(
-        (t) =>
-          t.status !== "cancelled" &&
-          t.lines.some(
-            (l) =>
-              l.game === r.game_id &&
-              l.date === r.draw_date &&
-              (r.session ? l.session === r.session : true)
-          )
-      );
-      const sales = tickets.reduce((s, t) => s + t.total, 0);
-      return { r, game, tickets: tickets.length, sales };
+      return buildDrawCalcReport(r, game, soldTickets);
     });
   }, [drawResults, games, soldTickets]);
 
@@ -232,6 +248,7 @@ export function ResultsPanel() {
               onChange={(e) => {
                 setGameId(e.target.value);
                 setSession("");
+                setZodiac("");
               }}
             >
               {games.map((gg) => (
@@ -276,6 +293,33 @@ export function ResultsPanel() {
                 onChange={(e) => setWhe(e.target.value)}
               />
             </label>
+          ) : g?.format === "zodiac" ? (
+            <>
+              <label className="text-[11px] font-semibold text-[var(--mut)]">
+                Winning number ({g.digits || 4} digits)
+                <input
+                  className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm font-mono"
+                  value={first}
+                  onChange={(e) => setFirst(e.target.value)}
+                  placeholder="e.g. 4821"
+                />
+              </label>
+              <label className="text-[11px] font-semibold text-[var(--mut)]">
+                Zodiac sign
+                <select
+                  className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] px-3 text-sm"
+                  value={zodiac}
+                  onChange={(e) => setZodiac(e.target.value)}
+                >
+                  <option value="">Select sign</option>
+                  {ZODIAC_SYMBOLS.map((z) => (
+                    <option key={z.id} value={z.id}>
+                      {z.emoji} {z.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
           ) : (
             <>
               <label className="text-[11px] font-semibold text-[var(--mut)]">
@@ -315,50 +359,94 @@ export function ResultsPanel() {
       </div>
 
       <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
-        <h2 className="text-lg font-bold">Draw calculation (imported results)</h2>
+        <h2 className="text-lg font-bold">Draw calculation (prize structure)</h2>
         <p className="text-xs text-[var(--mut)]">
-          Winning numbers ready for settlement. Ticket counts use sales for that game and date.
+          Winning numbers matched against each game&apos;s prize tiers (e.g. Zodiaco 1st–4th). Ticket
+          counts use sales for that game and date.
         </p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-[var(--line)] text-[var(--mut)]">
-                <th className="px-2 py-2">Date</th>
-                <th className="px-2 py-2">Game</th>
-                <th className="px-2 py-2">Session</th>
-                <th className="px-2 py-2">Winning numbers</th>
-                <th className="px-2 py-2">Source</th>
-                <th className="px-2 py-2">Tickets</th>
-                <th className="px-2 py-2">Sales</th>
-              </tr>
-            </thead>
-            <tbody>
-              {drawCalcRows.map(({ r, game, tickets, sales }) => (
-                <tr key={r.id} className="border-b border-[var(--line)] last:border-0">
-                  <td className="px-2 py-2 font-mono">{r.draw_date}</td>
-                  <td className="px-2 py-2 font-semibold">{game?.name || r.game_id}</td>
-                  <td className="px-2 py-2">{r.session || "-"}</td>
-                  <td className="px-2 py-2 font-mono font-bold">
-                    {r.whe != null
-                      ? `Whe ${r.whe}`
-                      : [r.first, r.second, r.third].filter(Boolean).join(" / ") || "-"}
-                  </td>
-                  <td className="px-2 py-2">{r.source || "manual"}</td>
-                  <td className="px-2 py-2">{tickets}</td>
-                  <td className="px-2 py-2">
-                    {currency} {sales.toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-              {!drawCalcRows.length && (
-                <tr>
-                  <td colSpan={7} className="px-2 py-4 text-center text-[var(--mut)]">
-                    No results yet - use Import winning numbers or enter manually.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {drawCalcRows.map((row) => {
+            const r = row.result;
+            const open = expandedId === r.id;
+            const winLabel =
+              r.whe != null
+                ? `Whe ${r.whe}`
+                : r.zodiac
+                  ? `${r.first || "-"} · ${r.zodiac}`
+                  : [r.first, r.second, r.third].filter(Boolean).join(" / ") || "-";
+            return (
+              <div
+                key={r.id}
+                className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--key)]/30"
+              >
+                <button
+                  type="button"
+                  className="flex w-full flex-wrap items-center gap-2 px-3 py-2.5 text-left text-xs"
+                  onClick={() => setExpandedId(open ? null : r.id)}
+                >
+                  <span className="font-mono font-semibold">{r.draw_date}</span>
+                  <span className="font-bold">{row.game?.name || r.game_id}</span>
+                  <span className="text-[var(--mut)]">{r.session || "-"}</span>
+                  <span className="font-mono font-bold">{winLabel}</span>
+                  <span className="ml-auto text-[var(--mut)]">
+                    {row.tickets} tix · sales {currency} {formatAfl(row.sales)} · payout{" "}
+                    {currency} {formatAfl(row.totalPayout)}
+                  </span>
+                  <span className="text-[var(--mut)]">{open ? "▲" : "▼"}</span>
+                </button>
+                {open && (
+                  <div className="border-t border-[var(--line)] bg-[var(--card)] px-3 py-3">
+                    {!row.game?.prize_tiers?.length ? (
+                      <p className="text-xs text-amber-700">
+                        No prize tiers on this game — set them under Games &amp; schedule.
+                      </p>
+                    ) : (
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-[var(--line)] text-[var(--mut)]">
+                            <th className="px-2 py-1.5">Rank</th>
+                            <th className="px-2 py-1.5">Match</th>
+                            <th className="px-2 py-1.5">Prize</th>
+                            <th className="px-2 py-1.5">Winners</th>
+                            <th className="px-2 py-1.5">Payout</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {row.tierSummary.map(({ tier, winners, payout }) => (
+                            <tr key={tier.id} className="border-b border-[var(--line)] last:border-0">
+                              <td className="px-2 py-1.5 font-bold">{tier.label}</td>
+                              <td className="px-2 py-1.5">{tier.description}</td>
+                              <td className="px-2 py-1.5 font-mono">
+                                {currency} {formatAfl(tier.amount)}
+                              </td>
+                              <td className="px-2 py-1.5">{winners}</td>
+                              <td className="px-2 py-1.5 font-semibold">
+                                {currency} {formatAfl(payout)}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="bg-[var(--key)]/40 font-bold">
+                            <td className="px-2 py-2" colSpan={3}>
+                              Total ({row.winningLines} winning line(s))
+                            </td>
+                            <td className="px-2 py-2" />
+                            <td className="px-2 py-2">
+                              {currency} {formatAfl(row.totalPayout)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!drawCalcRows.length && (
+            <p className="py-4 text-center text-xs text-[var(--mut)]">
+              No results yet — import or enter winning numbers, then expand a row for tier payouts.
+            </p>
+          )}
         </div>
       </div>
 
