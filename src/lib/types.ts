@@ -50,11 +50,20 @@ export interface Game {
   cutoff: string;
   enabled: boolean;
   draw_days?: number[];
+  /** Advertised progressive pool for the next / current open draw */
   jackpot_current?: number;
+  /** Pool amount before the last rollover or win (for MOTD / reports) */
   jackpot_previous?: number;
+  /** Seed / floor after a jackpot win (progressive reset amount) */
   jackpot_base?: number;
+  /** Optional fixed amount added each draw with no jackpot winner */
   jackpot_increment?: number;
+  /** Percent of that draw's sales added to the progressive pool (0–100) */
   jackpot_sales_pct?: number;
+  /** Optional hard ceiling on the progressive pool */
+  jackpot_cap?: number;
+  /** Optional % of won jackpot reserved to help fund the next seed (0–100) */
+  jackpot_reserve_pct?: number;
   main_count?: number;
   main_max?: number;
   mega_count?: number;
@@ -165,8 +174,11 @@ export interface DrawResult {
   zodiac?: string;
   whe?: number;
   source?: string;
+  /** Progressive pool advertised at close of this draw */
   jackpot_at_draw?: number;
+  /** Progressive pool for the next draw after rollover or reset */
   jackpot_next?: number;
+  /** True if progressive (rank-1) tier had at least one winner */
   jackpot_won?: boolean;
 }
 
