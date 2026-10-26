@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Retailer } from "@/lib/types";
+import type { Retailer, RetailerStatus } from "@/lib/types";
 
 // Leaflet is loaded from CDN at runtime (no npm dependency).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,6 +50,11 @@ function loadLeaflet(): Promise<LeafletNS> {
     script.onerror = () => reject(new Error("Leaflet load error"));
     document.body.appendChild(script);
   });
+}
+
+function resolveStatus(r: Retailer): RetailerStatus {
+  if (r.status) return r.status;
+  return r.active ? "active" : "disabled";
 }
 
 function isOnline(r: Retailer, offlineAfterSec: number): boolean {
@@ -127,8 +132,25 @@ export function OsmMap({
       const lng = r.lng!;
       latlngs.push([lat, lng]);
       const online = isOnline(r, offlineAfterSec);
+      const st = resolveStatus(r);
       const selected = r.id === selectedId;
-      const color = !r.active ? "#f43f5e" : online ? "#10b981" : "#94a3b8";
+      // active+online green, active+offline gray, suspended amber, disabled rose
+      const color =
+        st === "disabled"
+          ? "#f43f5e"
+          : st === "suspended"
+            ? "#f59e0b"
+            : online
+              ? "#10b981"
+              : "#94a3b8";
+      const statusLabel =
+        st === "disabled"
+          ? "Disabled"
+          : st === "suspended"
+            ? "Suspended"
+            : online
+              ? "Online"
+              : "Offline";
       const icon = L.divIcon({
         className: "",
         html:
@@ -144,7 +166,7 @@ export function OsmMap({
       });
       const m = L.marker([lat, lng], { icon });
       m.on("click", () => onSelect(r.id));
-      m.bindTooltip(`#${r.number} ${r.name}${online ? " · Online" : " · Offline"}`, {
+      m.bindTooltip(`#${r.number} ${r.name} · ${statusLabel}`, {
         direction: "top",
         offset: [0, -28],
       });
@@ -179,15 +201,18 @@ export function OsmMap({
           <span className="h-2 w-2 rounded-full bg-slate-400" /> Offline
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-rose-500" /> Inactive
+          <span className="h-2 w-2 rounded-full bg-amber-500" /> Suspended
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-rose-500" /> Disabled
         </span>
         <span className="ml-auto font-semibold">
           {withCoords.length} located ·{" "}
-          {withCoords.filter((r) => isOnline(r, offlineAfterSec)).length} online
+          {withCoords.filter((r) => isOnline(r, offlineAfterSec) && resolveStatus(r) === "active").length} online
         </span>
       </div>
       <p className="border-t border-[var(--line)] px-3 py-1.5 text-[10px] text-[var(--mut)]">
-        Map data © OpenStreetMap contributors · Leaflet
+        Map data © OpenStreetMap contributors · Leaflet · demo pins from retailer list
       </p>
     </div>
   );
