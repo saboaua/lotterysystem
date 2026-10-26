@@ -248,12 +248,12 @@ export function TicketDesignPanel() {
             Message of the day (manual)
           </div>
           <p className="text-[11px] text-[var(--mut)]">
-            Optional fixed text on tickets (e.g. "BBO and AZV included!"). Choose which games it applies to and where it appears.
+            Optional fixed text on tickets (example: BBO and AZV included!). Choose which games it applies to and where it appears.
           </p>
           <textarea
             className="h-16 w-full rounded-xl border border-[var(--line)] bg-[var(--key)] p-3 text-sm"
             defaultValue={d.manual_text || ""}
-            placeholder='e.g. BBO and AZV included!'
+            placeholder="e.g. BBO and AZV included!"
             onBlur={(e) => updateTicketDesign({ manual_text: e.target.value })}
           />
           <div className="flex flex-wrap items-center gap-3">
