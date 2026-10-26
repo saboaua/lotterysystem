@@ -404,7 +404,12 @@ export function SellScreen() {
                         : "hover:shadow-md"
                   }`}
                   style={{
-                    background: `linear-gradient(145deg, ${g.color}, color-mix(in srgb, ${g.color} 55%, #000))`,
+                    background:
+                      "linear-gradient(145deg, " +
+                      g.color +
+                      ", color-mix(in srgb, " +
+                      g.color +
+                      " 55%, #000))",
                   }}
                 >
                   <div className="flex items-start justify-between">
@@ -427,7 +432,7 @@ export function SellScreen() {
                               ? "Z"
                               : g.format === "whe"
                                 ? "W"
-                                : `${g.digits}D`}
+                                : String(g.digits) + "D"}
                         </div>
                       )}
                       <span className="text-base font-black leading-tight tracking-tight">{g.name}</span>
@@ -444,15 +449,17 @@ export function SellScreen() {
                       style={{ background: "rgba(0,0,0,0.25)" }}
                     >
                       {g.format === "digit"
-                        ? `${g.digits}d`
+                        ? String(g.digits) + "d"
                         : g.format === "jackpot"
                           ? "JACKPOT"
                           : g.format === "zodiac"
-                            ? `${g.digits || 4}d+SIGN"
+                            ? String(g.digits || 4) + "d+SIGN"
                             : "1-36"}
                     </span>
                     <span>
-                      {g.jackpot_current ? `AWG ${g.jackpot_current.toLocaleString()}` : st.label}
+                      {g.jackpot_current
+                        ? "AWG " + g.jackpot_current.toLocaleString()
+                        : st.label}
                     </span>
                   </div>
                 </button>
@@ -692,7 +699,7 @@ export function SellScreen() {
             className="btn-tactile flex h-14 w-full items-center justify-center gap-2.5 rounded-xl bg-emerald-500 text-base font-extrabold text-white shadow-lg"
           >
             <Printer size={18} />
-            <span>Send & Print</span>
+            <span>Send &amp; Print</span>
           </button>
         </div>
       </aside>
