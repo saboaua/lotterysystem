@@ -16,11 +16,11 @@ function formatAfl(n: number) {
   return n.toLocaleString("nl-AW", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export function ResultsPanel({
-  mode = "all",
-}: {
+type ResultsPanelProps = {
   mode?: "all" | "calendar" | "results" | "reports";
-} = {}) {
+};
+
+export function ResultsPanel({ mode = "all" }: ResultsPanelProps) {
   const {
     games,
     drawResults,
@@ -166,7 +166,7 @@ export function ResultsPanel({
     <div className="mx-auto max-w-5xl space-y-6">
       {showResults && (
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">Results &amp; Winners</h1>
+          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">Results & Winners</h1>
           <p className="text-xs text-slate-500">Enter or import winning numbers and settle tickets.</p>
         </div>
       )}
@@ -383,7 +383,7 @@ export function ResultsPanel({
               onClick={saveResults}
               className="rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-600/30"
             >
-              Save &amp; settle
+              Save & settle
             </button>
             <p className="text-[11px] text-slate-500">
               Digits should match the game setup (e.g. 4 digits). Zodiac requires number + sign.
@@ -408,7 +408,7 @@ export function ResultsPanel({
 
       {showReports && (
         <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-lg font-bold">Draws &amp; winners</h2>
+          <h2 className="text-lg font-bold">Draws & winners</h2>
           <p className="text-xs text-slate-500">
             Matched against each game prize structure. Expand a row for tier payout detail.
           </p>
@@ -464,8 +464,8 @@ export function ResultsPanel({
                         ? (r.first || "-") + " · " + r.zodiac
                         : [r.first, r.second, r.third].filter(Boolean).join(" · ") || "-";
                   return (
-                    <>
-                      <tr key={r.id} className="border-b border-slate-100">
+                    <tbody key={r.id}>
+                      <tr className="border-b border-slate-100">
                         <td className="px-2 py-2 font-semibold">{row.game?.name || r.game_id}</td>
                         <td className="px-2 py-2 font-mono">{r.draw_date}</td>
                         <td className="px-2 py-2 font-mono font-bold">{winLabel}</td>
@@ -484,11 +484,11 @@ export function ResultsPanel({
                         </td>
                       </tr>
                       {open && (
-                        <tr key={r.id + "-d"}>
+                        <tr>
                           <td colSpan={8} className="bg-slate-50 px-3 py-3 dark:bg-slate-800">
                             {!row.game?.prize_tiers?.length ? (
                               <p className="text-xs text-amber-700">
-                                No prize tiers — set them under Games &amp; schedule.
+                                No prize tiers — set them under Games & schedule.
                               </p>
                             ) : (
                               <table className="w-full text-left text-xs">
@@ -521,7 +521,7 @@ export function ResultsPanel({
                           </td>
                         </tr>
                       )}
-                    </>
+                    </tbody>
                   );
                 })}
                 {!drawCalcRows.length && (
