@@ -57,7 +57,7 @@ export function GamesPanel() {
         <div>
           <h2 className="text-lg font-bold">Games & schedule</h2>
           <p className="text-xs text-[var(--mut)]">
-            Logo on sell tiles · extra draws · min/max stake (number games) · fixed jackpot price · weekdays
+            Logo · draws · min/max · weekdays · Zodiac digits + signs · Play Whe marks
           </p>
         </div>
         <button
@@ -93,9 +93,11 @@ export function GamesPanel() {
                   <span className="text-[11px] text-[var(--mut)]">
                     {g.format === "digit"
                       ? `${g.digits}-digit`
-                      : g.format === "jackpot"
-                        ? `JP ${g.main_count}/${g.main_max}`
-                        : g.format}
+                      : g.format === "zodiac"
+                        ? `${g.digits || 4}-digit + zodiac sign`
+                        : g.format === "jackpot"
+                          ? `JP ${g.main_count}/${g.main_max}`
+                          : g.format}
                     {" · "}draw {g.draw_time}
                     {g.sessions?.length ? ` · ${g.sessions.length} session(s)` : ""}
                     {g.min_stake != null ? ` · min ${currency} ${g.min_stake}` : ""}
@@ -120,12 +122,25 @@ export function GamesPanel() {
                       <select
                         className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
                         value={g.format}
-                        onChange={(e) =>
-                          updateGame(g.id, { format: e.target.value as Game["format"] })
-                        }
+                        onChange={(e) => {
+                          const format = e.target.value as Game["format"];
+                          const patch: Partial<Game> = { format };
+                          if (format === "zodiac") {
+                            patch.digits = g.digits && g.digits >= 2 ? g.digits : 4;
+                            patch.bet_types = ["zodiac"];
+                          } else if (format === "whe") {
+                            patch.digits = 2;
+                            patch.bet_types = ["play_whe"];
+                          } else if (format === "digit") {
+                            patch.digits = g.digits || 4;
+                          } else if (format === "jackpot") {
+                            patch.bet_types = ["jackpot"];
+                          }
+                          updateGame(g.id, patch);
+                        }}
                       >
                         <option value="digit">Digit number</option>
-                        <option value="zodiac">Zodiac</option>
+                        <option value="zodiac">Zodiac (number + sign)</option>
                         <option value="whe">Play Whe</option>
                         <option value="jackpot">Jackpot</option>
                       </select>
@@ -164,6 +179,46 @@ export function GamesPanel() {
                       />
                     </label>
                   </div>
+
+                  {(g.format === "digit" || g.format === "zodiac") && (
+                    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-900 dark:bg-indigo-950/30">
+                      <div className="mb-2 text-[11px] font-bold uppercase text-indigo-700 dark:text-indigo-300">
+                        {g.format === "zodiac"
+                          ? "Zodiac: number length + signs"
+                          : "Digit length"}
+                      </div>
+                      <div className="flex flex-wrap items-end gap-4">
+                        <label className="text-[11px] font-semibold text-[var(--mut)]">
+                          Digits (number pad)
+                          <select
+                            className="mt-1 h-10 rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm font-bold"
+                            value={g.digits || (g.format === "zodiac" ? 4 : 4)}
+                            onChange={(e) =>
+                              updateGame(g.id, { digits: parseInt(e.target.value, 10) })
+                            }
+                          >
+                            {[2, 3, 4].map((d) => (
+                              <option key={d} value={d}>
+                                {d}-digit
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {g.format === "zodiac" && (
+                          <p className="max-w-sm text-xs text-[var(--mut)]">
+                            Player picks a <b>zodiac sign</b> on sell screen and enters a{" "}
+                            <b>{g.digits || 4}-digit</b> number. Recommended: <b>4-digit</b>.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {g.format === "whe" && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3 text-xs text-[var(--mut)] dark:border-rose-900 dark:bg-rose-950/20">
+                      Play Whe uses marks <b>1–36</b> with symbols on the sell screen (2-digit).
+                    </div>
+                  )}
 
                   <div className="rounded-xl border border-[var(--line)] bg-[var(--card)] p-3">
                     <div className="mb-2 text-[11px] font-bold uppercase text-[var(--mut)]">
@@ -299,9 +354,6 @@ export function GamesPanel() {
                           }}
                         />
                       </label>
-                      <p className="mt-1 text-[10px] text-[var(--mut)]">
-                        Jackpot games use one fixed stake (min = max).
-                      </p>
                     </div>
                   )}
 
@@ -429,16 +481,19 @@ function SessionsEditor({ game }: { game: Game }) {
       </div>
       {sessions.length === 0 && (
         <p className="mb-2 text-xs text-[var(--mut)]">
-          No sessions — sell uses default draw/cut-off above. Add sessions for multiple draws per day.
+          No sessions — sell uses default draw/cut-off above.
         </p>
       )}
       <div className="space-y-2">
         {sessions.map((s, idx) => (
-          <div key={s.id} className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2">
+          <div
+            key={s.id}
+            className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2 rounded-lg border border-[var(--line)] bg-[var(--key)]/40 p-2"
+          >
             <label className="text-[10px] font-semibold text-[var(--mut)]">
               Label
               <input
-                className="mt-0.5 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-sm"
+                className="mt-0.5 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-sm"
                 defaultValue={s.label}
                 onBlur={(e) => {
                   const next = sessions.map((x, i) =>
@@ -451,7 +506,7 @@ function SessionsEditor({ game }: { game: Game }) {
             <label className="text-[10px] font-semibold text-[var(--mut)]">
               Draw
               <input
-                className="mt-0.5 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-sm"
+                className="mt-0.5 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-sm"
                 defaultValue={s.draw_time}
                 onBlur={(e) => {
                   const next = sessions.map((x, i) =>
@@ -464,7 +519,7 @@ function SessionsEditor({ game }: { game: Game }) {
             <label className="text-[10px] font-semibold text-[var(--mut)]">
               Cut-off
               <input
-                className="mt-0.5 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-sm"
+                className="mt-0.5 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-sm"
                 defaultValue={s.cutoff}
                 onBlur={(e) => {
                   const next = sessions.map((x, i) =>
@@ -476,7 +531,7 @@ function SessionsEditor({ game }: { game: Game }) {
             </label>
             <button
               type="button"
-              className="mb-0.5 grid h-9 w-9 place-items-center rounded-lg text-rose-600 hover:bg-rose-500/10"
+              className="mb-1 text-rose-600"
               onClick={() => setSessions(sessions.filter((_, i) => i !== idx))}
             >
               <Trash2 size={14} />

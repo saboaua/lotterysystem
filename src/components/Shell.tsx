@@ -8,16 +8,30 @@ import {
   Moon,
   Sun,
   Banknote,
+  LifeBuoy,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { user, brand, currency, retailers, selectedRetailerId, logout, salesToday } = useStore();
+  const {
+    user,
+    brand,
+    currency,
+    retailers,
+    selectedRetailerId,
+    logout,
+    salesToday,
+    addSupport,
+    toast,
+  } = useStore();
   const path = usePathname();
   const [dark, setDark] = useState(false);
   const [clock, setClock] = useState("");
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [supSub, setSupSub] = useState("");
+  const [supBody, setSupBody] = useState("");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -44,6 +58,20 @@ export function Shell({ children }: { children: ReactNode }) {
   const nav = isOwner
     ? [{ href: "/office", label: "Back Office", icon: LayoutDashboard }]
     : [{ href: "/sell", label: "Sell", icon: Banknote }];
+
+  const tickerText = useMemo(() => {
+    const parts = [brand.led_message];
+    for (const m of brand.led_schedule || []) {
+      if (!m.enabled) continue;
+      const today = new Date().toISOString().slice(0, 10);
+      if (m.start && today < m.start) continue;
+      if (m.end && today > m.end) continue;
+      parts.push(m.text);
+    }
+    return parts.filter(Boolean).join("   ·   ") || brand.led_message || "";
+  }, [brand.led_message, brand.led_schedule]);
+
+  const duration = Math.max(12, Math.min(60, (tickerText.length || 40) / Math.max(8, brand.led_speed / 5)));
 
   return (
     <div className="flex h-dvh overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
@@ -86,6 +114,18 @@ export function Shell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            {!isOwner && (
+              <button
+                type="button"
+                onClick={() => setHelpOpen(true)}
+                className="group flex h-16 w-full flex-col items-center justify-center rounded-xl border border-transparent text-slate-400 transition hover:bg-slate-900 hover:text-slate-100"
+              >
+                <LifeBuoy size={18} className="mb-1 transition-transform group-hover:scale-110" />
+                <span className="text-center text-[10px] font-bold leading-tight tracking-tight">
+                  Help
+                </span>
+              </button>
+            )}
           </nav>
         </div>
 
@@ -110,9 +150,9 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/90 bg-white px-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <div className="flex items-center gap-4">
-            <div>
+        <header className="z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200/90 bg-white px-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="shrink-0">
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-extrabold leading-none tracking-tight text-slate-900 dark:text-white">
                   {isOwner ? "Back Office" : "Sell Terminal"}
@@ -144,21 +184,15 @@ export function Shell({ children }: { children: ReactNode }) {
                     </span>
                     {" · "}
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      Terminal #{shop?.number || "—"}
+                      Terminal #{shop?.number || "-"}
                     </span>
                   </>
                 )}
               </p>
             </div>
-            {brand.led_on && !isOwner && (
-              <div className="hidden max-w-md items-center gap-2 overflow-hidden rounded-full border border-emerald-200/70 bg-emerald-50/80 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 xl:flex dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                <span className="truncate">{brand.led_message}</span>
-              </div>
-            )}
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex shrink-0 items-center gap-3 sm:gap-5">
             <div className="hidden text-right md:block">
               <div className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">{clock}</div>
               <div className="text-[11px] font-medium text-slate-400">Oranjestad, Aruba (AST)</div>
@@ -186,9 +220,75 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
+        {/* Full-width scrolling LED ticker under header (retailer) */}
+        {brand.led_on && !isOwner && tickerText && (
+          <div className="relative z-10 shrink-0 overflow-hidden border-b border-emerald-800/40 bg-slate-950 py-2.5">
+            <div
+              className="whitespace-nowrap text-sm font-semibold sm:text-base"
+              style={{
+                color: brand.led_color || "#22c55e",
+                animation: `shell-led-marquee ${duration}s linear infinite`,
+                width: "max-content",
+              }}
+            >
+              <span className="inline-block px-8">{tickerText}</span>
+              <span className="inline-block px-8">{tickerText}</span>
+            </div>
+            <style>{`
+              @keyframes shell-led-marquee {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(-50%); }
+              }
+            `}</style>
+          </div>
+        )}
+
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
       </div>
       <ToastHost />
+
+      {helpOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md space-y-3 rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-800">
+            <h3 className="text-lg font-bold">Help / Support</h3>
+            <p className="text-xs text-slate-500">Send a message to the owner / back office.</p>
+            <input
+              className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-900"
+              placeholder="Subject"
+              value={supSub}
+              onChange={(e) => setSupSub(e.target.value)}
+            />
+            <textarea
+              className="h-28 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm dark:border-slate-600 dark:bg-slate-900"
+              placeholder="Describe the issue"
+              value={supBody}
+              onChange={(e) => setSupBody(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  addSupport(supSub || "Support", supBody || "(no details)");
+                  setSupSub("");
+                  setSupBody("");
+                  setHelpOpen(false);
+                  toast("Support message sent");
+                }}
+                className="rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Submit
+              </button>
+              <button
+                type="button"
+                onClick={() => setHelpOpen(false)}
+                className="rounded-full bg-slate-100 px-5 py-2.5 text-sm font-semibold dark:bg-slate-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
