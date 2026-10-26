@@ -96,6 +96,12 @@ export function printReceipt(opts: {
       primaryGame?.jackpot_current != null ? String(primaryGame.jackpot_current) : "-",
     jackpot:
       primaryGame?.jackpot_current != null ? String(primaryGame.jackpot_current) : "-",
+    prev_jackpot:
+      primaryGame?.jackpot_previous != null
+        ? String(primaryGame.jackpot_previous)
+        : primaryGame?.jackpot_current != null
+          ? String(primaryGame.jackpot_current)
+          : "-",
     currency,
     retailer: retailer?.name || "",
     ticket_id: ticket.id,
@@ -264,11 +270,11 @@ export function printReceipt(opts: {
     " " +
     ticket.total.toFixed(2) +
     "</div>" +
-    place("after_total") +
     (motdPlacement === "after_total" ? motdHtml : "") +
+    place("after_total") +
     promoHtml +
-    place("after_promo") +
     (motdPlacement === "after_promo" ? motdHtml : "") +
+    place("after_promo") +
     barcodeHtml +
     qrHtml +
     '<div class="footer">' +
