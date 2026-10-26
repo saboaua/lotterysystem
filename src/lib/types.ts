@@ -19,26 +19,23 @@ export interface GameSession {
   cutoff: string;
 }
 
-/** Prize tier used in draw calculation / settlement */
 export type PrizeMatchRule =
-  | "exact" // full number match
-  | "exact_and_sign" // full number + zodiac sign
-  | "last_n" // last N digits of winning number
-  | "last_n_and_sign" // last N digits + zodiac sign
-  | "whe_mark" // play whe mark
-  | "jackpot_main" // all main balls
-  | "jackpot_main_mega" // main + mega
-  | "fixed"; // fixed payout label only
+  | "exact"
+  | "exact_and_sign"
+  | "last_n"
+  | "last_n_and_sign"
+  | "whe_mark"
+  | "jackpot_main"
+  | "jackpot_main_mega"
+  | "fixed";
 
 export interface PrizeTier {
   id: string;
   rank: number;
   label: string;
-  /** Human description e.g. match 4 numbers & Zodiac Sign */
   description: string;
   amount: number;
   rule: PrizeMatchRule;
-  /** For last_n / last_n_and_sign */
   digits?: number;
   enabled: boolean;
 }
@@ -52,7 +49,6 @@ export interface Game {
   draw_time: string;
   cutoff: string;
   enabled: boolean;
-  /** 0=Sun .. 6=Sat; empty/undefined = every day */
   draw_days?: number[];
   jackpot_current?: number;
   main_count?: number;
@@ -61,13 +57,10 @@ export interface Game {
   mega_max?: number;
   sessions?: GameSession[];
   bet_types?: string[];
-  /** Data URL or URL shown on sell tiles */
   logo?: string;
-  /** Digit / number games — stake limits */
   min_stake?: number;
   max_stake?: number;
   sort_order?: number;
-  /** Winning prize structure for draw calculation */
   prize_tiers?: PrizeTier[];
 }
 
@@ -215,13 +208,11 @@ export interface AppUser {
   must_change_password?: boolean;
 }
 
-/** LED / sell-screen ticker scheduled rows */
 export interface LedScheduleMessage {
   id: string;
   label: string;
   text: string;
   enabled: boolean;
-  /** ISO date YYYY-MM-DD optional window */
   start?: string;
   end?: string;
 }
@@ -231,18 +222,15 @@ export interface BrandSettings {
   tagline: string;
   led_message: string;
   led_on: boolean;
-  /** px/s style speed; UI maps slow/normal/fast */
   led_speed: number;
   led_color: string;
   logo?: string;
-  /** Extra scheduled ticker messages */
   led_schedule?: LedScheduleMessage[];
 }
 
 export interface TicketScheduleMessage {
   id: string;
   label: string;
-  /** Tokens: {date} {amount} {jackpot} {game} {game1} {amount1} {draw_time} {retailer} {ticket_id} {currency} {promo} */
   text: string;
   game_ids: string[];
   enabled: boolean;
@@ -278,12 +266,14 @@ export interface TicketDesign {
   line_gap?: number;
   messages?: string[];
   schedule_messages?: TicketScheduleMessage[];
-  /** Message of the day under lines */
   manual_text?: string;
-  /** Retailer block template under logo */
   retailer_template?: string;
   preview_game_id?: string;
   logo?: string;
+  paper_size?: "58mm" | "80mm" | "A4";
+  printer_name?: string;
+  motd_placement?: "after_total" | "after_lines" | "footer";
+  promo_placement?: "after_total" | "before_total" | "footer";
 }
 
 export interface SalesSettings {
