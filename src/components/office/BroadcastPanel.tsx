@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Megaphone, Printer, Send } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { expandBroadcastText, BROADCAST_TOKEN_HELP } from "@/lib/broadcast-tokens";
 import type { BroadcastMessage } from "@/lib/types";
+
+const KEY = "lottery_broadcast";
 
 const PRESETS = [
   {
@@ -21,16 +23,40 @@ const PRESETS = [
   },
 ];
 
+function readBc(): BroadcastMessage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? (JSON.parse(raw) as BroadcastMessage) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function BroadcastPanel() {
-  const {
-    games,
-    retailers,
-    currency,
-    broadcast,
-    sendBroadcast,
-    clearBroadcast,
-    toast,
-  } = useStore();
+  const { games, retailers, currency, toast } = useStore();
+  const [broadcast, setBroadcast] = useState<BroadcastMessage | null>(null);
+
+  useEffect(() => {
+    setBroadcast(readBc());
+  }, []);
+
+  function sendBroadcast(msg: Omit<BroadcastMessage, "id" | "sent_at">) {
+    const full: BroadcastMessage = {
+      ...msg,
+      id: "bc_" + Date.now().toString(36),
+      sent_at: new Date().toISOString(),
+    };
+    localStorage.setItem(KEY, JSON.stringify(full));
+    window.dispatchEvent(new Event("lottery-broadcast"));
+    setBroadcast(full);
+  }
+
+  function clearBroadcast() {
+    localStorage.removeItem(KEY);
+    window.dispatchEvent(new Event("lottery-broadcast"));
+    setBroadcast(null);
+  }
 
   const [title, setTitle] = useState("Announcement");
   const [text, setText] = useState(
@@ -103,9 +129,9 @@ export function BroadcastPanel() {
         {active && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/40">
             <span>
-              <strong>Live now</strong> · ~{remainingMin} min left · “
+              <strong>Live now</strong> · ~{remainingMin} min left · "
               {(active.title || active.text).slice(0, 48)}
-              {(active.title || active.text).length > 48 ? "…" : "”}
+              {(active.title || active.text).length > 48 ? "..." : ""}"
             </span>
             <button
               type="button"
