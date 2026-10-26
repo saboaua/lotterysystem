@@ -8,6 +8,12 @@ import type {
   AppUser,
   TicketDesign,
 } from "./types";
+import {
+  defaultDigitPrizeTiers,
+  defaultJackpotPrizeTiers,
+  defaultWhePrizeTiers,
+  defaultZodiacPrizeTiers,
+} from "./prize-tiers";
 
 export const DEMO_GAMES: Game[] = [
   {
@@ -20,6 +26,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "12:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+    prize_tiers: defaultDigitPrizeTiers(4),
   },
   {
     id: "corsow",
@@ -31,6 +38,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "16:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+    prize_tiers: defaultDigitPrizeTiers(4),
   },
   {
     id: "super4",
@@ -42,6 +50,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "12:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+    prize_tiers: defaultDigitPrizeTiers(4),
   },
   {
     id: "flamingo",
@@ -53,6 +62,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "13:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+    prize_tiers: defaultDigitPrizeTiers(4),
   },
   {
     id: "philb",
@@ -64,6 +74,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "10:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
+    prize_tiers: defaultDigitPrizeTiers(4),
     sessions: [
       { id: "am", label: "AM", draw_time: "11:00", cutoff: "10:45" },
       { id: "pm", label: "PM", draw_time: "19:00", cutoff: "18:45" },
@@ -85,6 +96,7 @@ export const DEMO_GAMES: Game[] = [
     bet_types: ["jackpot"],
     min_stake: 1,
     max_stake: 1,
+    prize_tiers: defaultJackpotPrizeTiers(),
   },
   {
     id: "zodiaco",
@@ -98,6 +110,7 @@ export const DEMO_GAMES: Game[] = [
     bet_types: ["zodiac"],
     min_stake: 1,
     max_stake: 50,
+    prize_tiers: defaultZodiacPrizeTiers(),
   },
   {
     id: "playwhe",
@@ -111,6 +124,7 @@ export const DEMO_GAMES: Game[] = [
     bet_types: ["play_whe"],
     min_stake: 1,
     max_stake: 100,
+    prize_tiers: defaultWhePrizeTiers(),
     sessions: [
       { id: "morning", label: "Morning", draw_time: "10:30", cutoff: "10:15" },
       { id: "midday", label: "Midday", draw_time: "13:00", cutoff: "12:45" },
