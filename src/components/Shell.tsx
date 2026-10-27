@@ -9,12 +9,26 @@ import {
   Sun,
   Banknote,
   LifeBuoy,
+  Newspaper,
+  Star,
+  Flame,
+  CircleDot,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
 import { PresencePing } from "./PresencePing";
 import { BroadcastPopup } from "./BroadcastPopup";
+
+const ITEM_ICONS = [CircleDot, Star, Flame, CircleDot, Star, Flame];
+const ITEM_COLORS = [
+  "text-emerald-500",
+  "text-amber-500",
+  "text-orange-500",
+  "text-sky-500",
+  "text-violet-500",
+  "text-rose-500",
+];
 
 export function Shell({ children }: { children: ReactNode }) {
   const {
@@ -31,6 +45,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const [dark, setDark] = useState(false);
   const [clock, setClock] = useState("");
+  const [clockShort, setClockShort] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [supSub, setSupSub] = useState("");
   const [supBody, setSupBody] = useState("");
@@ -40,15 +55,24 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [dark]);
 
   useEffect(() => {
-    const tick = () =>
+    const tick = () => {
+      const now = new Date();
       setClock(
-        new Date().toLocaleTimeString("en-US", {
+        now.toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
           hour12: true,
         })
       );
+      setClockShort(
+        now.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: false,
+        })
+      );
+    };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -61,19 +85,23 @@ export function Shell({ children }: { children: ReactNode }) {
     ? [{ href: "/office", label: "Back Office", icon: LayoutDashboard }]
     : [{ href: "/sell", label: "Sell", icon: Banknote }];
 
-  const tickerText = useMemo(() => {
-    const parts = [brand.led_message];
+  const tickerItems = useMemo(() => {
+    const items: string[] = [];
+    if (brand.led_message?.trim()) items.push(brand.led_message.trim());
     for (const m of brand.led_schedule || []) {
       if (!m.enabled) continue;
       const today = new Date().toISOString().slice(0, 10);
       if (m.start && today < m.start) continue;
       if (m.end && today > m.end) continue;
-      parts.push(m.text);
+      if (m.text?.trim()) items.push(m.text.trim());
     }
-    return parts.filter(Boolean).join("   ·   ") || brand.led_message || "";
+    return items;
   }, [brand.led_message, brand.led_schedule]);
 
-  const duration = Math.max(12, Math.min(60, (tickerText.length || 40) / Math.max(8, brand.led_speed / 5)));
+  const duration = Math.max(
+    18,
+    Math.min(80, (tickerItems.join(" ").length || 40) / Math.max(6, (brand.led_speed || 40) / 6))
+  );
 
   return (
     <div className="flex h-dvh overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
@@ -223,21 +251,63 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {brand.led_on && !isOwner && tickerText && (
-          <div className="relative z-10 shrink-0 overflow-hidden border-b border-emerald-800/40 bg-slate-950 py-2.5">
-            <div
-              className="whitespace-nowrap text-sm font-semibold sm:text-base"
-              style={{
-                color: brand.led_color || "#22c55e",
-                animation: `shell-led-marquee ${duration}s linear infinite`,
-                width: "max-content",
-              }}
-            >
-              <span className="inline-block px-8">{tickerText}</span>
-              <span className="inline-block px-8">{tickerText}</span>
+        {brand.led_on && !isOwner && tickerItems.length > 0 && (
+          <div className="relative z-10 shrink-0 border-b border-slate-200/80 bg-gradient-to-r from-slate-100 via-indigo-50/60 to-slate-100 px-2 py-1.5 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+            <div className="flex items-center gap-2 overflow-hidden rounded-full border border-slate-200/80 bg-white/90 py-1 pl-1 pr-1.5 shadow-sm dark:border-slate-600 dark:bg-slate-800/90">
+              {/* LATEST NEWS pill */}
+              <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-2.5 py-1 text-white dark:bg-slate-950">
+                <Newspaper size={12} className="text-indigo-300" strokeWidth={2.5} />
+                <span className="text-[10px] font-extrabold uppercase tracking-wide">
+                  Latest News
+                </span>
+              </div>
+
+              {/* Time */}
+              <span className="hidden shrink-0 font-mono text-[11px] font-bold text-slate-500 sm:inline dark:text-slate-400">
+                {clockShort}
+              </span>
+
+              {/* Scrolling track */}
+              <div className="relative min-w-0 flex-1 overflow-hidden">
+                <div
+                  className="flex w-max items-center gap-6 whitespace-nowrap"
+                  style={{
+                    animation: `shell-news-marquee ${duration}s linear infinite`,
+                  }}
+                >
+                  {[0, 1].map((dup) => (
+                    <div key={dup} className="flex items-center gap-6">
+                      {tickerItems.map((text, i) => {
+                        const Icon = ITEM_ICONS[i % ITEM_ICONS.length];
+                        const color = ITEM_COLORS[i % ITEM_COLORS.length];
+                        return (
+                          <span
+                            key={`${dup}-${i}`}
+                            className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-700 dark:text-slate-200"
+                          >
+                            <Icon size={13} className={color} strokeWidth={2.5} />
+                            <span>{text}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* LIVE pill */}
+              <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 dark:border-emerald-800 dark:bg-emerald-950/50">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  Live
+                </span>
+              </div>
             </div>
             <style>{`
-              @keyframes shell-led-marquee {
+              @keyframes shell-news-marquee {
                 0% { transform: translateX(0); }
                 100% { transform: translateX(-50%); }
               }
