@@ -1,0 +1,143 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  Bookmark,
+  Check,
+  Copy,
+  Delete,
+  Dice5,
+  Printer,
+  RotateCcw,
+  Ticket,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react";
+import { MultiDrawPicker } from "./sell/GamePickers";
+import { useStore } from "@/lib/store";
+import type { BetType, GameFormat } from "@/lib/types";
+import { DEMO_BET_TYPES, DEMO_GAMES } from "@/lib/demo-data";
+
+const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100];
+
+function formatNum(n: string, len: number) {
+  const s = n.padStart(len, "0");
+  return s.slice(-len);
+}
+
+export function SellScreen() {
+  const {
+    games,
+    betTypes,
+    lines,
+    addLine,
+    removeLine,
+    clearLines,
+    lastTicket,
+    setLastTicket,
+  } = useStore();
+
+  const [tab, setTab] = useState<"manual" | "fast">("manual");
+  const [gameId, setGameId] = useState(DEMO_GAMES[0]?.id ?? "");
+  const [bt, setBt] = useState<string>("");
+  const [num, setNum] = useState("");
+  const [amt, setAmt] = useState(1);
+  const [field, setField] = useState<"num" | "amt">("num");
+  const [multiDraw, setMultiDraw] = useState(1);
+  const [jackB, setJackB] = useState<number[]>([]);
+  const [jackMega, setJackMega] = useState<number | null>(null);
+
+  const game = useMemo(
+    () => games.find((g) => g.id === gameId) ?? DEMO_GAMES[0],
+    [games, gameId]
+  );
+  const activeBet = useMemo(
+    () => betTypes.find((b) => b.key === bt) ?? DEMO_BET_TYPES.find((b) => b.key === bt),
+    [betTypes, bt]
+  );
+
+  useEffect(() => {
+    if (!game) return;
+    const first = (DEMO_BET_TYPES as BetType[]).find((b) => b.gameId === game.id);
+    if (first && !bt) setBt(first.key);
+  }, [game, bt]);
+
+  const digitLen =
+    activeBet?.mode === "4cifra"
+      ? 4
+      : activeBet?.mode === "3cifra"
+        ? 3
+        : activeBet?.mode === "2cifra"
+          ? 2
+          : activeBet?.mode === "skina" || activeBet?.mode === "bf"
+            ? 2
+            : 4;
+
+  function pressKey(k: string) {
+    if (k === "CLR") {
+      if (field === "num") setNum("");
+      else setAmt(1);
+      return;
+    }
+    if (k === "BS") {
+      if (field === "num") setNum((n) => n.slice(0, -1));
+      else setAmt((a) => Math.floor(a / 10) || 1);
+      return;
+    }
+    if (field === "num") {
+      if (num.length >= digitLen) return;
+      setNum((n) => n + k);
+    } else {
+      const next = Number(String(amt) + k);
+      if (next <= 9999) setAmt(next);
+    }
+  }
+
+  function quickPick() {
+    if (!activeBet) return;
+    const max = 10 ** digitLen - 1;
+    const r = Math.floor(Math.random() * (max + 1));
+    setNum(formatNum(String(r), digitLen));
+  }
+
+  function copyLast() {
+    if (!lastTicket?.lines?.[0]) return;
+    const L = lastTicket.lines[0];
+    setGameId(L.gameId);
+    setBt(L.betTypeKey);
+    setNum(L.number ?? "");
+    setAmt(L.amount ?? 1);
+    setMultiDraw(L.multiDraw ?? 1);
+  }
+
+  function addPlay() {
+    if (!game || !activeBet) return;
+    if (activeBet.mode === "jackpot") {
+      if (jackB.length !== 5 || jackMega == null) return;
+      addLine({
+        gameId: game.id,
+        betTypeKey: activeBet.key,
+        number:
+          [...jackB].sort().join("-") + (jackMega ? "+" + jackMega : ""),
+        amount: amt,
+        multiDraw,
+      });
+      setJackB([]);
+      setJackMega(null);
+      return;
+    }
+    if (num.length < digitLen && activeBet.mode !== "zodiac" && activeBet.mode !== "playwhe") return;
+    addLine({
+      gameId: game.id,
+      betTypeKey: activeBet.key,
+      number: num || undefined,
+      amount: amt,
+      multiDraw,
+    });
+    setNum("");
+  }
+
+  const total = lines.reduce((s, l) => s + (l.amount ?? 0) * (l.multiDraw ?? 1), 0);
+
+  // truncated for this push attempt - use full part from file
