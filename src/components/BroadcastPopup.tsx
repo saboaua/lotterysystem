@@ -25,7 +25,7 @@ export function BroadcastPopup() {
   const [broadcast, setBroadcast] = useState<BroadcastMessage | null>(null);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const [printedId, setPrintedId] = useState<string | null>(null);
-  const [, setTick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
 
   const isSeller = user?.role === "retailer";
 
@@ -40,7 +40,7 @@ export function BroadcastPopup() {
     window.addEventListener("lottery-broadcast", onCustom);
     const id = setInterval(() => {
       load();
-      setTick((t) => t + 1);
+      setNow(Date.now());
     }, 10_000);
     return () => {
       window.removeEventListener("storage", onStorage);
@@ -54,8 +54,8 @@ export function BroadcastPopup() {
     const ends =
       new Date(broadcast.sent_at).getTime() +
       broadcast.duration_minutes * 60_000;
-    return Date.now() < ends;
-  }, [broadcast]);
+    return now < ends;
+  }, [broadcast, now]);
 
   const shop = retailers.find((r) => r.id === selectedRetailerId);
   const jpGame = games.find((g) => g.format === "jackpot" && g.jackpot_current);
@@ -78,21 +78,25 @@ export function BroadcastPopup() {
       !stillActive ||
       !broadcast.print ||
       printedId === broadcast.id
-    )
+    ) {
       return;
+    }
     try {
       const w = window.open("", "_blank", "width=400,height=300");
       if (!w) return;
+      const safe = body.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">");
+      const titleLine = broadcast.title ? broadcast.title + "\n\n" : "";
       w.document.write(
-        `<pre style="font-family:monospace;padding:16px;font-size:14px">${
-          broadcast.title ? broadcast.title + "\\n\\n" : ""
-        }${body.replace(/</g, "<")}</pre>`
+        "<pre style=\"font-family:monospace;padding:16px;font-size:14px\">" +
+          titleLine +
+          safe +
+          "</pre>"
       );
       w.document.close();
       w.print();
       setPrintedId(broadcast.id);
     } catch {
-      /* ignore */
+      /* ignore print failures */
     }
   }, [isSeller, broadcast, stillActive, body, printedId]);
 
@@ -102,7 +106,7 @@ export function BroadcastPopup() {
 
   const endsAt =
     new Date(broadcast.sent_at).getTime() + broadcast.duration_minutes * 60_000;
-  const minsLeft = Math.max(1, Math.ceil((endsAt - Date.now()) / 60_000));
+  const minsLeft = Math.max(1, Math.ceil((endsAt - now) / 60_000));
 
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/50 p-4">
