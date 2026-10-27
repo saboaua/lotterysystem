@@ -7,6 +7,8 @@ import type { FastPlayGame, FastPlayPrice } from "@/lib/types";
 const PRICE_POINTS: FastPlayPrice[] = [2, 3, 5, 7];
 const QTY_OPTIONS = [1, 2, 5, 10];
 
+type PriceFilter = FastPlayPrice | "all";
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -17,7 +19,7 @@ function formatPrize(n: number) {
 
 export function FastPlaySellGrid() {
   const { fastPlayGames, currency, addLine, toast } = useStore();
-  const [price, setPrice] = useState<FastPlayPrice>(2);
+  const [price, setPrice] = useState<PriceFilter>("all");
   const [qty, setQty] = useState(1);
 
   const available = useMemo(
@@ -68,6 +70,18 @@ export function FastPlaySellGrid() {
           Price point
         </span>
         <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setPrice("all")}
+            className={
+              "h-9 min-w-[4.25rem] rounded-full px-3.5 text-sm font-extrabold transition " +
+              (price === "all"
+                ? "bg-rose-500 text-white shadow-md shadow-rose-500/30"
+                : "bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700")
+            }
+          >
+            All
+          </button>
           {PRICE_POINTS.map((p) => (
             <button
               key={p}
@@ -110,10 +124,14 @@ export function FastPlaySellGrid() {
       {/* Game tiles — logo fills tile, no outline box */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         {available.map((g) => {
-          const can = g.prices.includes(price);
-          const badge = can ? price : g.default_price;
+          const isAll = price === "all";
+          const can = isAll || g.prices.includes(price);
+          const badge = isAll ? g.default_price : can ? price : g.default_price;
+          const sellPrice: FastPlayPrice = isAll
+            ? g.default_price
+            : (price as FastPlayPrice);
           const footer = can
-            ? `ADD ${qty}× @ ${currency} ${price}`
+            ? `ADD ${qty}× @ ${currency} ${sellPrice}`
             : g.prices.length === 1
               ? `ONLY ${currency} ${g.prices[0]}`
               : `ONLY ${currency} ${g.prices.join(" · ")}`;
@@ -125,7 +143,7 @@ export function FastPlaySellGrid() {
               disabled={!can}
               onClick={() => {
                 if (!can) return;
-                sellOne(g, price, qty);
+                sellOne(g, sellPrice, qty);
               }}
               className={
                 "group relative flex min-h-[13.5rem] flex-col overflow-hidden rounded-2xl text-left shadow-md transition " +
