@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { GripVertical, Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { FastPlayGame, FastPlayPrice } from "@/lib/types";
 
@@ -26,6 +26,8 @@ export function FastPlayPanel() {
     currency,
   } = useStore();
   const [openId, setOpenId] = useState<string | null>(fastPlayGames[0]?.id ?? null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   const sorted = [...fastPlayGames].sort(
     (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
@@ -41,11 +43,29 @@ export function FastPlayPanel() {
       default_price: 2,
       active: true,
       show_on_sell: true,
-      sort_order: sorted.length + 1,
+      sort_order: sorted.length,
     };
     addFastPlayGame(g);
     setOpenId(id);
     toast("Fast Play game added");
+  }
+
+  function reorder(fromId: string, toId: string) {
+    if (fromId === toId) return;
+    const ids = sorted.map((g) => g.id);
+    const from = ids.indexOf(fromId);
+    const to = ids.indexOf(toId);
+    if (from < 0 || to < 0) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, fromId);
+    // Persist sequential sort_order so sell screen and list stay in sync
+    ids.forEach((id, index) => {
+      const current = fastPlayGames.find((g) => g.id === id);
+      if (current && (current.sort_order ?? 0) !== index) {
+        updateFastPlayGame(id, { sort_order: index });
+      }
+    });
+    toast("Order updated");
   }
 
   return (
@@ -54,8 +74,8 @@ export function FastPlayPanel() {
         <div>
           <h2 className="text-lg font-bold">Fast Play games</h2>
           <p className="text-xs text-[var(--mut)]">
-            Instant / scratch-style titles · fixed prices {currency} 2 · 3 · 5 · 7 · active & show on
-            sell
+            Instant / scratch-style titles · fixed prices {currency} 2 · 3 · 5 · 7 · drag to reorder
+            display on sell screen
           </p>
         </div>
         <button
@@ -70,40 +90,97 @@ export function FastPlayPanel() {
       <div className="space-y-2">
         {sorted.map((g) => {
           const open = openId === g.id;
+          const isDragging = dragId === g.id;
+          const isOver = overId === g.id && dragId !== g.id;
+
           return (
             <div
               key={g.id}
-              className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--card)] shadow-sm"
+              draggable
+              onDragStart={(e) => {
+                setDragId(g.id);
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", g.id);
+                // Avoid starting a drag when interacting with form controls inside
+                if ((e.target as HTMLElement).closest("input,select,button,textarea,label")) {
+                  e.preventDefault();
+                  setDragId(null);
+                }
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setOverId(null);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (overId !== g.id) setOverId(g.id);
+              }}
+              onDragLeave={() => {
+                if (overId === g.id) setOverId(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const fromId = e.dataTransfer.getData("text/plain") || dragId;
+                if (fromId) reorder(fromId, g.id);
+                setDragId(null);
+                setOverId(null);
+              }}
+              className={
+                "overflow-hidden rounded-2xl border bg-[var(--card)] shadow-sm transition " +
+                (isDragging
+                  ? "border-rose-400 opacity-50"
+                  : isOver
+                    ? "border-rose-500 ring-2 ring-rose-500/30"
+                    : "border-[var(--line)]")
+              }
             >
-              <button
-                type="button"
-                onClick={() => setOpenId(open ? null : g.id)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left"
-              >
-                {g.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={g.logo} alt="" className="h-10 w-10 rounded-xl object-contain bg-white/10" />
-                ) : (
-                  <span
-                    className="grid h-10 w-10 place-items-center rounded-xl text-xs font-black text-white"
-                    style={{ background: g.color }}
-                  >
-                    FP
+              <div className="flex w-full items-center gap-2 px-2 py-3 text-left sm:px-3">
+                <button
+                  type="button"
+                  className="cursor-grab touch-none rounded-lg p-1.5 text-[var(--mut)] hover:bg-[var(--key)] active:cursor-grabbing"
+                  title="Drag to reorder"
+                  aria-label="Drag to reorder"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <GripVertical size={18} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOpenId(open ? null : g.id)}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                >
+                  {g.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={g.logo}
+                      alt=""
+                      className="h-10 w-10 rounded-xl object-contain bg-white/10"
+                    />
+                  ) : (
+                    <span
+                      className="grid h-10 w-10 place-items-center rounded-xl text-xs font-black text-white"
+                      style={{ background: g.color }}
+                    >
+                      FP
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold">{g.name}</span>
+                    <span className="text-[11px] text-[var(--mut)]">
+                      {g.prices.map((p) => currency + " " + p).join(" · ")}
+                      {g.active ? "" : " · inactive"}
+                      {g.show_on_sell ? " · on sell" : " · hidden on sell"}
+                      {g.top_prize != null
+                        ? ` · top ${currency} ${Number(g.top_prize).toLocaleString()}`
+                        : ""}
+                      {` · #${(g.sort_order ?? 0) + 1}`}
+                    </span>
                   </span>
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold">{g.name}</span>
-                  <span className="text-[11px] text-[var(--mut)]">
-                    {g.prices.map((p) => currency + " " + p).join(" · ")}
-                    {g.active ? "" : " · inactive"}
-                    {g.show_on_sell ? " · on sell" : " · hidden on sell"}
-                    {g.top_prize != null
-                      ? ` · top ${currency} ${Number(g.top_prize).toLocaleString()}`
-                      : ""}
-                  </span>
-                </span>
-                <span className="text-[var(--mut)]">{open ? "▲" : "▼"}</span>
-              </button>
+                  <span className="text-[var(--mut)]">{open ? "▲" : "▼"}</span>
+                </button>
+              </div>
 
               {open && (
                 <div className="space-y-4 border-t border-[var(--line)] bg-[var(--key)]/40 px-4 py-4">
@@ -123,19 +200,6 @@ export function FastPlayPanel() {
                         className="mt-1 h-10 w-full rounded-xl border border-[var(--line)]"
                         value={g.color}
                         onChange={(e) => updateFastPlayGame(g.id, { color: e.target.value })}
-                      />
-                    </label>
-                    <label className="text-[11px] font-semibold text-[var(--mut)]">
-                      Sort order
-                      <input
-                        type="number"
-                        className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
-                        defaultValue={g.sort_order ?? 0}
-                        onBlur={(e) =>
-                          updateFastPlayGame(g.id, {
-                            sort_order: parseInt(e.target.value, 10) || 0,
-                          })
-                        }
                       />
                     </label>
                     <label className="flex items-center gap-2 pt-6 text-sm font-semibold">
