@@ -627,31 +627,32 @@ export function SellScreen() {
               </div>
             </div>
 
-            {/* Replay / Scan always available */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={openReplay}
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
-              >
-                <RotateCcw size={16} strokeWidth={2.5} />
-                Replay
-              </button>
-              <button
-                type="button"
-                onClick={openScan}
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-violet-700 px-3 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 active:scale-[0.98]"
-              >
-                <Ticket size={16} strokeWidth={2.5} />
-                Scan Ticket
-              </button>
-            </div>
-
             {!primary ? (
+              <>
+              {/* Replay / Scan available before a game is selected */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={openReplay}
+                  className="flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
+                >
+                  <RotateCcw size={18} strokeWidth={2.5} />
+                  Replay
+                </button>
+                <button
+                  type="button"
+                  onClick={openScan}
+                  className="flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl bg-violet-700 px-3 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 active:scale-[0.98]"
+                >
+                  <Ticket size={18} strokeWidth={2.5} />
+                  Scan Ticket
+                </button>
+              </div>
               <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900/40">
                 <p className="text-sm font-semibold text-slate-500">Select a game to open the keypad</p>
                 <p className="mt-1 text-xs text-slate-400">Choose one or more games above to enter numbers and stake</p>
               </div>
+              </>
             ) : (
               <>
             {/* Draw target + multi-draw — matches POS mockup */}
@@ -787,13 +788,13 @@ export function SellScreen() {
                         {field === "num" ? "Tap digits to compose" : "Enter stake"}
                       </span>
                     </div>
-                    <div className="grid grid-cols-4 gap-1">
+                    <div className="grid grid-cols-4 gap-2">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, ".", 0].map((k) => (
                         <button
                           key={String(k)}
                           type="button"
                           onClick={() => pressKey(k)}
-                          className="flex h-11 items-center justify-center rounded-xl bg-slate-50 text-base font-extrabold text-slate-800 ring-1 ring-slate-200 transition active:scale-95 active:bg-violet-100 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700"
+                          className="flex h-14 min-h-[56px] items-center justify-center rounded-xl bg-slate-50 text-xl font-extrabold text-slate-800 ring-1 ring-slate-200 transition active:scale-95 active:bg-violet-100 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700"
                         >
                           {k}
                         </button>
@@ -801,7 +802,7 @@ export function SellScreen() {
                       <button
                         type="button"
                         onClick={() => pressKey("DEL")}
-                        className="flex h-11 items-center justify-center rounded-xl bg-rose-50 text-rose-500 ring-1 ring-rose-200 transition active:scale-95 dark:bg-rose-950/40 dark:ring-rose-800"
+                        className="flex h-14 min-h-[56px] items-center justify-center rounded-xl bg-rose-50 text-rose-500 ring-1 ring-rose-200 transition active:scale-95 dark:bg-rose-950/40 dark:ring-rose-800"
                         aria-label="Backspace"
                       >
                         <Delete size={20} />
@@ -810,7 +811,7 @@ export function SellScreen() {
                     <button
                       type="button"
                       onClick={() => pressKey("CLR")}
-                      className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-100 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                      className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-slate-100 py-3 text-sm font-bold uppercase tracking-wide text-slate-500 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
                     >
                       Clear digits
                     </button>
@@ -824,7 +825,7 @@ export function SellScreen() {
                       </span>
                       <span className="text-[10px] font-semibold text-slate-400">{currency}</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1">
+                    <div className="grid grid-cols-3 gap-2">
                       {PRESETS.map((p) => {
                         const active = Math.abs((parseFloat(amt) || 0) - p) < 0.001;
                         return (
@@ -836,7 +837,7 @@ export function SellScreen() {
                               setField("amt");
                             }}
                             className={
-                              "relative flex h-10 flex-col items-center justify-center rounded-xl text-sm font-extrabold transition " +
+                              "relative flex h-14 min-h-[56px] flex-col items-center justify-center rounded-xl text-base font-extrabold transition " +
                               (active
                                 ? "bg-violet-600 text-white shadow-md shadow-violet-200"
                                 : "bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700")
@@ -861,7 +862,7 @@ export function SellScreen() {
                           onClick={() =>
                             setAmt((a) => String(Math.round(((parseFloat(a) || 0) + b) * 100) / 100))
                           }
-                          className="flex-1 rounded-xl bg-emerald-50 py-1.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800"
+                          className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-emerald-50 py-3 text-sm font-bold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800"
                         >
                           +{b.toFixed(2).replace(/\.00$/, "")}
                         </button>
@@ -878,7 +879,7 @@ export function SellScreen() {
                 <button
                   type="button"
                   onClick={quickPick}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-3 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-amber-600 active:scale-[0.98]"
+                  className="flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-3 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-amber-600 active:scale-[0.98]"
                 >
                   <Zap size={16} strokeWidth={2.5} />
                   Quick Pick
@@ -886,7 +887,7 @@ export function SellScreen() {
                 <button
                   type="button"
                   onClick={openReplay}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
+                  className="flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
                 >
                   <RotateCcw size={16} strokeWidth={2.5} />
                   Replay
@@ -894,7 +895,7 @@ export function SellScreen() {
                 <button
                   type="button"
                   onClick={openScan}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-violet-700 px-3 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 active:scale-[0.98]"
+                  className="flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl bg-violet-700 px-3 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 active:scale-[0.98]"
                 >
                   <Ticket size={16} strokeWidth={2.5} />
                   Scan Ticket
@@ -903,7 +904,7 @@ export function SellScreen() {
               <button
                 type="button"
                 onClick={addPlay}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3.5 text-base font-extrabold text-white shadow-md shadow-violet-200 transition hover:bg-violet-700 active:scale-[0.99]"
+                className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-4 text-base font-extrabold text-white shadow-md shadow-violet-200 transition hover:bg-violet-700 active:scale-[0.98]"
               >
                 <span className="text-lg leading-none">+</span>
                 Add Play to Ticket
