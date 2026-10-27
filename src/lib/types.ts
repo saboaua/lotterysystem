@@ -299,6 +299,10 @@ export interface TicketScheduleMessage {
   enabled: boolean;
   placement: TicketMessagePlacement;
   relative_to_motd?: "before_manual" | "after_manual";
+  /** Optional schedule window start (ISO or datetime-local: YYYY-MM-DDTHH:mm). Empty = no start limit. */
+  start?: string;
+  /** Optional schedule window end (ISO or datetime-local: YYYY-MM-DDTHH:mm). Empty = no end limit. */
+  end?: string;
 }
 
 export interface TicketDesign {
