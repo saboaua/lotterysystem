@@ -113,6 +113,11 @@ export function BroadcastPanel() {
     toast(`Broadcast sent · ${msg.duration_minutes} min on seller screens`);
   }
 
+  const liveSnippet = active
+    ? (active.title || active.text).slice(0, 48) +
+      ((active.title || active.text).length > 48 ? "..." : "")
+    : "";
+
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -129,9 +134,7 @@ export function BroadcastPanel() {
         {active && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/40">
             <span>
-              <strong>Live now</strong> · ~{remainingMin} min left · "
-              {(active.title || active.text).slice(0, 48)}
-              {(active.title || active.text).length > 48 ? "..." : ""}"
+              <strong>Live now</strong> · ~{remainingMin} min left · &ldquo;{liveSnippet}&rdquo;
             </span>
             <button
               type="button"
