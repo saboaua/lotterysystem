@@ -7,6 +7,7 @@ import { ScrapeButtons } from "./ScrapeButtons";
 import { arubaHolidaysForYear } from "@/lib/aruba-holidays";
 import { ZODIAC_SYMBOLS } from "@/lib/constants";
 import { buildDrawCalcReport } from "@/lib/prize-tiers";
+import { arubaToday } from "@/lib/dates";
 
 function daysInMonth(y: number, m: number) {
   return new Date(y, m + 1, 0).getDate();
@@ -34,7 +35,7 @@ export function ResultsPanel({ mode = "all" }: ResultsPanelProps) {
     soldTickets,
   } = useStore();
   const [gameId, setGameId] = useState(games[0]?.id || "");
-  const [d, setD] = useState(() => new Date().toISOString().slice(0, 10));
+  const [d, setD] = useState(() => arubaToday());
   const [session, setSession] = useState("");
   const [first, setFirst] = useState("");
   const [second, setSecond] = useState("");
@@ -42,7 +43,7 @@ export function ResultsPanel({ mode = "all" }: ResultsPanelProps) {
   const [whe, setWhe] = useState("");
   const [zodiac, setZodiac] = useState("");
   const [holidayName, setHolidayName] = useState("");
-  const [holidayDate, setHolidayDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [holidayDate, setHolidayDate] = useState(() => arubaToday());
   const [calCursor, setCalCursor] = useState(() => {
     const n = new Date();
     return { y: n.getFullYear(), m: n.getMonth() };

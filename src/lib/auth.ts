@@ -37,7 +37,7 @@ export async function signOut(): Promise<void> {
   if (sb) await sb.auth.signOut();
 }
 
-export async function loadProfile(userId: string): Promise<AppUser | null> {
+async function loadProfile(userId: string): Promise<AppUser | null> {
   const sb = getSupabase();
   if (!sb) return null;
   const { data, error } = await sb
@@ -57,12 +57,5 @@ export async function loadProfile(userId: string): Promise<AppUser | null> {
   };
 }
 
-export async function getSessionUser(): Promise<AppUser | null> {
-  const sb = getSupabase();
-  if (!sb) return null;
-  const { data } = await sb.auth.getSession();
-  if (!data.session?.user) return null;
-  return loadProfile(data.session.user.id);
-}
 
 export { isSupabaseConfigured };

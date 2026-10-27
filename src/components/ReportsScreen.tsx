@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
+import { arubaDate, arubaToday } from "@/lib/dates";
 
 export function ReportsScreen() {
   const {
@@ -14,12 +15,12 @@ export function ReportsScreen() {
   } = useStore();
 
   const isOwner = user?.role === "owner";
-  const [from, setFrom] = useState(() => new Date().toISOString().slice(0, 10));
-  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [from, setFrom] = useState(() => arubaToday());
+  const [to, setTo] = useState(() => arubaToday());
 
   const scoped = useMemo(() => {
     let list = soldTickets.filter((t) => {
-      const d = t.created_at.slice(0, 10);
+      const d = arubaDate(t.created_at);
       return d >= from && d <= to;
     });
     if (!isOwner) {

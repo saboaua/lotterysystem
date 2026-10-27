@@ -36,6 +36,7 @@ import {
 } from "./demo-data";
 import { signOut as sbSignOut, isSupabaseConfigured } from "./auth";
 import { loadJson, saveJson } from "./persist";
+import { arubaDate, arubaToday } from "./dates";
 import { computeJackpotAfterDraw, describeJackpotChange } from "./jackpot";
 
 interface Toast {
@@ -497,12 +498,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const total = useMemo(() => lines.reduce((s, l) => s + l.amount, 0), [lines]);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = arubaToday();
   const todayTickets = useMemo(
     () =>
       soldTickets.filter(
         (t) =>
-          t.created_at.slice(0, 10) === todayStr &&
+          arubaDate(t.created_at) === todayStr &&
           t.status !== "cancelled" &&
           (user?.role === "owner" || t.retailer_id === selectedRetailerId)
       ),
