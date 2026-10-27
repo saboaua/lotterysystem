@@ -1,4 +1,4 @@
-import type { Ticket, TicketDesign, BrandSettings, Retailer, Game, Promotion } from "./types";
+import type { Ticket, TicketDesign, BrandSettings, Retailer, Game, Promotion, TicketScheduleMessage } from "./types";
 import { buildJackpotTokenContext } from "./jackpot-tokens";
 
 /** Code 128B pattern table (start B = 104, stop = 106). Values are bar/space widths. */
@@ -56,6 +56,20 @@ function qrImageUrl(payload: string, size = 120): string {
     encodeURIComponent(payload) +
     "&margin=1"
   );
+}
+
+/** True when now is inside the optional start/end window (empty = open). */
+function isInWindow(m: TicketScheduleMessage, now = new Date()): boolean {
+  const t = now.getTime();
+  if (m.start) {
+    const s = new Date(m.start).getTime();
+    if (!Number.isNaN(s) && t < s) return false;
+  }
+  if (m.end) {
+    const e = new Date(m.end).getTime();
+    if (!Number.isNaN(e) && t > e) return false;
+  }
+  return true;
 }
 
 /** Open a print window matching the back-office ticket preview. */
@@ -134,7 +148,10 @@ export function printReceipt(opts: {
       : "";
 
   const ticketGameIds = new Set(ticket.lines.map((l) => l.game));
-  const schedule = (design.schedule_messages || []).filter((m) => m.enabled);
+  const now = new Date();
+  const schedule = (design.schedule_messages || []).filter(
+    (m) => m.enabled && isInWindow(m, now)
+  );
   const scheduleAt = (
     placement: string,
     relative?: "before_manual" | "after_manual" | "any"
