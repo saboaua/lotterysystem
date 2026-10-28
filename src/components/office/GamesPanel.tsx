@@ -7,6 +7,7 @@ import type { Game, GameSession } from "@/lib/types";
 import { PrizeTiersEditor } from "./PrizeTiersEditor";
 import { ProgressiveJackpotEditor } from "./ProgressiveJackpotEditor";
 import { defaultPrizeTiersForFormat } from "@/lib/prize-tiers";
+import { removeLogo, uploadLogo } from "@/lib/storage";
 
 const WEEKDAYS = [
   { d: 0, label: "Sun" },
@@ -18,21 +19,13 @@ const WEEKDAYS = [
   { d: 6, label: "Sat" },
 ];
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-
 export function GamesPanel() {
   const { games, betTypes, updateGame, updateBetType, addGame, deleteGame, toast, currency } =
     useStore();
   const [openId, setOpenId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   const sorted = [...games].sort(
     (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
@@ -79,6 +72,29 @@ export function GamesPanel() {
     toast("Game added");
   }
 
+  async function onLogoUpload(game: Game, file: File | undefined) {
+    if (!file) return;
+    setUploadingId(game.id);
+    try {
+      const result = await uploadLogo(file, "games", game.id);
+      if (!result.ok) {
+        toast(result.error, true);
+        return;
+      }
+      void removeLogo(game.logo);
+      updateGame(game.id, { logo: result.url });
+      toast("Logo saved");
+    } finally {
+      setUploadingId(null);
+    }
+  }
+
+  async function onLogoRemove(game: Game) {
+    void removeLogo(game.logo);
+    updateGame(game.id, { logo: "" });
+    toast("Logo removed");
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -102,6 +118,7 @@ export function GamesPanel() {
           const open = openId === g.id;
           const isDragging = dragId === g.id;
           const isOver = overId === g.id && dragId !== g.id;
+          const uploading = uploadingId === g.id;
           return (
             <div
               key={g.id}
@@ -303,6 +320,8 @@ export function GamesPanel() {
 
                   <PrizeTiersEditor game={g} />
 
+                  {g.format === "jackpot" && <ProgressiveJackpotEditor game={g} />}
+
                   <div className="rounded-xl border border-[var(--line)] bg-[var(--card)] p-3">
                     <div className="mb-2 text-[11px] font-bold uppercase text-[var(--mut)]">
                       Game logo (sell screen)
@@ -323,19 +342,21 @@ export function GamesPanel() {
                           No logo
                         </div>
                       )}
-                      <label className="cursor-pointer rounded-full bg-indigo-600 px-4 py-2 text-xs font-bold text-white">
-                        Upload logo
+                      <label
+                        className={`cursor-pointer rounded-full bg-indigo-600 px-4 py-2 text-xs font-bold text-white ${
+                          uploading ? "opacity-60 pointer-events-none" : ""
+                        }`}
+                      >
+                        {uploading ? "Uploading…" : "Upload logo"}
                         <input
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={async (e) => {
+                          disabled={uploading}
+                          onChange={(e) => {
                             const f = e.target.files?.[0];
-                            if (!f) return;
-                            if (f.size > 400_000) return toast("Logo max 400KB", true);
-                            const url = await fileToDataUrl(f);
-                            updateGame(g.id, { logo: url });
-                            toast("Logo saved");
+                            e.target.value = "";
+                            void onLogoUpload(g, f);
                           }}
                         />
                       </label>
@@ -343,7 +364,7 @@ export function GamesPanel() {
                         <button
                           type="button"
                           className="text-xs font-semibold text-rose-600"
-                          onClick={() => updateGame(g.id, { logo: "" })}
+                          onClick={() => void onLogoRemove(g)}
                         >
                           Remove
                         </button>
@@ -415,72 +436,157 @@ export function GamesPanel() {
                     </div>
                   )}
 
-                  <ProgressiveJackpotEditor
-                    game={g}
-                    currency={currency}
-                    updateGame={updateGame}
-                  />
-
-                  <SessionsEditor game={g} />
-
-                  {g.format === "digit" && (
-                    <div className="overflow-x-auto rounded-xl border border-[var(--line)] bg-[var(--card)]">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-[var(--line)] text-[var(--mut)]">
-                            <th className="px-3 py-2">Bet</th>
-                            <th className="px-3 py-2">×</th>
-                            <th className="px-3 py-2">On</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {betTypes
-                            .filter((b) =>
-                              [
-                                "4_cifra",
-                                "3_cifra",
-                                "2_cifra_3ch",
-                                "4_skina",
-                                "3_skina",
-                                "2_cifra_bf",
-                                "2_cifra_b",
-                              ].includes(b.key)
-                            )
-                            .map((b) => (
-                              <tr key={b.key} className="border-b border-[var(--line)] last:border-0">
-                                <td className="px-3 py-2 font-semibold">{b.label}</td>
-                                <td className="px-3 py-2">
-                                  <input
-                                    type="number"
-                                    className="h-8 w-20 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2"
-                                    defaultValue={b.multiplier}
-                                    onBlur={(e) =>
-                                      updateBetType(b.key, {
-                                        multiplier: parseFloat(e.target.value) || 1,
-                                      })
-                                    }
-                                  />
-                                </td>
-                                <td className="px-3 py-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={b.enabled}
-                                    onChange={(e) =>
-                                      updateBetType(b.key, { enabled: e.target.checked })
-                                    }
-                                  />
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
+                  {g.format === "jackpot" && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="text-[11px] font-semibold text-[var(--mut)]">
+                        Main balls count / max
+                        <span className="mt-1 flex gap-2">
+                          <input
+                            type="number"
+                            className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+                            defaultValue={g.main_count ?? 5}
+                            onBlur={(e) =>
+                              updateGame(g.id, { main_count: parseInt(e.target.value, 10) || 5 })
+                            }
+                          />
+                          <input
+                            type="number"
+                            className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+                            defaultValue={g.main_max ?? 30}
+                            onBlur={(e) =>
+                              updateGame(g.id, { main_max: parseInt(e.target.value, 10) || 30 })
+                            }
+                          />
+                        </span>
+                      </label>
+                      <label className="text-[11px] font-semibold text-[var(--mut)]">
+                        Mega count / max
+                        <span className="mt-1 flex gap-2">
+                          <input
+                            type="number"
+                            className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+                            defaultValue={g.mega_count ?? 1}
+                            onBlur={(e) =>
+                              updateGame(g.id, { mega_count: parseInt(e.target.value, 10) || 1 })
+                            }
+                          />
+                          <input
+                            type="number"
+                            className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 text-sm"
+                            defaultValue={g.mega_max ?? 10}
+                            onBlur={(e) =>
+                              updateGame(g.id, { mega_max: parseInt(e.target.value, 10) || 10 })
+                            }
+                          />
+                        </span>
+                      </label>
                     </div>
                   )}
+
+                  <div>
+                    <div className="mb-2 text-[11px] font-bold uppercase text-[var(--mut)]">
+                      Sessions (optional multi-draw)
+                    </div>
+                    {(g.sessions || []).map((s, si) => (
+                      <div key={s.id} className="mb-2 flex flex-wrap gap-2">
+                        <input
+                          className="h-9 flex-1 rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-sm"
+                          defaultValue={s.label}
+                          placeholder="Label"
+                          onBlur={(e) => {
+                            const sessions = [...(g.sessions || [])];
+                            sessions[si] = { ...sessions[si], label: e.target.value };
+                            updateGame(g.id, { sessions });
+                          }}
+                        />
+                        <input
+                          className="h-9 w-24 rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-sm"
+                          defaultValue={s.draw_time}
+                          placeholder="Draw"
+                          onBlur={(e) => {
+                            const sessions = [...(g.sessions || [])];
+                            sessions[si] = { ...sessions[si], draw_time: e.target.value };
+                            updateGame(g.id, { sessions });
+                          }}
+                        />
+                        <input
+                          className="h-9 w-24 rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-sm"
+                          defaultValue={s.cutoff}
+                          placeholder="Cutoff"
+                          onBlur={(e) => {
+                            const sessions = [...(g.sessions || [])];
+                            sessions[si] = { ...sessions[si], cutoff: e.target.value };
+                            updateGame(g.id, { sessions });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="text-rose-600"
+                          onClick={() => {
+                            const sessions = (g.sessions || []).filter((_, i) => i !== si);
+                            updateGame(g.id, { sessions });
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-indigo-600"
+                      onClick={() => {
+                        const sessions: GameSession[] = [
+                          ...(g.sessions || []),
+                          {
+                            id: `s${Date.now()}`,
+                            label: "Session",
+                            draw_time: g.draw_time,
+                            cutoff: g.cutoff,
+                          },
+                        ];
+                        updateGame(g.id, { sessions });
+                      }}
+                    >
+                      + Add session
+                    </button>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-[11px] font-bold uppercase text-[var(--mut)]">
+                      Bet types enabled for this game
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {betTypes.map((bt) => {
+                        const on = (g.bet_types || []).includes(bt.key);
+                        return (
+                          <button
+                            key={bt.key}
+                            type="button"
+                            onClick={() => {
+                              const cur = g.bet_types || [];
+                              const next = on
+                                ? cur.filter((k) => k !== bt.key)
+                                : [...cur, bt.key];
+                              updateGame(g.id, { bet_types: next });
+                            }}
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${
+                              on
+                                ? "bg-indigo-600 text-white"
+                                : "border border-[var(--line)] bg-[var(--card)] text-[var(--mut)]"
+                            }`}
+                          >
+                            {bt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   <button
                     type="button"
                     onClick={() => {
-                      if (!confirm("Delete " + g.name + "?")) return;
+                      if (!confirm(`Delete ${g.name}?`)) return;
+                      void removeLogo(g.logo);
                       deleteGame(g.id);
                       setOpenId(null);
                       toast("Deleted");
@@ -495,84 +601,39 @@ export function GamesPanel() {
           );
         })}
       </div>
-    </div>
-  );
-}
 
-function SessionsEditor({ game }: { game: Game }) {
-  const { updateGame } = useStore();
-  const sessions = game.sessions || [];
-
-  function setSessions(next: GameSession[]) {
-    updateGame(game.id, { sessions: next });
-  }
-
-  return (
-    <div className="space-y-2 rounded-xl border border-[var(--line)] bg-[var(--card)] p-3">
-      <div className="flex items-center justify-between">
-        <div className="text-[11px] font-bold uppercase text-[var(--mut)]">Sessions</div>
-        <button
-          type="button"
-          onClick={() =>
-            setSessions([
-              ...sessions,
-              {
-                id: "s" + Date.now().toString(36),
-                label: "Session",
-                draw_time: game.draw_time || "13:00",
-                cutoff: game.cutoff || "12:45",
-              },
-            ])
-          }
-          className="flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[10px] font-bold text-white"
-        >
-          <Plus size={12} /> Add
-        </button>
-      </div>
-      {sessions.map((s, idx) => (
-        <div key={s.id} className="flex flex-wrap items-center gap-2">
-          <input
-            className="h-8 min-w-[80px] flex-1 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-xs"
-            defaultValue={s.label}
-            placeholder="Label"
-            onBlur={(e) => {
-              const next = sessions.map((x, i) =>
-                i === idx ? { ...x, label: e.target.value } : x
-              );
-              setSessions(next);
-            }}
-          />
-          <input
-            className="h-8 w-24 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-xs"
-            defaultValue={s.draw_time}
-            placeholder="Draw"
-            onBlur={(e) => {
-              const next = sessions.map((x, i) =>
-                i === idx ? { ...x, draw_time: e.target.value } : x
-              );
-              setSessions(next);
-            }}
-          />
-          <input
-            className="h-8 w-24 rounded-lg border border-[var(--line)] bg-[var(--key)] px-2 text-xs"
-            defaultValue={s.cutoff}
-            placeholder="Cutoff"
-            onBlur={(e) => {
-              const next = sessions.map((x, i) =>
-                i === idx ? { ...x, cutoff: e.target.value } : x
-              );
-              setSessions(next);
-            }}
-          />
-          <button
-            type="button"
-            className="text-rose-600"
-            onClick={() => setSessions(sessions.filter((_, i) => i !== idx))}
-          >
-            <Trash2 size={12} />
-          </button>
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
+        <h3 className="mb-3 font-bold">Global bet types</h3>
+        <div className="space-y-2">
+          {betTypes.map((bt) => (
+            <div
+              key={bt.key}
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--key)]/40 p-2"
+            >
+              <span className="min-w-[100px] text-sm font-semibold">{bt.label}</span>
+              <label className="text-[10px] font-semibold text-[var(--mut)]">
+                Multiplier
+                <input
+                  type="number"
+                  className="ml-1 h-8 w-20 rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-xs"
+                  defaultValue={bt.multiplier}
+                  onBlur={(e) =>
+                    updateBetType(bt.key, { multiplier: parseFloat(e.target.value) || 1 })
+                  }
+                />
+              </label>
+              <label className="flex items-center gap-1 text-xs font-semibold">
+                <input
+                  type="checkbox"
+                  checked={bt.enabled}
+                  onChange={(e) => updateBetType(bt.key, { enabled: e.target.checked })}
+                />
+                On
+              </label>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   );
 }

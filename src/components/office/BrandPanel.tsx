@@ -5,15 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { LedScheduleMessage } from "@/lib/types";
 import { arubaToday } from "@/lib/dates";
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+import { removeLogo, uploadLogo } from "@/lib/storage";
 
 const SPEED_PRESETS = [
   { label: "Slow", value: 20 },
@@ -24,6 +16,7 @@ const SPEED_PRESETS = [
 export function BrandPanel() {
   const { brand, updateBrand, toast } = useStore();
   const [manual, setManual] = useState(brand.led_message);
+  const [uploading, setUploading] = useState(false);
 
   const schedule = useMemo(() => brand.led_schedule || [], [brand.led_schedule]);
   const activeCount = schedule.filter((m) => m.enabled).length;
@@ -44,6 +37,30 @@ export function BrandPanel() {
 
   function setSchedule(next: LedScheduleMessage[]) {
     updateBrand({ led_schedule: next });
+  }
+
+  async function onLogoUpload(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const result = await uploadLogo(file, "brand", "logo");
+      if (!result.ok) {
+        toast(result.error, true);
+        return;
+      }
+      // Best-effort cleanup of previous Storage object
+      void removeLogo(brand.logo);
+      updateBrand({ logo: result.url });
+      toast("Logo saved");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function onLogoRemove() {
+    void removeLogo(brand.logo);
+    updateBrand({ logo: "" });
+    toast("Logo removed");
   }
 
   return (
@@ -87,18 +104,21 @@ export function BrandPanel() {
                 SL
               </div>
             )}
-            <label className="cursor-pointer rounded-full bg-indigo-600 px-4 py-2 text-xs font-bold text-white">
-              Upload logo
+            <label
+              className={`cursor-pointer rounded-full bg-indigo-600 px-4 py-2 text-xs font-bold text-white ${
+                uploading ? "opacity-60 pointer-events-none" : ""
+              }`}
+            >
+              {uploading ? "Uploading…" : "Upload logo"}
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={async (e) => {
+                disabled={uploading}
+                onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (!f) return;
-                  if (f.size > 400_000) return toast("Logo max 400KB", true);
-                  updateBrand({ logo: await fileToDataUrl(f) });
-                  toast("Logo saved");
+                  e.target.value = "";
+                  void onLogoUpload(f);
                 }}
               />
             </label>
@@ -106,12 +126,17 @@ export function BrandPanel() {
               <button
                 type="button"
                 className="text-xs font-semibold text-rose-600"
-                onClick={() => updateBrand({ logo: "" })}
+                onClick={() => void onLogoRemove()}
               >
                 Remove
               </button>
             )}
           </div>
+          <p className="mt-2 text-[10px] text-[var(--mut)]">
+            Max 400KB. When Supabase is configured, logos are stored in the public{" "}
+            <code className="rounded bg-[var(--key)] px-1">logos</code> bucket; otherwise they stay
+            as local data URLs.
+          </p>
         </div>
 
         <label className="block text-[11px] font-semibold text-[var(--mut)]">
