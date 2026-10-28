@@ -6,7 +6,7 @@ import { DEMO_USERS } from "@/lib/demo-data";
 import { useStore } from "@/lib/store";
 import { isSupabaseConfigured, signInWithPassword } from "@/lib/auth";
 
-/** Offline demo passwords (used when Supabase is not configured, or as fallback). */
+/** Offline demo passwords (used only when Supabase is not configured). */
 const DEMO_PASSWORDS: Record<string, string> = {
   "owner@shocolottery.aw": "owner123",
   "main@shop.aw": "retailer123",
@@ -25,6 +25,12 @@ export function LoginScreen() {
 
   /** Set user only — home page redirects after state commits (avoids race). */
   function enterAs(userId: string) {
+    if (isSupabaseConfigured) {
+      toast(
+        "Demo one-tap is offline-only. Use email/password so Storage (logos) works.",
+        true
+      );
+    }
     loginAs(userId);
   }
 
@@ -57,29 +63,42 @@ export function LoginScreen() {
 
     setBusy(true);
 
-    // Always try demo credentials first (works offline)
-    if (tryDemoPassword(em, pw)) {
+    // Prefer real Supabase Auth when configured (required for Storage uploads)
+    if (isSupabaseConfigured) {
+      const res = await signInWithPassword(em, pw);
+      if (res.ok) {
+        if (mode === "owner" && res.user.role !== "owner") {
+          setBusy(false);
+          toast("This account is not an owner", true);
+          return;
+        }
+        if (mode === "retailer" && res.user.role !== "retailer") {
+          setBusy(false);
+          toast("This account is not a retailer", true);
+          return;
+        }
+        setUserFromAuth(res.user);
+        setBusy(false);
+        toast(`Signed in as ${res.user.name || res.user.email}`);
+        return;
+      }
+      // Fall through to demo only if credentials match offline demo accounts
+      if (tryDemoPassword(em, pw)) {
+        setBusy(false);
+        toast(
+          "Signed in offline (demo). Logos will not upload to Supabase until you use a real Auth user.",
+          true
+        );
+        return;
+      }
       setBusy(false);
+      toast(res.error || "Wrong email or password", true);
       return;
     }
 
-    if (isSupabaseConfigured) {
-      const res = await signInWithPassword(em, pw);
+    // No Supabase — offline demo only
+    if (tryDemoPassword(em, pw)) {
       setBusy(false);
-      if (!res.ok) {
-        toast(res.error, true);
-        return;
-      }
-      if (mode === "owner" && res.user.role !== "owner") {
-        toast("This account is not an owner", true);
-        return;
-      }
-      if (mode === "retailer" && res.user.role !== "retailer") {
-        toast("This account is not a retailer", true);
-        return;
-      }
-      setUserFromAuth(res.user);
-      toast(`Signed in as ${res.user.name || res.user.email}`);
       return;
     }
 
@@ -177,29 +196,35 @@ export function LoginScreen() {
                 {busy ? "Signing in…" : "Sign in as retailer"}
               </button>
               <p className="text-center text-[11px] text-slate-400">
-                Demo: main@shop.aw / retailer123
+                {isSupabaseConfigured
+                  ? "Use your Supabase Auth email/password"
+                  : "Demo: main@shop.aw / retailer123"}
               </p>
             </form>
 
-            <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or one-tap demo</p>
-            <div className="space-y-2">
-              {retailers.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => enterAs(u.id)}
-                  className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-left transition hover:border-emerald-400 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-                >
-                  <div>
-                    <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
-                    <div className="text-xs text-slate-500">{u.email}</div>
-                  </div>
-                  <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                    Retailer
-                  </span>
-                </button>
-              ))}
-            </div>
+            {!isSupabaseConfigured && (
+              <>
+                <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or one-tap demo</p>
+                <div className="space-y-2">
+                  {retailers.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => enterAs(u.id)}
+                      className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-left transition hover:border-emerald-400 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
+                        <div className="text-xs text-slate-500">{u.email}</div>
+                      </div>
+                      <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                        Retailer
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -238,35 +263,49 @@ export function LoginScreen() {
                 {busy ? "Signing in…" : "Sign in as owner"}
               </button>
               <p className="text-center text-[11px] text-slate-500">
-                Demo: <span className="font-mono font-semibold">owner@shocolottery.aw</span> /{" "}
-                <span className="font-mono font-semibold">owner123</span>
+                {isSupabaseConfigured ? (
+                  <>
+                    Create this user in Supabase Auth, then a row in <code className="font-mono">profiles</code> with{" "}
+                    <code className="font-mono">role = owner</code>
+                  </>
+                ) : (
+                  <>
+                    Demo: <span className="font-mono font-semibold">owner@shocolottery.aw</span> /{" "}
+                    <span className="font-mono font-semibold">owner123</span>
+                  </>
+                )}
               </p>
             </form>
 
-            <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or one-tap demo</p>
-            <div className="space-y-2">
-              {owners.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => enterAs(u.id)}
-                  className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-left transition hover:border-violet-400 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-                >
-                  <div>
-                    <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
-                    <div className="text-xs text-slate-500">{u.email}</div>
-                  </div>
-                  <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-[11px] font-bold text-violet-700 dark:text-violet-300">
-                    Owner
-                  </span>
-                </button>
-              ))}
-            </div>
+            {!isSupabaseConfigured && (
+              <>
+                <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or one-tap demo</p>
+                <div className="space-y-2">
+                  {owners.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => enterAs(u.id)}
+                      className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-left transition hover:border-violet-400 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
+                        <div className="text-xs text-slate-500">{u.email}</div>
+                      </div>
+                      <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-[11px] font-bold text-violet-700 dark:text-violet-300">
+                        Owner
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
         <p className="mt-8 text-center text-[11px] text-slate-400">
           Retailer → sell only · Owner → back office only
+          {isSupabaseConfigured ? " · Logos need a real Auth session" : ""}
         </p>
       </div>
     </div>
