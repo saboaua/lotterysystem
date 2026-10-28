@@ -90,7 +90,7 @@ export const DEMO_GAMES: Game[] = [
     main_count: 5,
     main_max: 30,
     mega_count: 1,
-    mega_max: 10,
+    mega_max: 15,
     draw_time: "18:45",
     cutoff: "18:15",
     enabled: true,
@@ -144,6 +144,8 @@ export const DEMO_GAMES: Game[] = [
 ];
 
 export const DEMO_BET_TYPES: BetType[] = [
+  { key: "6_cifra", label: "6 Cifra", digits: 6, mode: "exact", multiplier: 500000, enabled: true, min_stake: 0.5, max_stake: 50 },
+  { key: "5_cifra", label: "5 Cifra", digits: 5, mode: "exact", multiplier: 50000, enabled: true, min_stake: 0.5, max_stake: 50 },
   { key: "4_cifra", label: "4 Cifra", digits: 4, mode: "exact", multiplier: 5000, enabled: true, min_stake: 0.5, max_stake: 100 },
   { key: "3_cifra", label: "3 Cifra", digits: 3, mode: "exact", multiplier: 500, enabled: true, min_stake: 0.5, max_stake: 100 },
   { key: "2_cifra_3ch", label: "2 Cifra 3CH", digits: 2, mode: "chances", multiplier: 20, enabled: true, min_stake: 0.5, max_stake: 50 },
@@ -179,7 +181,6 @@ export const DEMO_RETAILERS: Retailer[] = [
   { id: "r019", number: "019", name: "Seroe Blanco Store", first_name: "Rico", last_name: "Thijsen", address: "Seroe Blanco 2", phone: "+297 585 3019", commission_sell: 10, commission_redeem: 2, active: true, lat: 12.5, lng: -69.99 },
   { id: "r020", number: "020", name: "Wayaca Center", first_name: "Tina", last_name: "Croes", address: "Wayaca 9, Oranjestad", phone: "+297 582 1020", commission_sell: 10, commission_redeem: 2, active: true, lat: 12.51, lng: -70.025 },
 ];
-
 
 export const DEMO_USERS: AppUser[] = [
   { id: "u-owner", email: "owner@shocolottery.aw", name: "Lottery Owner", role: "owner" },
