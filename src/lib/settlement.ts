@@ -42,6 +42,33 @@ export function periodAt(now: number, offset = 0): SettlementPeriod {
   return { start: end - WEEK, end, open: offset === 0, offset };
 }
 
+export type RankingKind = "week" | "month";
+
+/** Calendar month in Aruba time. offset 0 = current month, 1 = previous month, ... */
+export function monthPeriodAt(now: number, offset = 0): SettlementPeriod {
+  const w = toLocalWall(now);
+  const y = w.getUTCFullYear();
+  const m = w.getUTCMonth() - offset;
+  const toUtc = (wallMs: number) => wallMs - SETTLEMENT_TZ_OFFSET_HOURS * HOUR;
+  return {
+    start: toUtc(Date.UTC(y, m, 1)),
+    end: toUtc(Date.UTC(y, m + 1, 1)),
+    open: offset === 0,
+    offset,
+  };
+}
+
+export const rankingPeriod = (kind: RankingKind, now: number, offset = 0) =>
+  kind === "month" ? monthPeriodAt(now, offset) : periodAt(now, offset);
+
+export function formatMonth(p: SettlementPeriod) {
+  return new Date(p.start + 1).toLocaleDateString("en-US", {
+    timeZone: "America/Aruba",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 const inPeriod = (iso: string | undefined, p: SettlementPeriod) => {
   if (!iso) return false;
   const t = new Date(iso).getTime();
@@ -151,4 +178,26 @@ export function countdown(ms: number) {
   const h = Math.floor((ms % DAY) / HOUR);
   const m = Math.floor((ms % HOUR) / 60_000);
   return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`;
+}
+
+/**
+ * Best (lowest) rank this retailer held at the end of any day so far in the period,
+ * counting only days where they had sales. Returns null if they have no sales yet.
+ */
+export function peakRank(
+  retailers: Retailer[],
+  tickets: Ticket[],
+  p: SettlementPeriod,
+  now: number,
+  retailerId: string
+): number | null {
+  const upTo = Math.min(now, p.end);
+  let best: number | null = null;
+  for (let t = p.start + DAY; ; t += DAY) {
+    const end = Math.min(t, upTo);
+    const me = rankAgents(retailers, tickets, { ...p, end }).find((r) => r.retailerId === retailerId);
+    if (me && me.sales > 0) best = best === null ? me.rank : Math.min(best, me.rank);
+    if (end >= upTo) break;
+  }
+  return best;
 }

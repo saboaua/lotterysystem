@@ -4,17 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  ArrowDown,
-  ArrowUp,
   CalendarClock,
   MapPin,
-  Minus,
   Phone,
   Store,
-  Trophy,
   User,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { RankingCard } from "@/components/RankingCard";
 import {
   countdown,
   formatClose,
@@ -43,13 +40,7 @@ export function ProfileScreen() {
   const data = useMemo(() => {
     if (!now || !shop) return null;
     const cur = periodAt(now, 0);
-    const last = periodAt(now, 1);
-    const ranking = rankAgents(retailers, soldTickets, cur);
-    const lastRanking = rankAgents(retailers, soldTickets, last);
-    const me = ranking.find((r) => r.retailerId === shop.id);
-    const meLast = lastRanking.find((r) => r.retailerId === shop.id);
     const mySettlement = settleRetailer(shop, soldTickets, cur);
-    const totalNetwork = ranking.reduce((s, r) => s + r.sales, 0);
     const history = Array.from({ length: HISTORY_WEEKS }, (_, i) => {
       const p = periodAt(now, i + 1);
       const rk = rankAgents(retailers, soldTickets, p);
@@ -60,7 +51,7 @@ export function ProfileScreen() {
         of: rk.length,
       };
     });
-    return { cur, ranking, me, meLast, mySettlement, totalNetwork, history, lastCount: lastRanking.length };
+    return { cur, mySettlement, history };
   }, [now, shop, retailers, soldTickets]);
 
   if (!shop) {
@@ -76,22 +67,7 @@ export function ProfileScreen() {
     .toUpperCase();
   const status = shop.status ?? (shop.active ? "active" : "disabled");
 
-  const me = data?.me;
   const s = data?.mySettlement;
-  const total = data?.ranking.length ?? 0;
-  const above = me && me.rank > 1 ? data!.ranking.filter((r) => r.rank < me.rank).slice(-1)[0] : undefined;
-  const noSales = !me || me.sales <= 0;
-  const rankDelta = me && data?.meLast ? data.meLast.rank - me.rank : 0; // + = moved up
-  const share = me && data!.totalNetwork > 0 ? (me.sales / data!.totalNetwork) * 100 : 0;
-
-  // Leaderboard: top 5, plus own row when outside top 5
-  const board = (() => {
-    if (!data) return [];
-    const top = data.ranking.slice(0, 5);
-    if (me && !top.some((r) => r.retailerId === me.retailerId)) return [...top, me];
-    return top;
-  })();
-  const maxSales = Math.max(1, ...(data?.ranking.map((r) => r.sales) ?? [1]));
 
   const card =
     "rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:p-5";
@@ -162,86 +138,11 @@ export function ProfileScreen() {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Ranking */}
-        <section className={card}>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-base font-extrabold">
-              <Trophy size={18} className="text-amber-500" /> Ranking this week
-            </h3>
-            <span className={label + " whitespace-nowrap"}>{data ? formatRange(data.cur) : ""}</span>
-          </div>
+      <RankingCard shop={shop} retailers={retailers} tickets={soldTickets} now={now} currency={currency} />
 
-          <div className="flex items-end gap-4">
-            <div>
-              <div className="text-5xl font-black leading-none text-violet-700 dark:text-violet-400">
-                {noSales ? "—" : `#${me?.rank}`}
-              </div>
-              <div className="mt-1 text-xs font-semibold text-slate-500">
-                {noSales ? "No sales yet this week" : `of ${total} agents`}
-              </div>
-            </div>
-            <div className="mb-1 space-y-1 text-xs font-semibold">
-              {!noSales && data?.meLast && (
-                <div
-                  className={
-                    "inline-flex items-center gap-1 rounded-full px-2 py-1 " +
-                    (rankDelta > 0
-                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50"
-                      : rankDelta < 0
-                        ? "bg-rose-50 text-rose-700 dark:bg-rose-950/50"
-                        : "bg-slate-100 text-slate-600 dark:bg-slate-800")
-                  }
-                >
-                  {rankDelta > 0 ? <ArrowUp size={12} /> : rankDelta < 0 ? <ArrowDown size={12} /> : <Minus size={12} />}
-                  {rankDelta === 0 ? "Same as last week" : `${Math.abs(rankDelta)} vs last week (#${data.meLast.rank})`}
-                </div>
-              )}
-              <div className="text-slate-500">Network share: {share.toFixed(1)}%</div>
-            </div>
-          </div>
-
-          {noSales && (
-            <p className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              Make your first sale this week to enter the ranking.
-            </p>
-          )}
-          {me && !noSales && (
-            <p className="mt-3 rounded-xl bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800 dark:bg-violet-950/40 dark:text-violet-200">
-              {me.rank === 1
-                ? "You're leading the network this week. Keep it up!"
-                : above
-                  ? `${money(above.sales - me.sales)} more in sales to pass #${above.rank} (${above.name}).`
-                  : ""}
-            </p>
-          )}
-
-          <ul className="mt-4 space-y-2">
-            {board.map((r) => {
-              const mine = r.retailerId === shop.id;
-              return (
-                <li key={r.retailerId}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className={"font-bold " + (mine ? "text-violet-700 dark:text-violet-300" : "text-slate-700 dark:text-slate-200")}>
-                      #{r.rank} · {r.name}
-                      {mine && " (you)"}
-                    </span>
-                    <span className="font-mono font-semibold text-slate-500">{money(r.sales)}</span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                    <div
-                      className={"h-full rounded-full " + (mine ? "bg-violet-600" : "bg-slate-300 dark:bg-slate-600")}
-                      style={{ width: `${Math.max(2, (r.sales / maxSales) * 100)}%` }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {/* Settlement */}
-        <section className={card}>
+        <section className={card + " min-w-0 lg:col-span-2"}>
           <div className="mb-3 flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-base font-extrabold">
               <CalendarClock size={18} className="text-indigo-500" /> Settlement
@@ -294,10 +195,9 @@ export function ProfileScreen() {
             </>
           )}
         </section>
-      </div>
 
-      {/* History */}
-      <section className={card}>
+        {/* History */}
+      <section className={card + " min-w-0 lg:col-span-3"}>
         <h3 className="mb-3 text-base font-extrabold">Closed settlements</h3>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[480px] text-sm">
@@ -330,6 +230,7 @@ export function ProfileScreen() {
           </table>
         </div>
       </section>
+      </div>
     </div>
   );
 }
