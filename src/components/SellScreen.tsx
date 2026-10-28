@@ -5,10 +5,10 @@ import {
   Bookmark,
   Check,
   Delete,
+  Laptop,
   Printer,
   RotateCcw,
   Ticket,
-  Wallet,
   X,
   Zap,
 } from "lucide-react";
@@ -490,40 +490,38 @@ export function SellScreen() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#f4f6fb] lg:flex-row dark:bg-slate-950">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">
-        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">
-          <button
-            type="button"
-            onClick={() => setSellTab("lottery")}
-            className={
-              "flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-extrabold transition " +
-              (sellTab === "lottery"
-                ? "bg-violet-600 text-white shadow"
-                : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")
-            }
-          >
-            <Ticket size={16} strokeWidth={2.25} />
-            Lottery
-          </button>
-          <button
-            type="button"
-            onClick={() => setSellTab("fast_play")}
-            className={
-              "flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-extrabold transition " +
-              (sellTab === "fast_play"
-                ? "bg-rose-500 text-white shadow"
-                : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")
-            }
-          >
-            <Zap size={16} strokeWidth={2.25} />
-            Fast Play
-          </button>
+        <div className={"grid gap-2 md:gap-3 " + (getTopUpDesign(ticketDesign).enabled ? "grid-cols-3" : "grid-cols-2")}>
+          {(
+            [
+              { key: "lottery", label: "Lottery", Icon: Ticket, iconCls: "text-violet-600", active: "from-violet-600 to-indigo-600 shadow-violet-200" },
+              { key: "fast_play", label: "Fast Play", Icon: Zap, iconCls: "text-amber-500", active: "from-amber-500 to-rose-500 shadow-rose-200" },
+            ] as const
+          ).map(({ key, label, Icon, iconCls, active }) => {
+            const on = sellTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSellTab(key)}
+                className={
+                  "flex min-h-[52px] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-1.5 text-[13px] font-bold transition sm:gap-2 sm:px-2 sm:text-sm md:min-h-[60px] " +
+                  (on
+                    ? `bg-gradient-to-r ${active} text-white shadow-lg dark:shadow-none`
+                    : "bg-white text-slate-800 shadow-sm hover:shadow-md dark:bg-slate-900 dark:text-slate-100")
+                }
+              >
+                <Icon size={16} strokeWidth={2.25} className={on ? "text-white" : iconCls} />
+                {label}
+              </button>
+            );
+          })}
           {getTopUpDesign(ticketDesign).enabled && (
             <button
               type="button"
               onClick={() => setTopUpOpen(true)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-extrabold text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+              className="flex min-h-[52px] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-white px-1.5 text-[13px] font-bold text-slate-800 shadow-sm transition hover:shadow-md sm:gap-2 sm:px-2 sm:text-sm md:min-h-[60px] dark:bg-slate-900 dark:text-slate-100"
             >
-              <Wallet size={16} strokeWidth={2.25} />
+              <Laptop size={16} strokeWidth={2.25} className="text-teal-600" />
               Top Up
             </button>
           )}
