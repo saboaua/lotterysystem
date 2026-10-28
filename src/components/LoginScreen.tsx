@@ -6,7 +6,7 @@ import { DEMO_USERS } from "@/lib/demo-data";
 import { useStore } from "@/lib/store";
 import { isSupabaseConfigured, signInWithPassword } from "@/lib/auth";
 
-/** Offline demo passwords (used only when Supabase is not configured). */
+/** Offline demo passwords — only used when Supabase env is not set. */
 const DEMO_PASSWORDS: Record<string, string> = {
   "owner@shocolottery.aw": "owner123",
   "main@shop.aw": "retailer123",
@@ -23,13 +23,13 @@ export function LoginScreen() {
   const owners = DEMO_USERS.filter((u) => u.role === "owner");
   const retailers = DEMO_USERS.filter((u) => u.role === "retailer");
 
-  /** Set user only — home page redirects after state commits (avoids race). */
   function enterAs(userId: string) {
     if (isSupabaseConfigured) {
       toast(
-        "Demo one-tap is offline-only. Use email/password so Storage (logos) works.",
+        "Demo accounts are disabled while Supabase is connected. Create the user in Authentication and sign in with email/password.",
         true
       );
+      return;
     }
     loginAs(userId);
   }
@@ -63,40 +63,32 @@ export function LoginScreen() {
 
     setBusy(true);
 
-    // Prefer real Supabase Auth when configured (required for Storage uploads)
+    // Supabase configured → real Auth only (no silent demo fallback)
     if (isSupabaseConfigured) {
       const res = await signInWithPassword(em, pw);
-      if (res.ok) {
-        if (mode === "owner" && res.user.role !== "owner") {
-          setBusy(false);
-          toast("This account is not an owner", true);
-          return;
-        }
-        if (mode === "retailer" && res.user.role !== "retailer") {
-          setBusy(false);
-          toast("This account is not a retailer", true);
-          return;
-        }
-        setUserFromAuth(res.user);
-        setBusy(false);
-        toast(`Signed in as ${res.user.name || res.user.email}`);
-        return;
-      }
-      // Fall through to demo only if credentials match offline demo accounts
-      if (tryDemoPassword(em, pw)) {
-        setBusy(false);
+      setBusy(false);
+      if (!res.ok) {
         toast(
-          "Signed in offline (demo). Logos will not upload to Supabase until you use a real Auth user.",
+          res.error ||
+            "Wrong email or password. This account must exist under Supabase → Authentication → Users.",
           true
         );
         return;
       }
-      setBusy(false);
-      toast(res.error || "Wrong email or password", true);
+      if (mode === "owner" && res.user.role !== "owner") {
+        toast("This account is not an owner (check profiles.role)", true);
+        return;
+      }
+      if (mode === "retailer" && res.user.role !== "retailer") {
+        toast("This account is not a retailer (check profiles.role)", true);
+        return;
+      }
+      setUserFromAuth(res.user);
+      toast(`Signed in as ${res.user.name || res.user.email}`);
       return;
     }
 
-    // No Supabase — offline demo only
+    // Offline demo only
     if (tryDemoPassword(em, pw)) {
       setBusy(false);
       return;
@@ -197,7 +189,7 @@ export function LoginScreen() {
               </button>
               <p className="text-center text-[11px] text-slate-400">
                 {isSupabaseConfigured
-                  ? "Use your Supabase Auth email/password"
+                  ? "Must exist in Supabase Auth + profiles (role=retailer, retailer_id=shop UUID)"
                   : "Demo: main@shop.aw / retailer123"}
               </p>
             </form>
@@ -305,7 +297,7 @@ export function LoginScreen() {
 
         <p className="mt-8 text-center text-[11px] text-slate-400">
           Retailer → sell only · Owner → back office only
-          {isSupabaseConfigured ? " · Logos need a real Auth session" : ""}
+          {isSupabaseConfigured ? " · Live mode: Supabase Auth required" : ""}
         </p>
       </div>
     </div>
