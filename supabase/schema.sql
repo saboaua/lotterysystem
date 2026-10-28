@@ -340,3 +340,53 @@ on conflict (id) do nothing;
 
 update public.games set jackpot_current = 150000, main_count = 5, main_max = 30, mega_count = 1, mega_max = 10
   where id = 'lottomac';
+
+-- ── Player top-ups ──────────────────────────────────────────────────
+-- Voucher codes printed by a seller (kind = 'voucher') and direct credits to a scanned
+-- player code (kind = 'direct'). The player website redeems a voucher with
+-- public.redeem_topup_code(), called from a trusted server (service role), never from the browser.
+create table if not exists public.topups (
+  id            text primary key,
+  kind          text not null check (kind in ('voucher', 'direct')),
+  amount        numeric(12,2) not null check (amount > 0),
+  retailer_id   uuid references public.retailers(id),
+  clerk         text,
+  code          text unique,          -- voucher only, stored normalized (no dashes, upper case)
+  player_code   text,                 -- direct only
+  status        text not null default 'issued'
+                check (status in ('issued', 'redeemed', 'credited', 'failed', 'void')),
+  created_at    timestamptz not null default now(),
+  redeemed_at   timestamptz,
+  redeemed_by   text,                 -- player account id that used the code
+  error         text
+);
+create index if not exists topups_retailer_created_idx on public.topups (retailer_id, created_at desc);
+
+alter table public.topups enable row level security;
+create policy "topups owner all" on public.topups for all using (public.is_owner());
+create policy "topups retailer read own" on public.topups
+  for select using (retailer_id = public.my_retailer_id());
+create policy "topups retailer insert own" on public.topups
+  for insert with check (retailer_id = public.my_retailer_id());
+
+-- Atomically marks a voucher as used and returns its amount (null when invalid or already used).
+create or replace function public.redeem_topup_code(p_code text, p_player text)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_amount numeric;
+begin
+  update public.topups
+     set status = 'redeemed', redeemed_at = now(), redeemed_by = p_player
+   where code = upper(regexp_replace(p_code, '[^A-Za-z0-9]', '', 'g'))
+     and kind = 'voucher'
+     and status = 'issued'
+  returning amount into v_amount;
+  return v_amount;
+end;
+$$;
+-- Only the server may call it:
+revoke all on function public.redeem_topup_code(text, text) from public, anon, authenticated;

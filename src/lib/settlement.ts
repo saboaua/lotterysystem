@@ -1,4 +1,4 @@
-import type { Retailer, Ticket } from "@/lib/types";
+import type { Retailer, Ticket, TopUp } from "@/lib/types";
 
 /**
  * Weekly settlement.
@@ -84,6 +84,8 @@ export interface RetailerSettlement {
   prizesPaid: number; // prizes redeemed (paid out) by this retailer in the week
   redeemCommission: number;
   prizesPending: number; // won but not yet redeemed (info only)
+  /** Cash collected from players for top-ups (vouchers issued + accounts credited). */
+  topUps: number;
   /** Positive = retailer owes the operator. Negative = operator owes retailer. */
   netDue: number;
 }
@@ -91,7 +93,8 @@ export interface RetailerSettlement {
 export function settleRetailer(
   r: Retailer,
   tickets: Ticket[],
-  p: SettlementPeriod
+  p: SettlementPeriod,
+  topUps: TopUp[] = []
 ): RetailerSettlement {
   const mine = tickets.filter((t) => t.retailer_id === r.id);
   const sold = mine.filter(
@@ -108,7 +111,15 @@ export function settleRetailer(
     .reduce((s, t) => s + (t.prize || 0), 0);
   const salesCommission = (sales * (r.commission_sell || 0)) / 100;
   const redeemCommission = (prizesPaid * (r.commission_redeem || 0)) / 100;
-  const netDue = sales - salesCommission - prizesPaid + redeemCommission;
+  const topUpTotal = topUps
+    .filter(
+      (t) =>
+        t.retailer_id === r.id &&
+        (t.status === "issued" || t.status === "redeemed" || t.status === "credited") &&
+        inPeriod(t.created_at, p)
+    )
+    .reduce((s, t) => s + t.amount, 0);
+  const netDue = sales - salesCommission - prizesPaid + redeemCommission + topUpTotal;
   return {
     retailerId: r.id,
     sales,
@@ -118,6 +129,7 @@ export function settleRetailer(
     prizesPaid,
     redeemCommission,
     prizesPending,
+    topUps: topUpTotal,
     netDue,
   };
 }

@@ -305,7 +305,55 @@ export interface TicketScheduleMessage {
   end?: string;
 }
 
+/** Player top-up: either a printed voucher code, or a direct credit to a scanned player code. */
+export type TopUpKind = "voucher" | "direct";
+export type TopUpStatus = "issued" | "redeemed" | "credited" | "failed" | "void";
+
+export interface TopUp {
+  id: string;
+  kind: TopUpKind;
+  amount: number;
+  retailer_id: string;
+  clerk?: string;
+  /** Voucher only: code the player enters on the website. */
+  code?: string;
+  /** Direct only: player account code that was scanned / typed. */
+  player_code?: string;
+  status: TopUpStatus;
+  created_at: string;
+  redeemed_at?: string;
+  /** True when no player-account system is connected (nothing was really credited). */
+  demo?: boolean;
+  error?: string;
+}
+
+/** Back-office texts and rules for top-up tickets (all configurable). */
+export interface TopUpDesign {
+  enabled: boolean;
+  website: string;
+  quick_amounts: number[];
+  min_amount: number;
+  max_amount: number;
+  code_length: number;
+  code_prefix: string;
+  /** Print a confirmation ticket after a direct credit. */
+  print_on_direct: boolean;
+  show_qr: boolean;
+  /** Tokens: {website} {code} */
+  qr_url_template: string;
+  /** Printed voucher (seller chose a top-up). Tokens: {website} {code} {amount} {currency} {retailer} {date} */
+  voucher_title: string;
+  voucher_code_label: string;
+  voucher_text: string;
+  voucher_footer: string;
+  /** Printed after a scanned player code was credited. Tokens: {amount} {currency} {player_code} {retailer} {date} {website} */
+  credited_title: string;
+  credited_text: string;
+  credited_footer: string;
+}
+
 export interface TicketDesign {
+  topup?: TopUpDesign;
   font: string;
   size: number;
   width: number;

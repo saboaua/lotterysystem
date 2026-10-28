@@ -8,6 +8,7 @@ import {
   Printer,
   RotateCcw,
   Ticket,
+  Wallet,
   X,
   Zap,
 } from "lucide-react";
@@ -24,6 +25,8 @@ import {
   JackpotPicker,
 } from "@/components/sell/GamePickers";
 import { FastPlaySellGrid } from "@/components/sell/FastPlaySellGrid";
+import { TopUpModal } from "@/components/sell/TopUpModal";
+import { getTopUpDesign } from "@/lib/topup";
 
 
 const PRESETS = [0.5, 1, 2, 3, 5, 7, 10, 20, 50, 100];
@@ -71,6 +74,7 @@ export function SellScreen() {
   const [jackMega, setJackMega] = useState<string | null>(null);
   const [sellTab, setSellTab] = useState<"lottery" | "fast_play">("lottery");
   const [modal, setModal] = useState<null | "replay" | "scan">(null);
+  const [topUpOpen, setTopUpOpen] = useState(false);
   const [serialInput, setSerialInput] = useState("");
   const [scanResult, setScanResult] = useState<{
     ok: boolean;
@@ -513,6 +517,16 @@ export function SellScreen() {
             <Zap size={16} strokeWidth={2.25} />
             Fast Play
           </button>
+          {getTopUpDesign(ticketDesign).enabled && (
+            <button
+              type="button"
+              onClick={() => setTopUpOpen(true)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-extrabold text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+            >
+              <Wallet size={16} strokeWidth={2.25} />
+              Top Up
+            </button>
+          )}
         </div>
 
         {sellTab === "fast_play" ? (
@@ -937,6 +951,8 @@ export function SellScreen() {
             </button>
           </div>
         </div>
+
+      {topUpOpen && <TopUpModal onClose={() => setTopUpOpen(false)} />}
 
       {/* Replay / Scan ticket modal */}
       {modal && (
