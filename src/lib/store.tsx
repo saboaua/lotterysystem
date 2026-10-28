@@ -296,11 +296,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     if (isSupabaseConfigured) {
       void persistSoldTicket(t, { userId: user?.id, retailerId }).then((res) => {
-        if (res.ok) {
-          toast(`Ticket ${id} saved to server`);
-        } else {
+        if (res.ok === false) {
           toast(`Ticket ${id} local only: ${res.error}`, true);
+          return;
         }
+        toast(`Ticket ${id} saved to server`);
       });
     }
     return t;
