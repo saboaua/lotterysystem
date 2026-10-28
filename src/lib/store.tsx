@@ -6,6 +6,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -39,6 +40,7 @@ import { signOut as sbSignOut, isSupabaseConfigured } from "./auth";
 import { persistSoldTicket, fetchTicketsFromSupabase } from "./tickets-api";
 import { loadJson, saveJson } from "./persist";
 import { migrateGamePayouts } from "./prize-tiers";
+import { fetchRetailersFromSupabase, persistRetailerToSupabase } from "./supabase-data";
 import { arubaDate, arubaToday } from "./dates";
 import { computeJackpotAfterDraw, describeJackpotChange } from "./jackpot";
 
@@ -178,6 +180,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [lastTicketId, setLastTicketId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [fastPlayGames, setFastPlayGames] = useState<FastPlayGame[]>(DEMO_FAST_PLAY);
+  const retailersRef = useRef<Retailer[]>(retailers);
+  const userRef = useRef<AppUser | null>(user);
+  useEffect(() => {
+    retailersRef.current = retailers;
+  }, [retailers]);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     setGames(migrateGamePayouts(loadJson("games", DEMO_GAMES)));
@@ -235,6 +245,60 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
   }, []);
 
+  /**
+   * Live mode: the retailer list must come from Supabase (UUID ids). Demo ids like "r001"
+   * cannot be linked to profiles.retailer_id and tickets would never save to the server.
+   */
+  const syncRetailers = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    const res = await fetchRetailersFromSupabase();
+    if (res.ok === false) {
+      toast(`Could not load retailers from Supabase: ${res.error}`, true);
+      return;
+    }
+    if (!res.retailers.length) return;
+    const list = res.retailers;
+    setRetailers((prev) => {
+      const local = new Map(prev.map((r) => [r.id, r]));
+      return list.map((r) => ({
+        ...r,
+        last_seen: r.last_seen ?? local.get(r.id)?.last_seen,
+        last_ack: r.last_ack ?? local.get(r.id)?.last_ack,
+      }));
+    });
+    setSelectedRetailerId((cur) => {
+      const u = userRef.current;
+      // A signed-in retailer always keeps their own shop.
+      if (u?.role === "retailer" && u.retailer_id) return u.retailer_id;
+      return list.some((r) => r.id === cur) ? cur : list[0].id;
+    });
+  }, [toast]);
+
+  useEffect(() => {
+    if (hydrated) void syncRetailers();
+  }, [hydrated, syncRetailers]);
+
+  const persistRetailer = useCallback(
+    (oldId: string, r: Retailer) => {
+      if (!isSupabaseConfigured) return;
+      if (userRef.current?.role !== "owner") return;
+      void persistRetailerToSupabase(r).then((res) => {
+        if (res.ok === false) {
+          toast(`Retailer saved locally only: ${res.error}`, true);
+          return;
+        }
+        const saved = res.retailer;
+        setRetailers((prev) =>
+          prev.map((x) =>
+            x.id === oldId ? { ...saved, last_seen: x.last_seen, last_ack: x.last_ack } : x
+          )
+        );
+        if (saved.id !== oldId) setSelectedRetailerId((cur) => (cur === oldId ? saved.id : cur));
+      });
+    },
+    [toast]
+  );
+
   const loginAs = useCallback(
     (userId: string) => {
       const u = DEMO_USERS.find((x) => x.id === userId);
@@ -249,14 +313,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const setUserFromAuth = useCallback((u: AppUser) => {
     setUser(u);
     if (u.role === "retailer" && u.retailer_id) setSelectedRetailerId(u.retailer_id);
+    userRef.current = u;
     if (isSupabaseConfigured) {
+      void syncRetailers();
       void fetchTicketsFromSupabase(300).then((res) => {
         if (res.ok && res.tickets.length) {
           setSoldTickets(res.tickets);
         }
       });
     }
-  }, []);
+  }, [syncRetailers]);
 
   const logout = useCallback(() => {
     setUser(null);
@@ -374,16 +440,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setFastPlayGames((g) => g.filter((x) => x.id !== id));
   }, []);
 
-  const updateRetailer = useCallback((id: string, patch: Partial<Retailer>) => {
-    setRetailers((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  }, []);
+  const updateRetailer = useCallback(
+    (id: string, patch: Partial<Retailer>) => {
+      const current = retailersRef.current.find((x) => x.id === id);
+      if (!current) return;
+      const changed = (Object.keys(patch) as (keyof Retailer)[]).some((k) => current[k] !== patch[k]);
+      if (!changed) return;
+      const next = { ...current, ...patch };
+      setRetailers((r) => r.map((x) => (x.id === id ? next : x)));
+      persistRetailer(id, next);
+    },
+    [persistRetailer]
+  );
 
-  const addRetailer = useCallback((r: Omit<Retailer, "id">): Retailer => {
-    const id = `r${String(++retailerSeq).padStart(3, "0")}`;
-    const full: Retailer = { ...r, id };
-    setRetailers((prev) => [...prev, full]);
-    return full;
-  }, []);
+  const addRetailer = useCallback(
+    (r: Omit<Retailer, "id">): Retailer => {
+      const id = `r${String(++retailerSeq).padStart(3, "0")}`;
+      const full: Retailer = { ...r, id };
+      setRetailers((prev) => [...prev, full]);
+      persistRetailer(id, full);
+      return full;
+    },
+    [persistRetailer]
+  );
 
   const updateBrand = useCallback((patch: Partial<BrandSettings>) => {
     setBrand((b) => ({ ...b, ...patch }));

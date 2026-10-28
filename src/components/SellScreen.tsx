@@ -69,7 +69,7 @@ export function SellScreen() {
   const [heldLines, setHeldLines] = useState<TicketLine[] | null>(null);
   const [zodiacPick, setZodiacPick] = useState<string[]>([]);
   const [allZodiac, setAllZodiac] = useState(false);
-  const [whePick, setWhePick] = useState<number | null>(null);
+  const [whePicks, setWhePicks] = useState<number[]>([]);
   const [jackBalls, setJackBalls] = useState<string[]>([]);
   const [jackMega, setJackMega] = useState<string | null>(null);
   const [sellTab, setSellTab] = useState<"lottery" | "fast_play">("lottery");
@@ -162,7 +162,7 @@ export function SellScreen() {
     setNum("");
     setZodiacPick([]);
     setAllZodiac(false);
-    setWhePick(null);
+    setWhePicks([]);
     setJackBalls([]);
     setJackMega(null);
   }
@@ -171,7 +171,7 @@ export function SellScreen() {
     if (k === "CLR") {
       if (field === "num") {
         setNum("");
-        setWhePick(null);
+        setWhePicks([]);
       } else setAmt("");
       return;
     }
@@ -182,10 +182,8 @@ export function SellScreen() {
     }
     if (field === "num") {
       if (primary?.format === "whe") {
-        const next = (num + String(k)).slice(-2);
-        setNum(next);
-        const n = parseInt(next, 10);
-        if (n >= 1 && n <= 36) setWhePick(n);
+        // Typed mark is held in `num` and added to the selection when the play is added.
+        setNum((num + String(k)).slice(-2));
       } else if (!primary || primary.format === "digit" || primary.format === "zodiac") {
         setNum((n) => (n.length >= digits ? n : n + String(k)));
       }
@@ -267,19 +265,25 @@ export function SellScreen() {
       setZodiacPick([]);
       setAllZodiac(false);
     } else if (primary.format === "whe") {
-      if (whePick == null) {
-        toast("Pick a Play Whe mark", true);
+      const typed = parseInt(num, 10);
+      const marks = Array.from(
+        new Set([...whePicks, ...(typed >= 1 && typed <= 36 ? [typed] : [])])
+      ).sort((a, b) => a - b);
+      if (!marks.length) {
+        toast("Pick at least one Play Whe mark", true);
         return;
       }
-      addLine({
-        game: primary.id,
-        bet_type: "play_whe",
-        number: String(whePick),
-        amount,
-        date,
-        session: session || undefined,
-      });
-      setWhePick(null);
+      for (const mark of marks) {
+        addLine({
+          game: primary.id,
+          bet_type: "play_whe",
+          number: String(mark),
+          amount,
+          date,
+          session: session || undefined,
+        });
+      }
+      setWhePicks([]);
       setNum("");
     } else if (primary.format === "jackpot") {
       const need = primary.main_count ?? 5;
@@ -379,8 +383,8 @@ export function SellScreen() {
       setField("num");
     } else if (primary.format === "whe") {
       const n = Math.floor(Math.random() * 36) + 1;
-      setWhePick(n);
-      setNum(String(n));
+      setWhePicks([n]);
+      setNum("");
     } else if (primary.format === "jackpot") {
       const max = primary.main_max ?? 30;
       const need = primary.main_count ?? 5;
@@ -654,9 +658,9 @@ export function SellScreen() {
             {primary?.format === "whe" && (
               <PlayWhePicker
                 primary={primary}
-                whePick={whePick}
-                setWhePick={setWhePick}
-                setNum={setNum}
+                whePicks={whePicks}
+                setWhePicks={setWhePicks}
+                typed={parseInt(num, 10)}
               />
             )}
             {primary?.format === "jackpot" && (

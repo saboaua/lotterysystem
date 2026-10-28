@@ -164,32 +164,49 @@ export function ZodiacPicker({
 /** Play Whe 1–36 marks with symbols (NLCB-style). 2-digit game. */
 export function PlayWhePicker({
   primary,
-  whePick,
-  setWhePick,
-  setNum,
+  whePicks,
+  setWhePicks,
+  typed,
 }: {
   primary?: Game;
-  whePick: number | null;
-  setWhePick: (n: number | null) => void;
-  setNum: (s: string) => void;
+  whePicks: number[];
+  setWhePicks: (n: number[]) => void;
+  /** Mark currently typed on the keypad (NaN when none). */
+  typed: number;
 }) {
   if (primary?.format !== "whe") return null;
+  const selected = new Set(whePicks);
+  if (typed >= 1 && typed <= 36) selected.add(typed);
+  function toggle(n: number) {
+    setWhePicks(whePicks.includes(n) ? whePicks.filter((x) => x !== n) : [...whePicks, n]);
+  }
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-        Play Whe marks — pick 1–36 (2-digit)
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
+          Play Whe marks — tap to select several (1–36)
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-rose-500">{selected.size} selected</span>
+          {selected.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setWhePicks([])}
+              className="rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:border-slate-600"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
       <div className="grid max-h-64 grid-cols-4 gap-1.5 overflow-auto sm:grid-cols-6 md:grid-cols-9">
         {PLAY_WHE_MARKS.map((m) => (
           <button
             key={m.id}
             type="button"
-            onClick={() => {
-              setWhePick(m.num);
-              setNum(String(m.num));
-            }}
+            onClick={() => toggle(m.num)}
             className={`btn-tactile flex flex-col items-center rounded-xl border p-1.5 text-center ${
-              whePick === m.num
+              selected.has(m.num)
                 ? "border-rose-400 bg-rose-500/15 ring-2 ring-rose-400"
                 : "border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-700"
             }`}
