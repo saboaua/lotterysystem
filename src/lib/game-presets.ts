@@ -8,6 +8,7 @@ import type { Game, GameFormat, GameSession } from "./types";
 import { DEFAULT_JACKPOT_MATRIX, type JackpotMatrix } from "./jackpot-matrix";
 import {
   defaultDigitPrizeTiers,
+  diarioPayoutTiers,
   defaultJackpotPrizeTiers,
   defaultWhePrizeTiers,
   defaultZodiacPrizeTiers,
@@ -215,7 +216,7 @@ export const GAME_TEMPLATES: GameTemplate[] = [
     "Diario-style",
     "4-digit midday draw, full bet menu",
     digitPreset("pick4"),
-    { name: "Diario", color: "#22c55e", draw_time: "13:00", cutoff: "12:45" }
+    { name: "Diario", color: "#22c55e", draw_time: "13:00", cutoff: "12:45", prize_tiers: diarioPayoutTiers() }
   ),
   digitTemplate(
     "tpl_evening4",

@@ -10,6 +10,7 @@ const RULES: { value: PrizeMatchRule; label: string }[] = [
   { value: "exact", label: "Exact number only" },
   { value: "last_n_and_sign", label: "Last N digits + Zodiac sign" },
   { value: "last_n", label: "Last N digits only" },
+  { value: "first_n", label: "First N digits only" },
   { value: "whe_mark", label: "Play Whe mark" },
   { value: "jackpot_main_mega", label: "Jackpot main + mega" },
   { value: "jackpot_main", label: "Jackpot main only" },
@@ -17,7 +18,7 @@ const RULES: { value: PrizeMatchRule; label: string }[] = [
 ];
 
 export function PrizeTiersEditor({ game }: { game: Game }) {
-  const { updateGame, toast, currency } = useStore();
+  const { updateGame, toast, currency, betTypes } = useStore();
   const tiers = game.prize_tiers || [];
 
   function setTiers(next: PrizeTier[]) {
@@ -154,7 +155,7 @@ export function PrizeTiersEditor({ game }: { game: Game }) {
                     </option>
                   ))}
                 </select>
-                {(t.rule === "last_n" || t.rule === "last_n_and_sign") && (
+                {(t.rule === "last_n" || t.rule === "last_n_and_sign" || t.rule === "first_n") && (
                   <input
                     type="number"
                     min={1}
@@ -171,6 +172,41 @@ export function PrizeTiersEditor({ game }: { game: Game }) {
                     }}
                     placeholder="N digits"
                   />
+                )}
+                {game.format === "digit" && (
+                  <>
+                    <select
+                      className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-xs"
+                      value={t.position ?? 1}
+                      title="Which drawn number this tier is matched against"
+                      onChange={(e) => {
+                        const position = parseInt(e.target.value, 10) as 1 | 2 | 3;
+                        setTiers(tiers.map((x) => (x.id === t.id ? { ...x, position } : x)));
+                      }}
+                    >
+                      <option value={1}>vs 1st prize number</option>
+                      <option value={2}>vs 2nd prize number</option>
+                      <option value={3}>vs 3rd prize number</option>
+                    </select>
+                    <select
+                      className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 text-xs"
+                      value={t.bet_type ?? ""}
+                      title="Play type this prize applies to (paid per 1.00 wagered)"
+                      onChange={(e) => {
+                        const bet_type = e.target.value || undefined;
+                        setTiers(tiers.map((x) => (x.id === t.id ? { ...x, bet_type } : x)));
+                      }}
+                    >
+                      <option value="">Any play type</option>
+                      {betTypes
+                        .filter((b) => b.mode !== "jackpot" && b.mode !== "fast_play")
+                        .map((b) => (
+                          <option key={b.key} value={b.key}>
+                            {b.label}
+                          </option>
+                        ))}
+                    </select>
+                  </>
                 )}
               </label>
               <label className="text-[10px] font-semibold text-[var(--mut)]">

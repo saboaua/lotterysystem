@@ -9,7 +9,9 @@ import type {
   TopUpDesign,
 } from "./types";
 import {
-  defaultDigitPrizeTiers,
+  diarioPayoutTiers,
+  fourSkinaPayoutTiers,
+  super4PayoutTiers,
   defaultJackpotPrizeTiers,
   defaultWhePrizeTiers,
   defaultZodiacPrizeTiers,
@@ -28,7 +30,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "12:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
-    prize_tiers: defaultDigitPrizeTiers(4),
+    prize_tiers: diarioPayoutTiers(),
   },
   {
     id: "corsow",
@@ -40,7 +42,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "16:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
-    prize_tiers: defaultDigitPrizeTiers(4),
+    prize_tiers: fourSkinaPayoutTiers(),
   },
   {
     id: "super4",
@@ -52,7 +54,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "12:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
-    prize_tiers: defaultDigitPrizeTiers(4),
+    prize_tiers: super4PayoutTiers(),
   },
   {
     id: "flamingo",
@@ -64,7 +66,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "13:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
-    prize_tiers: defaultDigitPrizeTiers(4),
+    prize_tiers: fourSkinaPayoutTiers(),
   },
   {
     id: "philb",
@@ -76,7 +78,7 @@ export const DEMO_GAMES: Game[] = [
     cutoff: "10:45",
     enabled: true,
     bet_types: ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"],
-    prize_tiers: defaultDigitPrizeTiers(4),
+    prize_tiers: fourSkinaPayoutTiers(),
     sessions: [
       { id: "am", label: "AM", draw_time: "11:00", cutoff: "10:45" },
       { id: "pm", label: "PM", draw_time: "19:00", cutoff: "18:45" },

@@ -78,6 +78,96 @@ export function defaultDigitPrizeTiers(digits = 4): PrizeTier[] {
   ];
 }
 
+type TierSpec = [
+  label: string,
+  description: string,
+  amount: number,
+  bet_type: string,
+  rule: PrizeTier["rule"],
+  digits: number | undefined,
+  position: 1 | 2 | 3,
+];
+
+function buildTiers(prefix: string, specs: TierSpec[]): PrizeTier[] {
+  return specs.map(([label, description, amount, bet_type, rule, digits, position], i) => ({
+    id: `${prefix}${i + 1}`,
+    rank: i + 1,
+    label,
+    description,
+    amount,
+    rule,
+    ...(digits ? { digits } : {}),
+    position,
+    bet_type,
+    enabled: true,
+  }));
+}
+
+/** Shared lower tiers of the Aruba / Sint Maarten / Bonaire / Curacao menu (Afl. 1.00 wager). */
+const SHARED_MENU: TierSpec[] = [
+  ["Pick 4 — 2nd prize", "Match 4 numbers", 1000, "4_cifra", "exact", undefined, 2],
+  ["Pick 4 — 3rd prize", "Match 4 numbers", 500, "4_cifra", "exact", undefined, 3],
+  ["3 Skina", "Match last 3 numbers", 700, "3_skina", "last_n", 3, 1],
+  ["Last 3 — 1st prize", "Back 3 numbers", 400, "3_cifra", "last_n", 3, 1],
+  ["Last 3 — 2nd prize", "Back 3 numbers", 200, "3_cifra", "last_n", 3, 2],
+  ["Last 3 — 3rd prize", "Back 3 numbers", 100, "3_cifra", "last_n", 3, 3],
+  ["3 Chances — 1st", "Last 2 numbers", 45, "2_cifra_3ch", "last_n", 2, 1],
+  ["3 Chances — 2nd", "Last 2 numbers", 25, "2_cifra_3ch", "last_n", 2, 2],
+  ["3 Chances — 3rd", "Last 2 numbers", 10, "2_cifra_3ch", "last_n", 2, 3],
+  ["Back", "Last 2 (1st prize only)", 75, "2_cifra_b", "last_n", 2, 1],
+  ["Front & Back", "Front 2 (1st prize)", 25, "2_cifra_bf", "first_n", 2, 1],
+  ["Front & Back", "Back 2 (1st prize)", 55, "2_cifra_bf", "last_n", 2, 1],
+];
+
+/** Diario: Pick 4 1st 4,000 + shared menu (no 4 Skina). Per Afl. 1.00 wager. */
+export function diarioPayoutTiers(): PrizeTier[] {
+  return buildTiers("dia", [
+    ["Pick 4 — 1st prize", "Match 4 numbers", 4000, "4_cifra", "exact", undefined, 1],
+    ...SHARED_MENU,
+  ]);
+}
+
+/** Philipsburg / Flamingo / Corsow: 4 Skina 5,000 (exact order) + Diario menu. */
+export function fourSkinaPayoutTiers(): PrizeTier[] {
+  return buildTiers("fs", [
+    ["4 Skina", "Match 4 numbers (exact order)", 5000, "4_skina", "exact", undefined, 1],
+    ["Pick 4 — 1st prize", "Match 4 numbers", 4000, "4_cifra", "exact", undefined, 1],
+    ...SHARED_MENU,
+  ]);
+}
+
+/** Super 4 pays on the 1st prize number only. */
+export function super4PayoutTiers(): PrizeTier[] {
+  return buildTiers("s4", [
+    ["Pick 4 — 1st prize", "Match 4 numbers (exact order)", 5000, "4_cifra", "exact", undefined, 1],
+    ["Last 3 — 1st prize", "Back 3 numbers", 700, "3_cifra", "last_n", 3, 1],
+    ["Front & Back", "Front 2 (1st prize)", 25, "2_cifra_bf", "first_n", 2, 1],
+    ["Front & Back", "Back 2 (1st prize)", 55, "2_cifra_bf", "last_n", 2, 1],
+  ]);
+}
+
+/** Official payout structure per game id (from the published Prize Payouts tables). */
+export const GAME_PAYOUT_PRESETS: Record<string, () => PrizeTier[]> = {
+  diario: diarioPayoutTiers,
+  super4: super4PayoutTiers,
+  philb: fourSkinaPayoutTiers,
+  flamingo: fourSkinaPayoutTiers,
+  corsow: fourSkinaPayoutTiers,
+};
+
+/**
+ * Upgrade saved games (browser storage) that still carry the old generic digit tiers.
+ * Games already on the per-play-type structure (any tier with bet_type) are left untouched.
+ */
+export function migrateGamePayouts(games: Game[]): Game[] {
+  return games.map((g) => {
+    const preset = GAME_PAYOUT_PRESETS[g.id];
+    if (!preset || g.format !== "digit") return g;
+    if ((g.prize_tiers || []).some((t) => t.bet_type)) return g;
+    return { ...g, prize_tiers: preset() };
+  });
+}
+
 export function defaultWhePrizeTiers(): PrizeTier[] {
   return [
     {
@@ -194,17 +284,27 @@ export function matchLinePrize(
   }
 
   if (game.format === "digit") {
-    const winNum = (result.first || "").replace(/\D/g, "");
     const played = line.number.replace(/\D/g, "");
+    const drawn = [result.first, result.second, result.third].map((x) => (x || "").replace(/\D/g, ""));
+    let best: { tier: PrizeTier; amount: number } | null = null;
     for (const tier of tiers) {
-      if (tier.rule === "exact") {
-        if (winNum && played === winNum) return { tier, amount: tier.amount };
-      } else if (tier.rule === "last_n") {
-        const n = tier.digits || 3;
-        if (winNum && lastN(played, n) === lastN(winNum, n)) return { tier, amount: tier.amount };
-      }
+      // Per-play-type tiers only apply to their own bet type.
+      if (tier.bet_type && tier.bet_type !== line.bet_type) continue;
+      const winNum = drawn[(tier.position || 1) - 1];
+      if (!winNum || !played) continue;
+      const n = tier.digits || 3;
+      // Per-play-type tiers need the played number to be exactly the matched length.
+      if (tier.bet_type && tier.rule !== "exact" && played.length !== n) continue;
+      let hit = false;
+      if (tier.rule === "exact") hit = played === winNum;
+      else if (tier.rule === "last_n") hit = lastN(played, n) === lastN(winNum, n);
+      else if (tier.rule === "first_n") hit = played.slice(0, n) === winNum.slice(0, n);
+      if (!hit) continue;
+      // Per-play-type amounts are per 1.00 wagered (0.50 pays 50%).
+      const amount = tier.bet_type ? Math.round(tier.amount * line.amount * 100) / 100 : tier.amount;
+      if (!best || amount > best.amount) best = { tier, amount };
     }
-    return null;
+    return best;
   }
 
   if (game.format === "jackpot") {

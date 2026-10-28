@@ -25,6 +25,7 @@ export type PrizeMatchRule =
   | "exact_and_sign"
   | "last_n"
   | "last_n_and_sign"
+  | "first_n"
   | "whe_mark"
   | "jackpot_main"
   | "jackpot_main_mega"
@@ -38,6 +39,10 @@ export interface PrizeTier {
   amount: number;
   rule: PrizeMatchRule;
   digits?: number;
+  /** Which draw result to compare against: 1 = 1st prize number (default), 2 = 2nd, 3 = 3rd. */
+  position?: 1 | 2 | 3;
+  /** Restrict this tier to one play type (BetType.key). When set, `amount` is paid per 1.00 wagered. */
+  bet_type?: string;
   enabled: boolean;
 }
 

@@ -38,6 +38,7 @@ import {
 import { signOut as sbSignOut, isSupabaseConfigured } from "./auth";
 import { persistSoldTicket, fetchTicketsFromSupabase } from "./tickets-api";
 import { loadJson, saveJson } from "./persist";
+import { migrateGamePayouts } from "./prize-tiers";
 import { arubaDate, arubaToday } from "./dates";
 import { computeJackpotAfterDraw, describeJackpotChange } from "./jackpot";
 
@@ -179,7 +180,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [fastPlayGames, setFastPlayGames] = useState<FastPlayGame[]>(DEMO_FAST_PLAY);
 
   useEffect(() => {
-    setGames(loadJson("games", DEMO_GAMES));
+    setGames(migrateGamePayouts(loadJson("games", DEMO_GAMES)));
     setBrand(loadJson("brand", DEMO_BRAND));
     setTicketDesign(loadJson("ticketDesign", DEMO_TICKET_DESIGN));
     setHolidays(loadJson("holidays", []));
