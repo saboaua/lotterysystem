@@ -4,17 +4,9 @@ import { useState } from "react";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { FastPlayGame, FastPlayPrice } from "@/lib/types";
+import { removeLogo, uploadLogo } from "@/lib/storage";
 
 const ALL_PRICES: FastPlayPrice[] = [2, 3, 5, 7];
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
 
 export function FastPlayPanel() {
   const {
@@ -28,6 +20,7 @@ export function FastPlayPanel() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   const sorted = [...fastPlayGames].sort(
     (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
@@ -58,7 +51,6 @@ export function FastPlayPanel() {
     if (from < 0 || to < 0) return;
     ids.splice(from, 1);
     ids.splice(to, 0, fromId);
-    // Persist sequential sort_order so sell screen and list stay in sync
     ids.forEach((id, index) => {
       const current = fastPlayGames.find((g) => g.id === id);
       if (current && (current.sort_order ?? 0) !== index) {
@@ -66,6 +58,29 @@ export function FastPlayPanel() {
       }
     });
     toast("Order updated");
+  }
+
+  async function onLogoUpload(game: FastPlayGame, file: File | undefined) {
+    if (!file) return;
+    setUploadingId(game.id);
+    try {
+      const result = await uploadLogo(file, "fastplay", game.id);
+      if (!result.ok) {
+        toast(result.error, true);
+        return;
+      }
+      void removeLogo(game.logo);
+      updateFastPlayGame(game.id, { logo: result.url });
+      toast("Logo saved");
+    } finally {
+      setUploadingId(null);
+    }
+  }
+
+  async function onLogoRemove(game: FastPlayGame) {
+    void removeLogo(game.logo);
+    updateFastPlayGame(game.id, { logo: "" });
+    toast("Logo removed");
   }
 
   return (
@@ -92,6 +107,7 @@ export function FastPlayPanel() {
           const open = openId === g.id;
           const isDragging = dragId === g.id;
           const isOver = overId === g.id && dragId !== g.id;
+          const uploading = uploadingId === g.id;
 
           return (
             <div
@@ -101,7 +117,6 @@ export function FastPlayPanel() {
                 setDragId(g.id);
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", g.id);
-                // Avoid starting a drag when interacting with form controls inside
                 if ((e.target as HTMLElement).closest("input,select,button,textarea,label")) {
                   e.preventDefault();
                   setDragId(null);
@@ -318,19 +333,21 @@ export function FastPlayPanel() {
                           No logo
                         </div>
                       )}
-                      <label className="cursor-pointer rounded-full bg-rose-600 px-4 py-2 text-xs font-bold text-white">
-                        Upload logo
+                      <label
+                        className={`cursor-pointer rounded-full bg-rose-600 px-4 py-2 text-xs font-bold text-white ${
+                          uploading ? "opacity-60 pointer-events-none" : ""
+                        }`}
+                      >
+                        {uploading ? "Uploading…" : "Upload logo"}
                         <input
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={async (e) => {
+                          disabled={uploading}
+                          onChange={(e) => {
                             const f = e.target.files?.[0];
-                            if (!f) return;
-                            if (f.size > 400_000) return toast("Logo max 400KB", true);
-                            const url = await fileToDataUrl(f);
-                            updateFastPlayGame(g.id, { logo: url });
-                            toast("Logo saved");
+                            e.target.value = "";
+                            void onLogoUpload(g, f);
                           }}
                         />
                       </label>
@@ -338,7 +355,7 @@ export function FastPlayPanel() {
                         <button
                           type="button"
                           className="text-xs font-semibold text-rose-600"
-                          onClick={() => updateFastPlayGame(g.id, { logo: "" })}
+                          onClick={() => void onLogoRemove(g)}
                         >
                           Remove
                         </button>
@@ -350,6 +367,7 @@ export function FastPlayPanel() {
                     type="button"
                     onClick={() => {
                       if (!confirm("Delete " + g.name + "?")) return;
+                      void removeLogo(g.logo);
                       deleteFastPlayGame(g.id);
                       setOpenId(null);
                       toast("Deleted");

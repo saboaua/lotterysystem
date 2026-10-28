@@ -6,7 +6,7 @@ Standalone **tablet lottery point-of-sale** for Aruba — full feature parity pa
 |-------|--------|
 | UI | Next.js 15 (App Router) + Tailwind CSS v4 |
 | Hosting | [Vercel](https://vercel.com) |
-| Data / Auth | [Supabase](https://supabase.com) (Postgres + Auth + RLS) |
+| Data / Auth | [Supabase](https://supabase.com) (Postgres + Auth + RLS + **Storage**) |
 | Offline demo | In-memory demo data (no keys required) |
 
 ## Role model (important)
@@ -36,7 +36,8 @@ Back office is **never** shown to retailers (nav hidden + `/office` redirects to
 - Retailers open tickets; owner sees all
 
 ### Back office (owner only)
-- Games & schedule (enable, draw time, color)
+- Games & schedule (enable, draw time, color, **logos**)
+- Fast Play games with logos
 - Bet types & multipliers
 - Branding + LED message + ticket design (width, barcode, QR, footer)
 - 20 Aruba retailers + map
@@ -59,6 +60,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | Carlos Croes (Main Shop) | Retailer POS only |
 | Maria Frans (Lucky Shoco) | Retailer POS only |
 
+In demo mode (no Supabase env), logos are stored as **base64 data URLs** in `localStorage`.
+
 ## Deploy to Vercel
 
 1. Push this folder to a GitHub repo (e.g. `saboaua/lotterysystem`).
@@ -77,25 +80,41 @@ npx vercel
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. **SQL Editor** → paste and run `supabase/schema.sql`.
-3. **Settings → API** → copy Project URL and `anon` key.
-4. Locally:
+3. **SQL Editor** → paste and run `supabase/storage.sql` (creates the public **`logos`** bucket + policies).
+4. **Settings → API** → copy Project URL and `anon` key.
+5. Locally:
 
 ```bash
 cp .env.example .env.local
 # edit NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
 ```
 
-5. On Vercel: Project → Settings → Environment Variables → same two keys.
-6. Create users in Supabase Auth, then insert matching rows in `profiles` (`role` = `owner` or `retailer`, optional `retailer_id`).
+6. On Vercel: Project → Settings → Environment Variables → same two keys.
+7. Create users in Supabase Auth, then insert matching rows in `profiles` (`role` = `owner` or `retailer`, optional `retailer_id`).
 
 Until env is set, the app stays in **demo mode** (no network required).
+
+### Image / logo storage
+
+| Mode | Behaviour |
+|------|-----------|
+| **Supabase configured** | Uploads go to Storage bucket `logos` under `brand/`, `games/`, `fastplay/`. Public URL is saved on brand / game records. |
+| **Demo / offline** | Same upload UI; file is converted to a data URL and kept in localStorage (400 KB max). |
+
+If the bucket is missing, the client falls back to a data URL so the UI never breaks.
+
+Paths:
+
+- `logos/brand/logo.<ext>`
+- `logos/games/<game_id>.<ext>`
+- `logos/fastplay/<id>.<ext>`
 
 ## HACS vs Vercel
 
 | | HACS (HA panel) | This Vercel app |
 |--|-----------------|-----------------|
 | Host | Home Assistant | vercel.app |
-| Storage | HA Store | Supabase / demo memory |
+| Storage | HA Store | Supabase / demo memory + **Storage for logos** |
 | Owner UI | Back office (admin users) | `/office` (role=owner) |
 | Retailer UI | Sell only | Sell + Reports + Support |
 | Games | Same catalog (Diario, Corsow, Play Whe, …) | Ported |
@@ -107,9 +126,10 @@ Until env is set, the app stays in **demo mode** (no network required).
 src/
   app/           # /, /sell, /office, /reports, /support
   components/    # Sell, Office, Reports, Support, Shell, Login
-  lib/           # types, demo-data, constants (zodiac/whe), store, supabase
+  lib/           # types, demo-data, store, supabase, storage (logos)
 supabase/
   schema.sql     # tables + RLS for owner vs retailer
+  storage.sql    # public logos bucket + policies
 ```
 
 ## Roadmap
@@ -119,6 +139,7 @@ supabase/
 - Thermal print / Web Bluetooth
 - Results & winners tab (settle draws)
 - Live reports from Postgres
+- Persist brand / games / settings to Supabase (not only localStorage)
 
 ## License
 
