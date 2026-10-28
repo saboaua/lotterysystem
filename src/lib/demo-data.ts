@@ -1,7 +1,6 @@
 import type {
   BetType,
   BrandSettings,
-  Clerk,
   Game,
   Promotion,
   Retailer,
@@ -180,14 +179,6 @@ export const DEMO_RETAILERS: Retailer[] = [
   { id: "r020", number: "020", name: "Wayaca Center", first_name: "Tina", last_name: "Croes", address: "Wayaca 9, Oranjestad", phone: "+297 582 1020", commission_sell: 10, commission_redeem: 2, active: true, lat: 12.51, lng: -70.025 },
 ];
 
-export const DEMO_CLERKS: Clerk[] = [
-  { id: "c001", retailer_id: "r001", name: "Carlos Croes", pin: "1234", active: true },
-  { id: "c002", retailer_id: "r001", name: "Lisa Croes", pin: "5678", active: true },
-  { id: "c003", retailer_id: "r002", name: "Maria Frans", pin: "1234", active: true },
-  { id: "c004", retailer_id: "r002", name: "Kevin Frans", pin: "9999", active: true },
-  { id: "c005", retailer_id: "r003", name: "John Kelly", pin: "1111", active: true },
-  { id: "c006", retailer_id: "r007", name: "Luis Kock", pin: "2222", active: true },
-];
 
 export const DEMO_USERS: AppUser[] = [
   { id: "u-owner", email: "owner@shocolottery.aw", name: "Lottery Owner", role: "owner" },
@@ -262,5 +253,3 @@ export const DEMO_PROMOTIONS: Promotion[] = [
 ];
 
 export const CURRENCY = "AWG";
-export const BRAND_NAME = DEMO_BRAND.name;
-export const BRAND_TAGLINE = DEMO_BRAND.tagline;

@@ -9,9 +9,7 @@ const QTY_OPTIONS = [1, 2, 5, 10];
 
 type PriceFilter = FastPlayPrice | "all";
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { arubaToday as today } from "@/lib/dates";
 
 function formatPrize(n: number) {
   return n.toLocaleString("en-US");

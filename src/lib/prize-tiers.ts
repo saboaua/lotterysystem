@@ -230,7 +230,7 @@ export function matchLinePrize(
   return null;
 }
 
-export interface DrawCalcTierummary {
+export interface DrawCalcTierSummary {
   tier: PrizeTier;
   winners: number;
   payout: number;
@@ -241,7 +241,7 @@ export interface DrawCalcReport {
   game?: Game;
   tickets: number;
   sales: number;
-  tierSummary: DrawCalcTierummary[];
+  tierSummary: DrawCalcTierSummary[];
   totalPayout: number;
   winningLines: number;
 }

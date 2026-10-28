@@ -77,7 +77,7 @@ export function DrawSchedulePanel({
   }, []);
 
   // tick advances every 30s so cutoff countdown stays live
-  const now = useMemo(() => new Date(), [tick]);
+  const now = useMemo(() => new Date(), [tick]); // eslint-disable-line react-hooks/exhaustive-deps -- tick forces a fresh clock reading
   const slots = useMemo(() => buildTodayDrawSlots(games, now), [games, now]);
   const open = slots.filter((s) => s.status === "open");
   const passed = slots.filter((s) => s.status === "passed");

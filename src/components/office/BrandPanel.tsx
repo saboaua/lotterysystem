@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { LedScheduleMessage } from "@/lib/types";
+import { arubaToday } from "@/lib/dates";
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -31,7 +32,7 @@ export function BrandPanel() {
     const parts = [manual];
     for (const m of schedule) {
       if (!m.enabled) continue;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = arubaToday();
       if (m.start && today < m.start) continue;
       if (m.end && today > m.end) continue;
       parts.push(m.text);

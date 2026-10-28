@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { arubaToday } from "@/lib/dates";
 
 /**
  * Result importers (Indios / JoeBlack style).
@@ -8,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const source = String(body.source || "").toLowerCase();
-    const date = String(body.date || new Date().toISOString().slice(0, 10));
+    const date = String(body.date || arubaToday());
 
     if (source === "indios") {
       const data = await scrapeIndios(date);

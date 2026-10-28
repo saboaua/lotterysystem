@@ -13,12 +13,14 @@ import {
   Star,
   Flame,
   CircleDot,
+  ChevronRight,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
 import { PresencePing } from "./PresencePing";
 import { BroadcastPopup } from "./BroadcastPopup";
+import { arubaToday } from "@/lib/dates";
 
 const ITEM_ICONS = [CircleDot, Star, Flame, CircleDot, Star, Flame];
 const ITEM_COLORS = [
@@ -90,7 +92,7 @@ export function Shell({ children }: { children: ReactNode }) {
     if (brand.led_message?.trim()) items.push(brand.led_message.trim());
     for (const m of brand.led_schedule || []) {
       if (!m.enabled) continue;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = arubaToday();
       if (m.start && today < m.start) continue;
       if (m.end && today > m.end) continue;
       if (m.text?.trim()) items.push(m.text.trim());
@@ -106,7 +108,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-dvh overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
       <PresencePing />
-      <aside className="z-30 flex w-20 shrink-0 flex-col items-center justify-between border-r border-slate-800 bg-slate-950 py-4">
+      <aside className="z-30 flex w-14 shrink-0 flex-col items-center justify-between border-r border-slate-800 bg-slate-950 py-4 md:w-20">
         <div className="flex w-full flex-col items-center gap-5">
           {brand.logo ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -114,11 +116,11 @@ export function Shell({ children }: { children: ReactNode }) {
               src={brand.logo}
               alt={brand.name}
               title={brand.name}
-              className="h-12 w-12 rounded-2xl object-contain bg-white/10 p-1 shadow-lg"
+              className="h-10 w-10 rounded-2xl object-contain bg-white/10 p-1 shadow-lg md:h-12 md:w-12"
             />
           ) : (
             <div
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-indigo-600 text-lg font-extrabold text-white shadow-lg shadow-rose-950/50"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr md:h-12 md:w-12 from-rose-600 via-pink-600 to-indigo-600 text-lg font-extrabold text-white shadow-lg shadow-rose-950/50"
               title={brand.name}
             >
               SL
@@ -181,15 +183,15 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200/90 bg-white px-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:px-6">
+        <header className="z-20 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-slate-200/90 bg-white px-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="shrink-0">
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-extrabold leading-none tracking-tight text-slate-900 dark:text-white">
+                <h1 className="truncate text-base font-extrabold leading-none tracking-tight text-slate-900 dark:text-white">
                   {isOwner ? "Back Office" : "Sell Terminal"}
                 </h1>
                 <span
-                  className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-bold ${
+                  className={`hidden items-center rounded border px-1.5 py-0.5 text-[10px] font-bold sm:inline-flex ${
                     isOwner
                       ? "border-violet-200 bg-violet-100 text-violet-800 dark:border-violet-800 dark:bg-violet-900/40 dark:text-violet-300"
                       : "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
@@ -199,7 +201,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   {isOwner ? "OWNER" : "RETAILER"}
                 </span>
               </div>
-              <p className="mt-0.5 text-xs font-medium text-slate-500">
+              <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
                 {isOwner ? (
                   <>
                     Signed in as{" "}
@@ -213,8 +215,8 @@ export function Shell({ children }: { children: ReactNode }) {
                     <span className="font-semibold text-indigo-700 dark:text-indigo-400">
                       {user?.name || "Cashier"}
                     </span>
-                    {" · "}
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    <span className="hidden sm:inline">{" · "}</span>
+                    <span className="hidden font-semibold text-slate-700 sm:inline dark:text-slate-300">
                       Terminal #{shop?.number || "-"}
                     </span>
                   </>
@@ -223,8 +225,8 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3 sm:gap-5">
-            <div className="hidden text-right md:block">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-5">
+            <div className="hidden text-right lg:block">
               <div className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">{clock}</div>
               <div className="text-[11px] font-medium text-slate-400">Oranjestad, Aruba (AST)</div>
             </div>
@@ -240,12 +242,22 @@ export function Shell({ children }: { children: ReactNode }) {
                     <span>{salesToday.toFixed(2)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2.5 rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100">
+                <Link
+                  href="/profile"
+                  title="Open my profile, ranking & settlement"
+                  className={`flex min-h-[44px] items-center gap-2 rounded-xl border px-2.5 py-2 sm:gap-2.5 sm:px-3.5 text-xs font-bold shadow-sm transition hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-600 ${
+                    path.startsWith("/profile")
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-slate-600 dark:text-indigo-200"
+                      : "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                  }`}
+                >
                   <span className="h-2.5 w-2.5 rounded-full bg-indigo-600" />
-                  <span>
-                    {shop?.number} · {shop?.name || "Shop"}
+                  <span className="max-w-[10rem] truncate">
+                    {shop?.number}
+                    <span className="hidden sm:inline"> · {shop?.name || "Shop"}</span>
                   </span>
-                </div>
+                  <ChevronRight size={14} className="text-slate-400" />
+                </Link>
               </>
             )}
           </div>

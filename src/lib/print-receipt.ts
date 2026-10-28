@@ -320,19 +320,3 @@ export function printReceipt(opts: {
   w.document.write(html);
   w.document.close();
 }
-
-/** Handle barcode scanner input (ends with Enter). */
-export function handleScan(
-  code: string,
-  handlers: {
-    onTicket: (id: string) => void;
-    onUnknown?: (code: string) => void;
-  }
-) {
-  const cleaned = code.trim().toUpperCase();
-  if (/^T\d{6,}$/.test(cleaned) || /^\d{6,}$/.test(cleaned)) {
-    handlers.onTicket(cleaned.startsWith("T") ? cleaned : "T" + cleaned.padStart(8, "0"));
-  } else {
-    handlers.onUnknown?.(cleaned);
-  }
-}
