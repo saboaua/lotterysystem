@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Retailer, RetailerStatus } from "@/lib/types";
 
 // Leaflet is loaded from CDN at runtime (no npm dependency).
@@ -82,10 +82,22 @@ export function OsmMap({
     L: LeafletNS;
   } | null>(null);
 
-  const withCoords = retailers.filter((r) => r.lat != null && r.lng != null);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const onSelectRef = useRef(onSelect);
+  const fittedKey = useRef("");
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  const withCoords = useMemo(
+    () => retailers.filter((r) => r.lat != null && r.lng != null),
+    [retailers]
+  );
 
   useEffect(() => {
     let cancelled = false;
+    let ro: ResizeObserver | null = null;
     loadLeaflet()
       .then((L) => {
         if (cancelled || !containerRef.current) return;
@@ -105,14 +117,22 @@ export function OsmMap({
         const markers = L.layerGroup().addTo(map);
         mapRef.current = { map, markers, L };
 
+        // Keep tiles/pins aligned if the panel is resized or revealed after mount
+        if (typeof ResizeObserver !== "undefined") {
+          ro = new ResizeObserver(() => map.invalidateSize());
+          ro.observe(containerRef.current);
+        }
         setTimeout(() => map.invalidateSize(), 80);
+        // Library finished loading AFTER first render: trigger the pin effect
+        setReady(true);
       })
       .catch(() => {
-        /* map unavailable offline */
+        if (!cancelled) setFailed(true);
       });
 
     return () => {
       cancelled = true;
+      ro?.disconnect();
       if (mapRef.current) {
         mapRef.current.map.remove();
         mapRef.current = null;
@@ -122,7 +142,7 @@ export function OsmMap({
 
   useEffect(() => {
     const ctx = mapRef.current;
-    if (!ctx) return;
+    if (!ctx || !ready) return;
     const { map, markers, L } = ctx;
     markers.clearLayers();
 
@@ -165,7 +185,7 @@ export function OsmMap({
         iconAnchor: [0, 0],
       });
       const m = L.marker([lat, lng], { icon });
-      m.on("click", () => onSelect(r.id));
+      m.on("click", () => onSelectRef.current(r.id));
       m.bindTooltip(`#${r.number} ${r.name} · ${statusLabel}`, {
         direction: "top",
         offset: [0, -28],
@@ -173,21 +193,31 @@ export function OsmMap({
       markers.addLayer(m);
     }
 
-    if (latlngs.length === 1) {
-      map.setView(latlngs[0], 14);
-    } else if (latlngs.length > 1) {
-      map.fitBounds(L.latLngBounds(latlngs), { padding: [36, 36], maxZoom: 14 });
-    } else {
-      map.setView([12.52, -70.03], 11);
+    // Re-frame only when the set of located retailers changes (not on every selection)
+    const key = withCoords.map((r) => `${r.id}:${r.lat},${r.lng}`).join("|");
+    if (key !== fittedKey.current) {
+      fittedKey.current = key;
+      if (latlngs.length === 1) {
+        map.setView(latlngs[0], 14);
+      } else if (latlngs.length > 1) {
+        map.fitBounds(L.latLngBounds(latlngs), { padding: [36, 36], maxZoom: 14 });
+      } else {
+        map.setView([12.52, -70.03], 11);
+      }
     }
     setTimeout(() => map.invalidateSize(), 50);
-  }, [withCoords, selectedId, offlineAfterSec, onSelect]);
+  }, [ready, withCoords, selectedId, offlineAfterSec]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--card)] shadow-sm">
       <div className="relative h-72 w-full bg-slate-200 dark:bg-slate-800">
         <div ref={containerRef} className="absolute inset-0 z-0 h-full w-full" />
-        {!withCoords.length && (
+        {failed && (
+          <div className="absolute inset-0 z-10 grid place-items-center bg-slate-200/90 px-4 text-center text-xs text-slate-600 dark:bg-slate-900/80 dark:text-slate-300">
+            The map library could not be loaded (offline or blocked). Check the internet connection and reload.
+          </div>
+        )}
+        {!failed && !withCoords.length && (
           <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-slate-200/80 text-xs text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
             No coordinates yet — set lat/lng on a retailer to pin the map.
           </div>

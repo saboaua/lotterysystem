@@ -30,7 +30,7 @@ function fileToDataUrl(file: File): Promise<string> {
 export function GamesPanel() {
   const { games, betTypes, updateGame, updateBetType, addGame, deleteGame, toast, currency } =
     useStore();
-  const [openId, setOpenId] = useState<string | null>(games[0]?.id ?? null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
