@@ -3,6 +3,16 @@ import { getSupabase, isSupabaseConfigured } from "./supabase";
 const BUCKET = "logos";
 const MAX_BYTES = 400_000;
 
+/** MIME types allowed by the logos bucket (must match supabase/storage.sql). */
+const ALLOWED_MIME: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+};
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -12,18 +22,31 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-function extFromFile(file: File): string {
+function resolveMimeAndExt(file: File): { contentType: string; ext: string } | { error: string } {
   const fromName = file.name.split(".").pop()?.toLowerCase();
-  if (fromName && /^[a-z0-9]{1,5}$/.test(fromName)) return fromName;
-  const map: Record<string, string> = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/jpg": "jpg",
-    "image/webp": "webp",
-    "image/gif": "gif",
-    "image/svg+xml": "svg",
+  const byExt: Record<string, string> = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+    gif: "image/gif",
+    svg: "image/svg+xml",
   };
-  return map[file.type] || "png";
+
+  let contentType = (file.type || "").toLowerCase();
+  if (contentType === "image/jpg") contentType = "image/jpeg";
+
+  if (contentType && ALLOWED_MIME[contentType]) {
+    return { contentType, ext: ALLOWED_MIME[contentType] };
+  }
+
+  if (fromName && byExt[fromName]) {
+    return { contentType: byExt[fromName], ext: fromName === "jpeg" ? "jpg" : fromName };
+  }
+
+  return {
+    error: `Unsupported image type (${file.type || fromName || "unknown"}). Use PNG, JPEG, WebP, GIF or SVG.`,
+  };
 }
 
 /** True when the URL points at our Supabase logos bucket. */
@@ -35,22 +58,21 @@ export function isStorageLogoUrl(url: string | undefined | null): boolean {
 /**
  * Upload a logo image.
  * - When Supabase is configured: stores in the public `logos` bucket and returns the public URL.
- * - Demo / offline: returns a base64 data URL (same as before).
+ * - Demo / offline only: returns a base64 data URL.
  *
- * `folder` examples: "brand", "games", "fastplay"
- * `id` is the object name stem (e.g. game id or "logo").
+ * Does NOT silently fall back to data URLs when Supabase is on — errors are returned so the UI can show them.
  */
 export async function uploadLogo(
   file: File,
   folder: string,
   id: string
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  if (!file.type.startsWith("image/")) {
-    return { ok: false, error: "File must be an image" };
-  }
   if (file.size > MAX_BYTES) {
     return { ok: false, error: "Logo max 400KB" };
   }
+
+  const mime = resolveMimeAndExt(file);
+  if ("error" in mime) return { ok: false, error: mime.error };
 
   const sb = getSupabase();
   if (!isSupabaseConfigured || !sb) {
@@ -62,30 +84,46 @@ export async function uploadLogo(
     }
   }
 
+  // Must be signed in — Storage write policies are for role `authenticated`
+  const { data: sessionData } = await sb.auth.getSession();
+  if (!sessionData.session) {
+    return {
+      ok: false,
+      error: "Sign in with a Supabase account to upload logos (demo login cannot write to Storage).",
+    };
+  }
+
   const safeFolder = folder.replace(/[^a-z0-9_-]/gi, "").toLowerCase() || "misc";
   const safeId = id.replace(/[^a-z0-9_-]/gi, "_").toLowerCase() || "logo";
-  const ext = extFromFile(file);
-  const path = `${safeFolder}/${safeId}.${ext}`;
+  const path = `${safeFolder}/${safeId}.${mime.ext}`;
 
-  const { error } = await sb.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    contentType: file.type || `image/${ext}`,
-    cacheControl: "3600",
-  });
+  const body = await file.arrayBuffer();
+
+  async function tryUpload(upsert: boolean) {
+    return sb!.storage.from(BUCKET).upload(path, body, {
+      upsert,
+      contentType: mime.contentType,
+      cacheControl: "3600",
+    });
+  }
+
+  let { error } = await tryUpload(true);
+
+  // Conflict / upsert quirks: delete then insert once
+  if (error && /exists|duplicate|already|409|400/i.test(error.message)) {
+    await sb.storage.from(BUCKET).remove([path]);
+    ({ error } = await tryUpload(false));
+  }
 
   if (error) {
-    // Bucket missing or RLS — fall back so the UI still works
-    console.warn("[storage] upload failed, using data URL:", error.message);
-    try {
-      const url = await fileToDataUrl(file);
-      return { ok: true, url };
-    } catch {
-      return { ok: false, error: error.message || "Upload failed" };
-    }
+    console.warn("[storage] upload failed:", error.message, { path, contentType: mime.contentType });
+    return {
+      ok: false,
+      error: error.message || "Upload failed",
+    };
   }
 
   const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
-  // Cache-bust so the browser picks up a replaced logo
   const url = `${data.publicUrl}?t=${Date.now()}`;
   return { ok: true, url };
 }
