@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { defaultGameToken, resolveGameTokens } from "@/lib/game-tokens";
 import type { Game } from "@/lib/types";
 import { PrizeTiersEditor } from "./PrizeTiersEditor";
 import { ProgressiveJackpotEditor } from "./ProgressiveJackpotEditor";
@@ -29,6 +30,7 @@ const WEEKDAYS = [
 export function GamesPanel() {
   const { games, updateGame, addGame, deleteGame, toast, currency } =
     useStore();
+  const gameTokens = resolveGameTokens(games);
   const [openId, setOpenId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -261,6 +263,25 @@ export function GamesPanel() {
                         defaultValue={g.name}
                         onBlur={(e) => updateGame(g.id, { name: e.target.value })}
                       />
+                    </label>
+                    <label className="text-[11px] font-semibold text-[var(--mut)]">
+                      Ticket token
+                      <input
+                        key={`${g.id}-${g.token || ""}`}
+                        className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 font-mono text-sm"
+                        defaultValue={g.token || ""}
+                        placeholder={gameTokens.get(g.id) || defaultGameToken(g)}
+                        maxLength={12}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+                          updateGame(g.id, { token: raw || undefined });
+                        }}
+                      />
+                      <span className="mt-0.5 block text-[10px] font-normal">
+                        Use {`{${gameTokens.get(g.id) || defaultGameToken(g)}}`} in ticket text → {g.name}
+                        {" · "}
+                        {`{${gameTokens.get(g.id) || defaultGameToken(g)}_time}`} → draw time
+                      </span>
                     </label>
                     <label className="text-[11px] font-semibold text-[var(--mut)]">
                       Format

@@ -5,10 +5,14 @@ import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { TicketScheduleMessage } from "@/lib/types";
 import { buildJackpotTokenContext, listJackpotTokenHelp } from "@/lib/jackpot-tokens";
+import { buildGameTokenContext, listGameTokenHelp } from "@/lib/game-tokens";
 import { TopUpDesignPanel } from "./TopUpDesignPanel";
 
 function fillTokens(tpl: string, ctx: Record<string, string>): string {
-  return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
+  return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => {
+    const v = ctx[k] != null ? ctx[k] : ctx[String(k).toLowerCase()];
+    return v != null ? v : "{" + k + "}";
+  });
 }
 
 export function TicketDesignPanel() {
@@ -35,6 +39,7 @@ export function TicketDesignPanel() {
   const ctx = useMemo((): Record<string, string> => {
     const jpCtx = buildJackpotTokenContext(games, previewGame);
     return {
+      ...buildGameTokenContext(games),
       date: new Date().toLocaleDateString(),
       draw_time: previewGame?.draw_time || "",
       game: previewGame?.name || "",
@@ -265,6 +270,7 @@ export function TicketDesignPanel() {
           />
           <span className="mt-0.5 block text-[10px] font-normal text-[var(--mut)]">
             Tokens: {"{currency} {jackpot} {prev_jackpot}"}
+            {" · games: " + listGameTokenHelp(games).join(" · ")}
             {listJackpotTokenHelp(games).length
               ? " · " + listJackpotTokenHelp(games).join(" · ")
               : ""}
@@ -359,6 +365,7 @@ export function TicketDesignPanel() {
           </div>
           <p className="text-[11px] text-[var(--mut)]">
             Tokens: {"{game} {jackpot} {prev_jackpot} {date} {draw_time} {currency} {promo}"}
+            {" · game shortcuts: " + listGameTokenHelp(games).join(" ")}
             {listJackpotTokenHelp(games).length
               ? " · named: " + listJackpotTokenHelp(games).map((t) => t.split(" = ")[0]).join(" ")
               : ""}

@@ -1,5 +1,6 @@
 import type { Ticket, TicketDesign, BrandSettings, Retailer, Game, Promotion, TicketScheduleMessage } from "./types";
 import { buildJackpotTokenContext } from "./jackpot-tokens";
+import { buildGameTokenContext } from "./game-tokens";
 
 /** Code 128B pattern table (start B = 104, stop = 106). Values are bar/space widths. */
 const CODE128_PATTERNS: string[] = [
@@ -43,7 +44,10 @@ export function encodeCode128(text: string): string {
 }
 
 export function fillTokens(tpl: string, ctx: Record<string, string>): string {
-  return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
+  return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => {
+    const v = ctx[k] != null ? ctx[k] : ctx[String(k).toLowerCase()];
+    return v != null ? v : "{" + k + "}";
+  });
 }
 
 export function qrImageUrl(payload: string, size = 120): string {
@@ -109,6 +113,7 @@ export function printReceipt(opts: {
   const jpCtx = buildJackpotTokenContext(games, jpPrimary);
 
   const ctx: Record<string, string> = {
+    ...buildGameTokenContext(games),
     date: new Date(ticket.created_at).toLocaleDateString(),
     draw_time: primaryGame?.draw_time || "",
     game: primaryGame?.name || "",

@@ -35,6 +35,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
       "Retailer template under the logo supports {name} {number} {address} {phone} {date}.",
       "Message of the day prints under the plays.",
       "Scheduled ticket lines support {game} {game1} {amount1} {jackpot} {date} {draw_time} {currency} {promo}.",
+      "Every game has a ticket shortcut (set under Games & schedule → Ticket token): {dia} prints Diario, {dia_time} its draw time. Not case-sensitive.",
       "Scope a scheduled line to specific games; leave empty for all.",
       "Live preview updates on the right — includes active promo sample.",
     ],

@@ -75,6 +75,8 @@ export interface Game {
    * Also always available as {jackpot_<game_id>}.
    */
   jackpot_token?: string;
+  /** Short ticket-text shortcut for this game, e.g. "dia" → {dia} prints "Diario". Defaults to the first 3 letters of the name. */
+  token?: string;
   main_count?: number;
   main_max?: number;
   mega_count?: number;
