@@ -6,6 +6,7 @@ import type {
   Retailer,
   AppUser,
   TicketDesign,
+  TopUpDesign,
 } from "./types";
 import {
   defaultDigitPrizeTiers,
@@ -196,7 +197,28 @@ export const DEMO_BRAND: BrandSettings = {
   logo: "",
 };
 
+export const DEFAULT_TOPUP_DESIGN: TopUpDesign = {
+  enabled: true,
+  website: "shocolottery.com",
+  quick_amounts: [10, 20, 50, 100],
+  min_amount: 5,
+  max_amount: 1000,
+  code_length: 8,
+  code_prefix: "",
+  print_on_direct: true,
+  show_qr: false,
+  qr_url_template: "https://{website}/topup?code={code}",
+  voucher_title: "PLAYER TOP-UP",
+  voucher_code_label: "Your top-up code",
+  voucher_text: "Visit {website}, sign in and enter the code to receive the top up.",
+  voucher_footer: "Keep this ticket safe. Code can be used once.",
+  credited_title: "TOP-UP COMPLETE",
+  credited_text: "The amount has been added to your account.",
+  credited_footer: "Thank you. Play responsibly.",
+};
+
 export const DEMO_TICKET_DESIGN: TicketDesign = {
+  topup: DEFAULT_TOPUP_DESIGN,
   font: "mono",
   size: 12,
   width: 72,

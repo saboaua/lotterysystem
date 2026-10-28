@@ -24,7 +24,7 @@ import {
 const HISTORY_WEEKS = 4;
 
 export function ProfileScreen() {
-  const { user, retailers, soldTickets, selectedRetailerId, currency } = useStore();
+  const { user, retailers, soldTickets, topUps, selectedRetailerId, currency } = useStore();
   const [now, setNow] = useState(0);
 
   useEffect(() => {
@@ -40,19 +40,19 @@ export function ProfileScreen() {
   const data = useMemo(() => {
     if (!now || !shop) return null;
     const cur = periodAt(now, 0);
-    const mySettlement = settleRetailer(shop, soldTickets, cur);
+    const mySettlement = settleRetailer(shop, soldTickets, cur, topUps);
     const history = Array.from({ length: HISTORY_WEEKS }, (_, i) => {
       const p = periodAt(now, i + 1);
       const rk = rankAgents(retailers, soldTickets, p);
       return {
         period: p,
-        settlement: settleRetailer(shop, soldTickets, p),
+        settlement: settleRetailer(shop, soldTickets, p, topUps),
         rank: rk.find((r) => r.retailerId === shop.id)?.rank,
         of: rk.length,
       };
     });
     return { cur, mySettlement, history };
-  }, [now, shop, retailers, soldTickets]);
+  }, [now, shop, retailers, soldTickets, topUps]);
 
   if (!shop) {
     return <div className="p-6 text-sm text-slate-500">Retailer profile not found.</div>;
@@ -167,6 +167,7 @@ export function ProfileScreen() {
                 <Row k={`Sell commission (${shop.commission_sell}%)`} v={`− ${money(s.salesCommission)}`} tone="green" />
                 <Row k="Prizes paid out" v={`− ${money(s.prizesPaid)}`} />
                 <Row k={`Redeem commission (${shop.commission_redeem}%)`} v={`+ ${money(s.redeemCommission)}`} tone="green" />
+                {s.topUps > 0 && <Row k="Player top-ups collected" v={`+ ${money(s.topUps)}`} />}
               </dl>
               <div
                 className={

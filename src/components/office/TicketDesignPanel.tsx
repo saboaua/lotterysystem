@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { TicketScheduleMessage } from "@/lib/types";
 import { buildJackpotTokenContext, listJackpotTokenHelp } from "@/lib/jackpot-tokens";
+import { TopUpDesignPanel } from "./TopUpDesignPanel";
 
 function fillTokens(tpl: string, ctx: Record<string, string>): string {
   return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
@@ -686,6 +687,7 @@ export function TicketDesignPanel() {
           ))}
         </div>
       </div>
+      <TopUpDesignPanel />
     </div>
   );
 }

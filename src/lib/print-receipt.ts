@@ -16,7 +16,7 @@ const CODE128_PATTERNS: string[] = [
   "114131","311141","411131","211412","211214","211232","2331112",
 ];
 
-function encodeCode128(text: string): string {
+export function encodeCode128(text: string): string {
   const START_B = 104;
   const STOP = 106;
   let checksum = START_B;
@@ -42,11 +42,11 @@ function encodeCode128(text: string): string {
   return parts.join("");
 }
 
-function fillTokens(tpl: string, ctx: Record<string, string>): string {
+export function fillTokens(tpl: string, ctx: Record<string, string>): string {
   return tpl.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => (ctx[k] != null ? ctx[k] : "{" + k + "}"));
 }
 
-function qrImageUrl(payload: string, size = 120): string {
+export function qrImageUrl(payload: string, size = 120): string {
   return (
     "https://api.qrserver.com/v1/create-qr-code/?size=" +
     size +

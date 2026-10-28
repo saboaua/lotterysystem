@@ -21,6 +21,7 @@ import type {
   SupportTicket,
   Ticket,
   TicketDesign,
+  TopUp,
   TicketLine,
 } from "./types";
 import {
@@ -59,6 +60,9 @@ interface Store {
   selectedRetailerId: string;
   lines: TicketLine[];
   soldTickets: Ticket[];
+  topUps: TopUp[];
+  addTopUp: (t: TopUp) => void;
+  updateTopUp: (id: string, patch: Partial<TopUp>) => void;
   supportTickets: SupportTicket[];
   lastTicketId: string | null;
   toasts: Toast[];
@@ -167,6 +171,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [selectedRetailerId, setSelectedRetailerId] = useState("r001");
   const [lines, setLines] = useState<TicketLine[]>([]);
   const [soldTickets, setSoldTickets] = useState<Ticket[]>([]);
+  const [topUps, setTopUps] = useState<TopUp[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [lastTicketId, setLastTicketId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -181,6 +186,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setRetailers(loadJson("retailers", DEMO_RETAILERS));
     setPromotions(loadJson("promotions", DEMO_PROMOTIONS));
     setFastPlayGames(loadJson("fastPlayGames", DEMO_FAST_PLAY));
+    setTopUps(loadJson("topUps", []));
     setHydrated(true);
   }, []);
 
@@ -212,6 +218,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
     saveJson("promotions", promotions);
   }, [promotions, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("topUps", topUps);
+  }, [topUps, hydrated]);
   useEffect(() => {
     if (!hydrated) return;
     saveJson("fastPlayGames", fastPlayGames);
@@ -355,6 +365,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const updateBrand = useCallback((patch: Partial<BrandSettings>) => {
     setBrand((b) => ({ ...b, ...patch }));
+  }, []);
+
+  const addTopUp = useCallback((t: TopUp) => {
+    setTopUps((prev) => [t, ...prev]);
+  }, []);
+  const updateTopUp = useCallback((id: string, patch: Partial<TopUp>) => {
+    setTopUps((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   }, []);
 
   const updateTicketDesign = useCallback((patch: Partial<TicketDesign>) => {
@@ -533,6 +550,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     selectedRetailerId,
     lines,
     soldTickets,
+    topUps,
+    addTopUp,
+    updateTopUp,
     supportTickets,
     lastTicketId,
     toasts,
