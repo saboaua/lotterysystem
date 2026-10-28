@@ -90,9 +90,9 @@ function clampInt(n: number, min: number, max: number): number {
 
 /** Normalize operator input into a valid matrix. */
 export function sanitizeMatrix(input: Partial<JackpotMatrix>): JackpotMatrix {
-  let main_max = clampInt(Number(input.main_max ?? DEFAULT_JACKPOT_MATRIX.main_max), 2, 99);
+  const main_max = clampInt(Number(input.main_max ?? DEFAULT_JACKPOT_MATRIX.main_max), 2, 99);
   let main_count = clampInt(Number(input.main_count ?? DEFAULT_JACKPOT_MATRIX.main_count), 1, main_max);
-  let mega_count = clampInt(Number(input.mega_count ?? 0), 0, 5);
+  const mega_count = clampInt(Number(input.mega_count ?? 0), 0, 5);
   let mega_max =
     mega_count === 0
       ? 0
