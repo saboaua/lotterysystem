@@ -1,4 +1,5 @@
 import { getSupabase, isSupabaseConfigured } from "./supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const BUCKET = "logos";
 const MAX_BYTES = 400_000;
@@ -82,8 +83,8 @@ export async function uploadLogo(
   const contentType = mime.contentType;
   const ext = mime.ext;
 
-  const sb = getSupabase();
-  if (!isSupabaseConfigured || !sb) {
+  const client = getSupabase();
+  if (!isSupabaseConfigured || !client) {
     try {
       const url = await fileToDataUrl(file);
       return { ok: true, url };
@@ -91,6 +92,9 @@ export async function uploadLogo(
       return { ok: false, error: "Could not read image" };
     }
   }
+
+  // Narrowed non-null client for the rest of this function
+  const sb: SupabaseClient = client;
 
   // Must be signed in — Storage write policies are for role `authenticated`
   const { data: sessionData } = await sb.auth.getSession();
