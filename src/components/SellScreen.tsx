@@ -58,7 +58,7 @@ export function SellScreen() {
   const [sel, setSel] = useState<string[]>([]);
   const [bt, setBt] = useState("4_cifra");
   const [num, setNum] = useState("");
-  const [amt, setAmt] = useState("2");
+  const [amt, setAmt] = useState(""); // no stake preselected
   const [field, setField] = useState<"num" | "amt">("num");
   const [date, setDate] = useState(today());
   const [session, setSession] = useState("");

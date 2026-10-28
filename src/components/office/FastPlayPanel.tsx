@@ -25,7 +25,7 @@ export function FastPlayPanel() {
     toast,
     currency,
   } = useStore();
-  const [openId, setOpenId] = useState<string | null>(fastPlayGames[0]?.id ?? null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
