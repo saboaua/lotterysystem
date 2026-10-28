@@ -22,7 +22,9 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-function resolveMimeAndExt(file: File): { contentType: string; ext: string } | { error: string } {
+function resolveMimeAndExt(
+  file: File
+): { contentType: string; ext: string } | { error: string } {
   const fromName = file.name.split(".").pop()?.toLowerCase();
   const byExt: Record<string, string> = {
     png: "image/png",
@@ -41,7 +43,10 @@ function resolveMimeAndExt(file: File): { contentType: string; ext: string } | {
   }
 
   if (fromName && byExt[fromName]) {
-    return { contentType: byExt[fromName], ext: fromName === "jpeg" ? "jpg" : fromName };
+    return {
+      contentType: byExt[fromName],
+      ext: fromName === "jpeg" ? "jpg" : fromName,
+    };
   }
 
   return {
@@ -74,6 +79,9 @@ export async function uploadLogo(
   const mime = resolveMimeAndExt(file);
   if ("error" in mime) return { ok: false, error: mime.error };
 
+  const contentType = mime.contentType;
+  const ext = mime.ext;
+
   const sb = getSupabase();
   if (!isSupabaseConfigured || !sb) {
     try {
@@ -89,20 +97,21 @@ export async function uploadLogo(
   if (!sessionData.session) {
     return {
       ok: false,
-      error: "Sign in with a Supabase account to upload logos (demo login cannot write to Storage).",
+      error:
+        "Sign in with a Supabase account to upload logos (demo login cannot write to Storage).",
     };
   }
 
   const safeFolder = folder.replace(/[^a-z0-9_-]/gi, "").toLowerCase() || "misc";
   const safeId = id.replace(/[^a-z0-9_-]/gi, "_").toLowerCase() || "logo";
-  const path = `${safeFolder}/${safeId}.${mime.ext}`;
+  const path = `${safeFolder}/${safeId}.${ext}`;
 
   const body = await file.arrayBuffer();
 
   async function tryUpload(upsert: boolean) {
-    return sb!.storage.from(BUCKET).upload(path, body, {
+    return sb.storage.from(BUCKET).upload(path, body, {
       upsert,
-      contentType: mime.contentType,
+      contentType,
       cacheControl: "3600",
     });
   }
@@ -116,7 +125,7 @@ export async function uploadLogo(
   }
 
   if (error) {
-    console.warn("[storage] upload failed:", error.message, { path, contentType: mime.contentType });
+    console.warn("[storage] upload failed:", error.message, { path, contentType });
     return {
       ok: false,
       error: error.message || "Upload failed",
