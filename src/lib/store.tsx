@@ -40,6 +40,33 @@ import { signOut as sbSignOut, isSupabaseConfigured } from "./auth";
 import { persistSoldTicket, fetchTicketsFromSupabase } from "./tickets-api";
 import { loadJson, saveJson } from "./persist";
 import { migrateGamePayouts } from "./prize-tiers";
+import {
+  holidayRowId,
+  newUuid,
+  pingRetailerRemote,
+  pullBetTypes,
+  pullFastPlay,
+  pullGames,
+  pullHolidays,
+  pullPromotions,
+  pullResults,
+  pullSetting,
+  pullSupport,
+  pullTopUps,
+  pushBetTypes,
+  pushBrand,
+  pushFastPlay,
+  pushGames,
+  pushHolidays,
+  pushPromoCode,
+  pushPromotions,
+  pushResults,
+  pushSupport,
+  pushTicketDesign,
+  pushTicketStatus,
+  pushTopUp,
+  resultRowId,
+} from "./cloud";
 import { fetchRetailersFromSupabase, persistRetailerToSupabase } from "./supabase-data";
 import { arubaDate, arubaToday } from "./dates";
 import { computeJackpotAfterDraw, describeJackpotChange } from "./jackpot";
@@ -121,6 +148,55 @@ let holidaySeq = 0;
 let resultSeq = 0;
 let retailerSeq = 100;
 
+type CloudSnap = { hash: string; ids: string[] };
+
+/**
+ * Saves a collection to Supabase whenever it changes (owner only, after the first successful pull).
+ * Rows that disappeared since the last save are deleted remotely.
+ */
+function useCloudSync<T>(
+  name: string,
+  items: T[],
+  idOf: (t: T) => string,
+  push: (items: T[], removed: string[]) => Promise<{ ok: true } | { ok: false; error: string }>,
+  enabled: boolean,
+  snaps: React.MutableRefObject<Record<string, CloudSnap>>,
+  onError: (msg: string) => void
+) {
+  const pushRef = useRef(push);
+  const idRef = useRef(idOf);
+  const errRef = useRef(onError);
+  pushRef.current = push;
+  idRef.current = idOf;
+  errRef.current = onError;
+  useEffect(() => {
+    if (!enabled) return;
+    const hash = JSON.stringify(items);
+    const prev = snaps.current[name];
+    if (prev && prev.hash === hash) return;
+    const timer = setTimeout(async () => {
+      const ids = items.map((x) => idRef.current(x));
+      const removed = prev ? prev.ids.filter((id) => !ids.includes(id)) : [];
+      const res = await pushRef.current(items, removed);
+      if (res.ok === false) {
+        errRef.current(`Not saved to Supabase (${name}): ${res.error}. Run supabase/sync.sql if columns are missing.`);
+        return;
+      }
+      snaps.current[name] = { hash, ids };
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [items, enabled, name, snaps]);
+}
+
+function markSynced<T>(
+  snaps: React.MutableRefObject<Record<string, CloudSnap>>,
+  name: string,
+  items: T[],
+  idOf: (t: T) => string
+) {
+  snaps.current[name] = { hash: JSON.stringify(items), ids: items.map(idOf) };
+}
+
 function padTicket(n: number) {
   return `T${String(n).padStart(8, "0")}`;
 }
@@ -177,6 +253,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [soldTickets, setSoldTickets] = useState<Ticket[]>([]);
   const [topUps, setTopUps] = useState<TopUp[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  useEffect(() => {
+    soldTicketsRef.current = soldTickets;
+  }, [soldTickets]);
+  useEffect(() => {
+    topUpsRef.current = topUps;
+  }, [topUps]);
   const [lastTicketId, setLastTicketId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [fastPlayGames, setFastPlayGames] = useState<FastPlayGame[]>(DEMO_FAST_PLAY);
@@ -188,6 +270,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     userRef.current = user;
   }, [user]);
+  const soldTicketsRef = useRef<Ticket[]>([]);
+  const topUpsRef = useRef<TopUp[]>([]);
 
   useEffect(() => {
     setGames(migrateGamePayouts(loadJson("games", DEMO_GAMES)));
@@ -299,6 +383,114 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast]
   );
 
+  /* ── Supabase: pull everything on start, then save every change (owner) ── */
+  const [cloudReady, setCloudReady] = useState(false);
+  const snaps = useRef<Record<string, CloudSnap>>({});
+  const lastCloudErr = useRef("");
+  const cloudError = useCallback(
+    (msg: string) => {
+      if (lastCloudErr.current === msg) return;
+      lastCloudErr.current = msg;
+      toast(msg, true);
+    },
+    [toast]
+  );
+
+  const pullAll = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    const [g, bt, rs, hd, pm, br, td, fp] = await Promise.all([
+      pullGames(DEMO_GAMES),
+      pullBetTypes(),
+      pullResults(),
+      pullHolidays(),
+      pullPromotions(),
+      pullSetting<Partial<BrandSettings>>("brand"),
+      pullSetting<Partial<TicketDesign>>("ticket_design"),
+      pullFastPlay(),
+    ]);
+    const failed = [g, bt, rs, hd, pm, br, td, fp].find((x) => x.ok === false);
+    if (failed && failed.ok === false) {
+      cloudError(`Could not load from Supabase: ${failed.error}`);
+      return;
+    }
+    if (g.ok && g.data.games.length) {
+      const list = migrateGamePayouts(g.data.games);
+      setGames(list);
+      if (g.data.unsynced) delete snaps.current.games;
+      else markSynced(snaps, "games", g.data.games, (x) => x.id);
+    }
+    if (bt.ok && bt.data.length) {
+      const have = new Set(bt.data.map((b) => b.key));
+      setBetTypes([...bt.data, ...DEMO_BET_TYPES.filter((b) => !have.has(b.key))]);
+      markSynced(snaps, "bet_types", bt.data, (x) => x.key);
+    }
+    if (rs.ok && rs.data.length) {
+      setDrawResults(rs.data);
+      markSynced(snaps, "results", rs.data, resultRowId);
+    }
+    if (hd.ok && hd.data.length) {
+      setHolidays(hd.data);
+      markSynced(snaps, "holidays", hd.data, holidayRowId);
+    }
+    if (pm.ok && pm.data.length) {
+      setPromotions(pm.data);
+      markSynced(snaps, "promotions", pm.data, (x) => x.id);
+    }
+    if (br.ok && br.data) {
+      const merged = { ...DEMO_BRAND, ...br.data };
+      setBrand(merged);
+      markSynced(snaps, "brand", [merged], () => "brand");
+    }
+    if (td.ok && td.data) {
+      const merged = { ...DEMO_TICKET_DESIGN, ...td.data };
+      setTicketDesign(merged);
+      markSynced(snaps, "ticket_design", [merged], () => "ticket_design");
+    }
+    if (fp.ok && fp.data) {
+      setFastPlayGames(fp.data);
+      markSynced(snaps, "fast_play", fp.data, (x) => x.id);
+    }
+    lastCloudErr.current = "";
+    setCloudReady(true);
+  }, [cloudError]);
+
+  /** Tables protected by sign-in (top ups, support) — pulled after login. */
+  const pullPrivate = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    const [t, sp] = await Promise.all([pullTopUps(), pullSupport()]);
+    if (t.ok) setTopUps(t.data);
+    if (sp.ok) setSupportTickets(sp.data);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) void pullAll();
+  }, [hydrated, pullAll]);
+
+  // Owner screens: refresh presence (last seen) and shared data regularly.
+  useEffect(() => {
+    if (!isSupabaseConfigured || user?.role !== "owner") return;
+    const id = setInterval(() => void syncRetailers(), 30_000);
+    return () => clearInterval(id);
+  }, [user, syncRetailers]);
+
+  const canSave = cloudReady && isSupabaseConfigured && user?.role === "owner";
+  useCloudSync("games", games, (x) => x.id, pushGames, canSave, snaps, cloudError);
+  useCloudSync("bet_types", betTypes, (x) => x.key, pushBetTypes, canSave, snaps, cloudError);
+  useCloudSync("results", drawResults, resultRowId, pushResults, canSave, snaps, cloudError);
+  useCloudSync("holidays", holidays, holidayRowId, pushHolidays, canSave, snaps, cloudError);
+  useCloudSync("promotions", promotions, (x) => x.id, pushPromotions, canSave, snaps, cloudError);
+  useCloudSync("brand", [brand], () => "brand", (b) => pushBrand(b[0]), canSave, snaps, cloudError);
+  useCloudSync(
+    "ticket_design",
+    [ticketDesign],
+    () => "ticket_design",
+    (d) => pushTicketDesign(d[0]),
+    canSave,
+    snaps,
+    cloudError
+  );
+  useCloudSync("fast_play", fastPlayGames, (x) => x.id, (f) => pushFastPlay(f), canSave, snaps, cloudError);
+
   const loginAs = useCallback(
     (userId: string) => {
       const u = DEMO_USERS.find((x) => x.id === userId);
@@ -316,13 +508,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     userRef.current = u;
     if (isSupabaseConfigured) {
       void syncRetailers();
+      void pullAll();
+      void pullPrivate();
       void fetchTicketsFromSupabase(300).then((res) => {
         if (res.ok && res.tickets.length) {
           setSoldTickets(res.tickets);
         }
       });
     }
-  }, [syncRetailers]);
+  }, [syncRetailers, pullAll, pullPrivate]);
 
   const logout = useCallback(() => {
     setUser(null);
@@ -342,7 +536,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const sellTicket = useCallback((): Ticket | null => {
     if (!lines.length) return null;
-    const id = padTicket(++ticketSeq);
+    // Live mode: ids must be unique across terminals and page reloads (tickets.id is the primary key).
+    const id = isSupabaseConfigured
+      ? `T${String(Math.floor(Date.now() / 10)).slice(-10)}`
+      : padTicket(++ticketSeq);
     const promo = applyPromotions(lines, promotions);
     const retailerId =
       (user?.role === "retailer" && user.retailer_id) || selectedRetailerId;
@@ -368,6 +565,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         toast(`Ticket ${id} saved to server`);
+        if (t.promo_code && t.promo_id) {
+          void pushPromoCode({
+            code: t.promo_code,
+            promotion_id: t.promo_id,
+            ticket_id: id,
+            retailer_id: retailerId,
+          }).then((r) => {
+            if (r.ok === false) toast(`Promo code not saved to server: ${r.error}`, true);
+          });
+        }
       });
     }
     return t;
@@ -375,33 +582,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const cancelTicket = useCallback(
     (id: string) => {
+      const cancelledAt = new Date().toISOString();
       setSoldTickets((prev) =>
         prev.map((t) =>
           t.id === id && t.status === "sold"
-            ? { ...t, status: "cancelled", cancelled_at: new Date().toISOString() }
+            ? { ...t, status: "cancelled", cancelled_at: cancelledAt }
             : t
         )
       );
       toast(`Ticket ${id} cancelled`);
+      if (isSupabaseConfigured) {
+        void pushTicketStatus(id, { status: "cancelled", cancelled_at: cancelledAt }).then((r) => {
+          if (r.ok === false) toast(`Cancel not saved to server: ${r.error}`, true);
+        });
+      }
     },
     [toast]
   );
 
   const redeemTicket = useCallback(
     (id: string) => {
+      const redeemedAt = new Date().toISOString();
+      const existing = soldTicketsRef.current.find((t) => t.id === id);
+      const prize = existing ? (existing.prize ?? existing.total * 10) : undefined;
       setSoldTickets((prev) =>
         prev.map((t) =>
           t.id === id && (t.status === "won" || t.status === "sold")
-            ? {
-                ...t,
-                status: "paid",
-                prize: t.prize ?? t.total * 10,
-                redeemed_at: new Date().toISOString(),
-              }
+            ? { ...t, status: "paid", prize: t.prize ?? t.total * 10, redeemed_at: redeemedAt }
             : t
         )
       );
       toast(`Ticket ${id} redeemed`);
+      if (isSupabaseConfigured && existing && (existing.status === "won" || existing.status === "sold")) {
+        void pushTicketStatus(id, { status: "paid", prize, redeemed_at: redeemedAt }).then((r) => {
+          if (r.ok === false) toast(`Redeem not saved to server: ${r.error}`, true);
+        });
+      }
     },
     [toast]
   );
@@ -468,12 +684,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setBrand((b) => ({ ...b, ...patch }));
   }, []);
 
-  const addTopUp = useCallback((t: TopUp) => {
-    setTopUps((prev) => [t, ...prev]);
-  }, []);
-  const updateTopUp = useCallback((id: string, patch: Partial<TopUp>) => {
-    setTopUps((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-  }, []);
+  const saveTopUp = useCallback(
+    (t: TopUp) => {
+      if (!isSupabaseConfigured) return;
+      void pushTopUp(t).then((r) => {
+        if (r.ok === false) toast(`Top up not saved to server: ${r.error}`, true);
+      });
+    },
+    [toast]
+  );
+  const addTopUp = useCallback(
+    (t: TopUp) => {
+      setTopUps((prev) => [t, ...prev]);
+      saveTopUp(t);
+    },
+    [saveTopUp]
+  );
+  const updateTopUp = useCallback(
+    (id: string, patch: Partial<TopUp>) => {
+      const current = topUpsRef.current.find((t) => t.id === id);
+      setTopUps((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+      if (current) saveTopUp({ ...current, ...patch });
+    },
+    [saveTopUp]
+  );
 
   const updateTicketDesign = useCallback((patch: Partial<TicketDesign>) => {
     setTicketDesign((d) => ({ ...d, ...patch }));
@@ -486,7 +720,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const addSupport = useCallback(
     (subject: string, body: string) => {
       const st: SupportTicket = {
-        id: `S${++supportSeq}`,
+        id: isSupabaseConfigured ? newUuid() : `S${++supportSeq}`,
         retailer_id: selectedRetailerId,
         subject,
         body,
@@ -495,12 +729,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
       setSupportTickets((prev) => [st, ...prev]);
       toast("Support ticket submitted");
+      if (isSupabaseConfigured) {
+        void pushSupport(st, userRef.current?.id).then((r) => {
+          if (r.ok === false) toast(`Support ticket not saved to server: ${r.error}`, true);
+        });
+      }
     },
     [selectedRetailerId, toast]
   );
 
   const addPromotion = useCallback((p: Promotion) => {
-    setPromotions((prev) => [...prev, p.id ? p : { ...p, id: `p${++promoSeq}` }]);
+    setPromotions((prev) => [
+      ...prev,
+      p.id ? p : { ...p, id: `p${Date.now().toString(36)}${(++promoSeq).toString(36)}` },
+    ]);
   }, []);
 
   const updatePromotion = useCallback((id: string, patch: Partial<Promotion>) => {
@@ -572,6 +814,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           r.id === id ? { ...r, last_seen: now, last_ack: now } : r
         )
       );
+      if (isSupabaseConfigured && userRef.current?.role === "retailer") void pingRetailerRemote();
     },
     [selectedRetailerId]
   );

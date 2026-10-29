@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Megaphone, Printer, Send } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { expandBroadcastText, BROADCAST_TOKEN_HELP } from "@/lib/broadcast-tokens";
+import { pullBroadcast, pushBroadcast } from "@/lib/cloud";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import type { BroadcastMessage } from "@/lib/types";
 
 const KEY = "lottery_broadcast";
@@ -39,7 +41,19 @@ export function BroadcastPanel() {
 
   useEffect(() => {
     setBroadcast(readBc());
+    if (isSupabaseConfigured) {
+      void pullBroadcast().then((r) => {
+        if (r.ok) setBroadcast(r.data);
+      });
+    }
   }, []);
+
+  function saveBroadcast(msg: BroadcastMessage | null) {
+    if (!isSupabaseConfigured) return;
+    void pushBroadcast(msg).then((r) => {
+      if (r.ok === false) toast(`Broadcast not saved to Supabase: ${r.error}`, true);
+    });
+  }
 
   function sendBroadcast(msg: Omit<BroadcastMessage, "id" | "sent_at">) {
     const full: BroadcastMessage = {
@@ -50,12 +64,14 @@ export function BroadcastPanel() {
     localStorage.setItem(KEY, JSON.stringify(full));
     window.dispatchEvent(new Event("lottery-broadcast"));
     setBroadcast(full);
+    saveBroadcast(full);
   }
 
   function clearBroadcast() {
     localStorage.removeItem(KEY);
     window.dispatchEvent(new Event("lottery-broadcast"));
     setBroadcast(null);
+    saveBroadcast(null);
   }
 
   const [title, setTitle] = useState("Announcement");

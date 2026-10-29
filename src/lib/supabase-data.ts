@@ -147,6 +147,7 @@ export async function persistRetailerToSupabase(
     commission_sell: retailer.commission_sell,
     commission_redeem: retailer.commission_redeem,
     active: retailer.status ? retailer.status === "active" : retailer.active,
+    status: retailer.status ?? (retailer.active ? "active" : "disabled"),
     lat: retailer.lat ?? null,
     lng: retailer.lng ?? null,
     username: retailer.username ?? null,

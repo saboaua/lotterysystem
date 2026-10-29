@@ -5,6 +5,8 @@ import { Megaphone, Printer, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { expandBroadcastText } from "@/lib/broadcast-tokens";
 import type { BroadcastMessage } from "@/lib/types";
+import { pullBroadcast } from "@/lib/cloud";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 const KEY = "lottery_broadcast";
 
@@ -30,7 +32,22 @@ export function BroadcastPopup() {
   const isSeller = user?.role === "retailer";
 
   useEffect(() => {
-    const load = () => setBroadcast(readBroadcast());
+    const load = () => {
+      setBroadcast(readBroadcast());
+      // Broadcasts live in Supabase so every terminal sees the same message.
+      if (isSupabaseConfigured) {
+        void pullBroadcast().then((r) => {
+          if (r.ok === false) return;
+          try {
+            if (r.data) localStorage.setItem(KEY, JSON.stringify(r.data));
+            else localStorage.removeItem(KEY);
+          } catch {
+            /* ignore */
+          }
+          setBroadcast(r.data);
+        });
+      }
+    };
     load();
     const onStorage = (e: StorageEvent) => {
       if (e.key === KEY) load();
