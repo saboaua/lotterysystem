@@ -1,4 +1,4 @@
-export type Role = "owner" | "retailer";
+export type Role = "owner" | "staff" | "retailer";
 
 export type GameFormat = "digit" | "zodiac" | "whe" | "jackpot";
 
@@ -266,6 +266,9 @@ export interface AppUser {
   retailer_id?: string;
   username?: string;
   must_change_password?: boolean;
+  /** Staff only: name of the assigned role and the permissions it grants (e.g. "games:edit"). */
+  staff_role?: string;
+  permissions?: string[];
 }
 
 export interface LedScheduleMessage {

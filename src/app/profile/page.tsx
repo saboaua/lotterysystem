@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Shell } from "@/components/Shell";
 import { ProfileScreen } from "@/components/ProfileScreen";
 import { useStore } from "@/lib/store";
+import { isBackOffice } from "@/lib/permissions";
 
 /** Retailer profile: shop info, weekly ranking and settlement. Owners go to back office. */
 export default function ProfilePage() {
@@ -20,10 +21,10 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!ready) return;
     if (!user) router.replace("/");
-    else if (user.role === "owner") router.replace("/office");
+    else if (isBackOffice(user)) router.replace("/office");
   }, [user, router, ready]);
 
-  if (!ready || !user || user.role === "owner") {
+  if (!ready || !user || isBackOffice(user)) {
     return (
       <div className="grid min-h-dvh place-items-center bg-slate-50 text-sm text-slate-500 dark:bg-slate-900">
         Loading profile…

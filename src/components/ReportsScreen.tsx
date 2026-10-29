@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { arubaDate, arubaToday } from "@/lib/dates";
+import { isBackOffice } from "@/lib/permissions";
 
 export function ReportsScreen() {
   const {
@@ -14,7 +15,7 @@ export function ReportsScreen() {
     currency,
   } = useStore();
 
-  const isOwner = user?.role === "owner";
+  const isOwner = isBackOffice(user);
   const [from, setFrom] = useState(() => arubaToday());
   const [to, setTo] = useState(() => arubaToday());
 

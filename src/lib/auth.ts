@@ -29,6 +29,10 @@ export async function signInWithPassword(
       },
     };
   }
+  if ((profile as AppUser & { disabled?: boolean }).disabled) {
+    await sb.auth.signOut();
+    return { ok: false, error: "This account has been disabled. Contact the owner." };
+  }
   return { ok: true, user: profile };
 }
 
@@ -42,10 +46,24 @@ async function loadProfile(userId: string): Promise<AppUser | null> {
   if (!sb) return null;
   const { data, error } = await sb
     .from("profiles")
-    .select("id, email, name, role, retailer_id, username, must_change_password")
+    .select("id, email, name, role, retailer_id, username, must_change_password, active, staff_role_id")
     .eq("id", userId)
     .maybeSingle();
   if (error || !data) return null;
+
+  let staffRole: string | undefined;
+  let permissions: string[] | undefined;
+  if (data.role === "staff" && data.staff_role_id) {
+    const { data: r } = await sb
+      .from("staff_roles")
+      .select("name, permissions")
+      .eq("id", data.staff_role_id)
+      .maybeSingle();
+    staffRole = r?.name || undefined;
+    permissions = (r?.permissions as string[] | null) || [];
+  } else if (data.role === "staff") {
+    permissions = [];
+  }
   return {
     id: data.id,
     email: data.email || "",
@@ -54,7 +72,10 @@ async function loadProfile(userId: string): Promise<AppUser | null> {
     retailer_id: data.retailer_id || undefined,
     username: data.username || undefined,
     must_change_password: data.must_change_password || false,
-  };
+    staff_role: staffRole,
+    permissions,
+    ...(data.active === false ? { disabled: true } : {}),
+  } as AppUser;
 }
 
 

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   LogOut,
+  ScrollText,
   Moon,
   Sun,
   Banknote,
@@ -21,6 +22,7 @@ import { ToastHost } from "./Toast";
 import { PresencePing } from "./PresencePing";
 import { BroadcastPopup } from "./BroadcastPopup";
 import { arubaToday } from "@/lib/dates";
+import { can, isBackOffice } from "@/lib/permissions";
 
 const ITEM_ICONS = [CircleDot, Star, Flame, CircleDot, Star, Flame];
 const ITEM_COLORS = [
@@ -80,7 +82,7 @@ export function Shell({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, []);
 
-  const isOwner = user?.role === "owner";
+  const isOwner = isBackOffice(user);
   const shop = retailers.find((r) => r.id === selectedRetailerId);
 
   const nav = isOwner
@@ -171,6 +173,20 @@ export function Shell({ children }: { children: ReactNode }) {
           >
             {dark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
+          {can(user, "audit:view") && (
+            <Link
+              href="/audit"
+              title="Audit trail"
+              aria-label="Audit trail"
+              className={`flex h-10 w-10 items-center justify-center rounded-xl transition ${
+                path.startsWith("/audit")
+                  ? "bg-indigo-600/20 text-indigo-400"
+                  : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+              }`}
+            >
+              <ScrollText size={16} />
+            </Link>
+          )}
           <button
             type="button"
             onClick={logout}
@@ -198,7 +214,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   }`}
                 >
                   <span className="mr-1 h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-                  {isOwner ? "OWNER" : "RETAILER"}
+                  {user?.role === "owner" ? "OWNER" : isOwner ? "STAFF" : "RETAILER"}
                 </span>
               </div>
               <p className="mt-0.5 truncate text-xs font-medium text-slate-500">

@@ -9,8 +9,12 @@ import {
   peakRank,
   rankAgents,
   rankingPeriod,
+  settleRetailer,
   type RankingKind,
+  type RankRow,
 } from "@/lib/settlement";
+import { fetchMyPeakRank, fetchMyRank, type RankInfo } from "@/lib/ranking-api";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 interface Props {
   shop: Retailer;
@@ -18,6 +22,17 @@ interface Props {
   tickets: Ticket[];
   now: number;
   currency: string;
+  /**
+   * Seller view: show only this shop's position. Other retailers' names and sales are never
+   * displayed (and, when signed in to Supabase, never even loaded).
+   */
+  hideOthers?: boolean;
+}
+
+interface RemoteRank {
+  cur: RankInfo | null;
+  prev: RankInfo | null;
+  peak: number | null;
 }
 
 /** Eases a number toward `target`; starts from `start` on first mount. Respects reduced motion. */
@@ -85,24 +100,62 @@ function Bar({ pct, mine, delay }: { pct: number; mine: boolean; delay: number }
   );
 }
 
-export function RankingCard({ shop, retailers, tickets, now, currency }: Props) {
+export function RankingCard({ shop, retailers, tickets, now, currency, hideOthers = false }: Props) {
   const [kind, setKind] = useState<RankingKind>("month");
+  // Signed-in sellers cannot read other shops' tickets, so their position comes from the server.
+  const useRemote = hideOthers && isSupabaseConfigured;
+  const [remote, setRemote] = useState<RemoteRank | null>(null);
+  const bucket = Math.floor(now / 60_000);
+
+  useEffect(() => {
+    if (!useRemote || !now) return;
+    let cancelled = false;
+    const cur = rankingPeriod(kind, now, 0);
+    const prev = rankingPeriod(kind, now, 1);
+    void Promise.all([
+      fetchMyRank(cur.start, cur.end),
+      fetchMyRank(prev.start, prev.end),
+      fetchMyPeakRank(cur.start, cur.end),
+    ]).then(([c, p, pk]) => {
+      if (!cancelled) setRemote({ cur: c, prev: p, peak: pk });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [useRemote, kind, bucket, now]);
   const money = (n: number) => `${currency} ${Math.abs(n).toFixed(2)}`;
 
   const v = useMemo(() => {
     const cur = rankingPeriod(kind, now, 0);
     const prev = rankingPeriod(kind, now, 1);
+    if (useRemote) {
+      // Own sales come from this shop's own tickets; positions come from the server.
+      const mk = (p: typeof cur, info: RankInfo | null | undefined): RankRow | undefined =>
+        info
+          ? { ...settleRetailer(shop, tickets, p), rank: info.rank, name: shop.name, number: shop.number }
+          : undefined;
+      const me = mk(cur, remote?.cur);
+      return {
+        cur,
+        ranking: me ? [me] : ([] as RankRow[]),
+        me,
+        mePrev: mk(prev, remote?.prev),
+        peak: remote?.peak ?? null,
+        network: 0,
+        remoteTotal: remote?.cur?.total ?? 0,
+      };
+    }
     const ranking = rankAgents(retailers, tickets, cur);
     const prevRanking = rankAgents(retailers, tickets, prev);
     const me = ranking.find((r) => r.retailerId === shop.id);
     const mePrev = prevRanking.find((r) => r.retailerId === shop.id);
     const peak = peakRank(retailers, tickets, cur, now, shop.id);
     const network = ranking.reduce((s, r) => s + r.sales, 0);
-    return { cur, ranking, me, mePrev, peak, network };
-  }, [kind, now, retailers, tickets, shop.id]);
+    return { cur, ranking, me, mePrev, peak, network, remoteTotal: 0 };
+  }, [kind, now, retailers, tickets, shop, useRemote, remote]);
 
-  const { cur, ranking, me, mePrev, peak, network } = v;
-  const total = ranking.length;
+  const { cur, ranking, me, mePrev, peak, network, remoteTotal } = v;
+  const total = useRemote ? remoteTotal : ranking.length;
   const noSales = !me || me.sales <= 0;
   const rank = me?.rank ?? total;
   const tier = noSales ? null : tierOf(rank, total);
@@ -125,7 +178,7 @@ export function RankingCard({ shop, retailers, tickets, now, currency }: Props) 
   })();
   const maxSales = Math.max(1, ...ranking.map((r) => r.sales));
 
-  const subtitle = `${kind === "month" ? formatMonth(cur) : formatRange(cur)} · All ${total} retailers`;
+  const subtitle = `${kind === "month" ? formatMonth(cur) : formatRange(cur)} · ${useRemote && !remote ? "Loading position…" : `All ${total} retailers`}`;
   const progressToNext = above && me ? Math.min(100, (me.sales / Math.max(1, above.sales)) * 100) : 100;
 
   return (
@@ -278,40 +331,109 @@ export function RankingCard({ shop, retailers, tickets, now, currency }: Props) 
 
         <div className="anim-rise rounded-2xl border border-slate-100 p-3.5 dark:border-slate-700" style={{ animationDelay: "120ms" }}>
           <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            <Target size={13} /> {noSales ? "Get started" : rank === 1 ? "Lead over #2" : `To reach #${rank - 1}`}
+            <Target size={13} />{" "}
+            {noSales ? "Get started" : rank === 1 ? (hideOthers ? "Your spot" : "Lead over #2") : hideOthers ? "Next position" : `To reach #${rank - 1}`}
           </div>
           <div className="mt-1 font-mono text-xl font-black text-slate-900 dark:text-white">
             {noSales
               ? "First sale"
-              : rank === 1
-                ? second
-                  ? money(me!.sales - second.sales)
-                  : "Unchallenged"
-                : money(above!.sales - me!.sales)}
+              : hideOthers
+                ? rank === 1
+                  ? "Top spot"
+                  : `#${rank - 1}`
+                : rank === 1
+                  ? second
+                    ? money(me!.sales - second.sales)
+                    : "Unchallenged"
+                  : money(above!.sales - me!.sales)}
           </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-            <div
-              className="bar-grow h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-[width] duration-700 ease-out"
-              style={{ width: `${noSales ? 0 : progressToNext}%` }}
-            />
-          </div>
+          {!hideOthers && (
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div
+                className="bar-grow h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-[width] duration-700 ease-out"
+                style={{ width: `${noSales ? 0 : progressToNext}%` }}
+              />
+            </div>
+          )}
         </div>
 
         <div className="anim-rise rounded-2xl border border-slate-100 p-3.5 dark:border-slate-700" style={{ animationDelay: "180ms" }}>
           <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            <Users size={13} /> Network share
+            <Users size={13} /> {hideOthers ? "Your standing" : "Network share"}
           </div>
-          <div className="mt-1 font-mono text-xl font-black text-slate-900 dark:text-white">{shareAnim.toFixed(1)}%</div>
+          <div className="mt-1 font-mono text-xl font-black text-slate-900 dark:text-white">
+            {hideOthers ? (noSales ? "—" : `Top ${tier!.pct}%`) : `${shareAnim.toFixed(1)}%`}
+          </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
             <div
               className="bar-grow h-full rounded-full bg-gradient-to-r from-violet-400 to-indigo-500 transition-[width] duration-700 ease-out"
-              style={{ width: `${Math.min(100, share)}%` }}
+              style={{
+                width: `${
+                  hideOthers
+                    ? noSales || total < 1
+                      ? 0
+                      : Math.max(4, ((total - rank + 1) / total) * 100)
+                    : Math.min(100, share)
+                }%`,
+              }}
             />
           </div>
         </div>
       </div>
 
       {/* Leaderboard */}
+      {hideOthers ? (
+        <div className="mt-5">
+          <ul className="space-y-1.5">
+            {Array.from({ length: Math.min(5, total) }, (_, k) => k + 1).map((pos) => {
+              const mine = !noSales && pos === rank;
+              return (
+                <li
+                  key={pos}
+                  className={
+                    "flex items-center gap-3 rounded-xl px-2.5 py-2 " +
+                    (mine
+                      ? "bg-violet-50 ring-1 ring-violet-200 dark:bg-violet-950/30 dark:ring-violet-500/30"
+                      : "")
+                  }
+                >
+                  <span
+                    className={
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-black " +
+                      (pos <= 3 ? MEDAL[pos - 1] : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400")
+                    }
+                  >
+                    {pos}
+                  </span>
+                  <span
+                    className={
+                      "text-sm font-bold " +
+                      (mine ? "text-violet-800 dark:text-violet-200" : "text-slate-400 dark:text-slate-500")
+                    }
+                  >
+                    {mine ? `${shop.name} · you` : pos === 1 ? "Top retailer" : "Retailer"}
+                  </span>
+                </li>
+              );
+            })}
+            {!noSales && rank > 5 && (
+              <>
+                <li className="py-0.5 text-center text-xs font-bold tracking-widest text-slate-300">···</li>
+                <li className="flex items-center gap-3 rounded-xl bg-violet-50 px-2.5 py-2 ring-1 ring-violet-200 dark:bg-violet-950/30 dark:ring-violet-500/30">
+                  <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 px-1 text-xs font-black text-slate-600 dark:bg-slate-800">
+                    {rank}
+                  </span>
+                  <span className="text-sm font-bold text-violet-800 dark:text-violet-200">{shop.name} · you</span>
+                </li>
+              </>
+            )}
+          </ul>
+          <p className="mt-3 text-center text-[11px] font-semibold text-slate-400">
+            Only positions are shown — other retailers&apos; sales are private.
+          </p>
+        </div>
+      ) : (
+        <>
       <ul key={kind} className="mt-5 space-y-1.5">
         {board.map((r, i) => {
           const mine = r.retailerId === shop.id;
@@ -358,6 +480,8 @@ export function RankingCard({ shop, retailers, tickets, now, currency }: Props) 
           );
         })}
       </ul>
+        </>
+      )}
     </section>
   );
 }

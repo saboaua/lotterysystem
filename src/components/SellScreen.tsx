@@ -167,6 +167,11 @@ export function SellScreen() {
     setJackMega(null);
   }
 
+  // Play Whe: marks are tapped on the grid, so the keypad is for the stake.
+  useEffect(() => {
+    setField(primary?.format === "whe" ? "amt" : "num");
+  }, [primary?.format]);
+
   function pressKey(k: string | number) {
     if (k === "CLR") {
       if (field === "num") {
@@ -673,10 +678,15 @@ export function SellScreen() {
               />
             )}
 
-            {(!primary || primary.format === "digit" || primary.format === "zodiac") && (
+            {(!primary || primary.format === "digit" || primary.format === "zodiac" || primary.format === "whe") && (
               <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 {/* Bet type pills */}
-                <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-3 py-2.5 dark:border-slate-800">
+                <div
+                  className={
+                    "flex-wrap gap-1.5 border-b border-slate-100 px-3 py-2.5 dark:border-slate-800 " +
+                    (primary?.format === "whe" ? "hidden" : "flex")
+                  }
+                >
                   {allowedBets.map((b) => (
                     <button
                       key={b.key}
@@ -700,6 +710,21 @@ export function SellScreen() {
 
                 {/* Number + stake header */}
                 <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                  {primary?.format === "whe" ? (
+                    <div>
+                      <div className="font-mono text-4xl font-black text-rose-600 sm:text-5xl">
+                        {whePicks.length}
+                        <span className="ml-2 text-lg font-bold text-slate-400">
+                          {whePicks.length === 1 ? "mark" : "marks"}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                        {whePicks.length > 0 && (parseFloat(amt) || 0) > 0
+                          ? `${whePicks.length} × ${currency} ${(parseFloat(amt) || 0).toFixed(2)} = ${currency} ${(whePicks.length * (parseFloat(amt) || 0)).toFixed(2)}`
+                          : "Select marks above, then enter the stake per mark"}
+                      </div>
+                    </div>
+                  ) : (
                   <div>
                     <div
                       className="flex gap-1.5 font-mono text-4xl font-black tracking-[0.15em] text-slate-900 dark:text-white sm:text-5xl"
@@ -728,9 +753,10 @@ export function SellScreen() {
                       {activeBet?.mode === "exact" ? " Direct" : activeBet?.mode ? " " + activeBet.mode : ""}
                     </div>
                   </div>
+                  )}
                   <div className="text-right">
                     <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                      Stake amount
+                      {primary?.format === "whe" ? "Stake per mark" : "Stake amount"}
                     </div>
                     <button
                       type="button"
@@ -784,7 +810,7 @@ export function SellScreen() {
                       onClick={() => pressKey("CLR")}
                       className="mt-2 flex min-h-[48px] md:min-h-[60px] w-full items-center justify-center gap-1.5 rounded-xl bg-slate-100 py-3 text-sm font-bold uppercase tracking-wide text-slate-500 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
                     >
-                      Clear digits
+                      {field === "num" ? "Clear digits" : "Clear stake"}
                     </button>
                   </div>
 

@@ -75,8 +75,8 @@ export function LoginScreen() {
         );
         return;
       }
-      if (mode === "owner" && res.user.role !== "owner") {
-        toast("This account is not an owner (check profiles.role)", true);
+      if (mode === "owner" && res.user.role === "retailer") {
+        toast("This account is not a back-office account (check profiles.role)", true);
         return;
       }
       if (mode === "retailer" && res.user.role !== "retailer") {

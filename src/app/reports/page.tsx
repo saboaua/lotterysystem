@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Shell } from "@/components/Shell";
 import { ReportsScreen } from "@/components/ReportsScreen";
 import { useStore } from "@/lib/store";
+import { can, isBackOffice } from "@/lib/permissions";
 
 /** Reports live in owner back office only. */
 export default function ReportsPage() {
@@ -13,11 +14,11 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!user) router.replace("/");
-    else if (user.role !== "owner") router.replace("/sell");
+    else if (!can(user, "reports:view")) router.replace(isBackOffice(user) ? "/office" : "/sell");
     else router.replace("/office");
   }, [user, router]);
 
-  if (!user || user.role !== "owner") return null;
+  if (!user || !can(user, "reports:view")) return null;
   return (
     <Shell>
       <ReportsScreen />

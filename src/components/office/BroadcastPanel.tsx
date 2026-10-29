@@ -5,6 +5,7 @@ import { Megaphone, Printer, Send } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { expandBroadcastText, BROADCAST_TOKEN_HELP } from "@/lib/broadcast-tokens";
 import { pullBroadcast, pushBroadcast } from "@/lib/cloud";
+import { logAudit } from "@/lib/audit";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { BroadcastMessage } from "@/lib/types";
 
@@ -49,6 +50,11 @@ export function BroadcastPanel() {
   }, []);
 
   function saveBroadcast(msg: BroadcastMessage | null) {
+    void logAudit({
+      action: "broadcast",
+      entity: "broadcast",
+      summary: msg ? `Sent broadcast: ${msg.text.slice(0, 80)}` : "Cleared the broadcast message",
+    });
     if (!isSupabaseConfigured) return;
     void pushBroadcast(msg).then((r) => {
       if (r.ok === false) toast(`Broadcast not saved to Supabase: ${r.error}`, true);

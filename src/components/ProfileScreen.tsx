@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { RankingCard } from "@/components/RankingCard";
+import { fetchMyRank, type RankInfo } from "@/lib/ranking-api";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   countdown,
   formatClose,
@@ -20,6 +22,7 @@ import {
   rankAgents,
   settleRetailer,
 } from "@/lib/settlement";
+import { isBackOffice } from "@/lib/permissions";
 
 const HISTORY_WEEKS = 4;
 
@@ -35,6 +38,25 @@ export function ProfileScreen() {
   }, []);
 
   const shop = retailers.find((r) => r.id === selectedRetailerId);
+  const sellerView = !isBackOffice(user);
+  // Signed-in sellers can't read other shops' tickets: closed-week ranks come from the server.
+  const remoteRanks = sellerView && isSupabaseConfigured;
+  const [weekRanks, setWeekRanks] = useState<Record<number, RankInfo | null>>({});
+  useEffect(() => {
+    if (!remoteRanks || !now) return;
+    let cancelled = false;
+    void Promise.all(
+      Array.from({ length: HISTORY_WEEKS }, (_, i) => {
+        const p = periodAt(now, i + 1);
+        return fetchMyRank(p.start, p.end).then((r) => [p.end, r] as const);
+      })
+    ).then((rows) => {
+      if (!cancelled) setWeekRanks(Object.fromEntries(rows));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [remoteRanks, now]);
   const money = (n: number) => `${currency} ${Math.abs(n).toFixed(2)}`;
 
   const data = useMemo(() => {
@@ -43,6 +65,15 @@ export function ProfileScreen() {
     const mySettlement = settleRetailer(shop, soldTickets, cur, topUps);
     const history = Array.from({ length: HISTORY_WEEKS }, (_, i) => {
       const p = periodAt(now, i + 1);
+      if (remoteRanks) {
+        const info = weekRanks[p.end];
+        return {
+          period: p,
+          settlement: settleRetailer(shop, soldTickets, p, topUps),
+          rank: info?.rank,
+          of: info?.total ?? 0,
+        };
+      }
       const rk = rankAgents(retailers, soldTickets, p);
       return {
         period: p,
@@ -52,7 +83,7 @@ export function ProfileScreen() {
       };
     });
     return { cur, mySettlement, history };
-  }, [now, shop, retailers, soldTickets, topUps]);
+  }, [now, shop, retailers, soldTickets, topUps, remoteRanks, weekRanks]);
 
   if (!shop) {
     return <div className="p-6 text-sm text-slate-500">Retailer profile not found.</div>;
@@ -138,7 +169,14 @@ export function ProfileScreen() {
         </div>
       </section>
 
-      <RankingCard shop={shop} retailers={retailers} tickets={soldTickets} now={now} currency={currency} />
+      <RankingCard
+        shop={shop}
+        retailers={retailers}
+        tickets={soldTickets}
+        now={now}
+        currency={currency}
+        hideOthers={sellerView}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {/* Settlement */}

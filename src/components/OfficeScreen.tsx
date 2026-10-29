@@ -11,6 +11,7 @@ import {
   Megaphone,
   MessageSquare,
   Network,
+  Shield,
   Sparkles,
   Store,
   Ticket,
@@ -29,6 +30,8 @@ import { HelpPanel } from "./office/HelpPanel";
 import { IspPanel } from "./office/IspPanel";
 import { DrawSchedulePanel } from "./office/DrawSchedule";
 import { BroadcastPanel } from "./office/BroadcastPanel";
+import { TAB_MODULE, can, isBackOffice } from "@/lib/permissions";
+import { StaffPanel } from "./office/StaffPanel";
 
 type Sub =
   | "games"
@@ -43,6 +46,7 @@ type Sub =
   | "reports"
   | "retailers"
   | "isp"
+  | "staff"
   | "account"
   | "help";
 
@@ -62,13 +66,26 @@ const TABS: { id: Sub; label: string; icon: typeof Gamepad2 }[] = [
   { id: "reports", label: "Reports", icon: ClipboardList },
   { id: "retailers", label: "Retailers", icon: Store },
   { id: "isp", label: "ISP / network", icon: Network },
+  { id: "staff", label: "Staff & roles", icon: Shield },
   { id: "account", label: "Account", icon: User },
   { id: "help", label: "Help", icon: HelpCircle },
 ];
 
 export function OfficeScreen() {
-  const [sub, setSub] = useState<Sub>("results");
-  const { brand } = useStore();
+  const { brand, user } = useStore();
+  // Owner sees everything; staff only the areas their role allows.
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === "staff") return user?.role === "owner";
+    const mod = TAB_MODULE[t.id];
+    return !mod || can(user, `${mod}:view`);
+  });
+  const [chosen, setSub] = useState<Sub | null>(null);
+  const sub: Sub =
+    chosen && visibleTabs.some((t) => t.id === chosen)
+      ? chosen
+      : (visibleTabs.find((t) => t.id === "results") ?? visibleTabs[0] ?? TABS[0]).id;
+  const subModule = TAB_MODULE[sub];
+  const readOnly = !!subModule && !can(user, `${subModule}:edit`) && !["reports", "isp"].includes(sub);
 
   return (
     <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
@@ -84,13 +101,15 @@ export function OfficeScreen() {
           )}
           <div>
             <div className="text-sm font-extrabold text-slate-900 dark:text-white">{brand.name}</div>
-            <div className="text-[11px] text-slate-500">Owner back office</div>
+            <div className="text-[11px] text-slate-500">
+              {user?.role === "owner" ? "Owner back office" : `Back office · ${user?.staff_role || "Staff"}`}
+            </div>
           </div>
         </div>
 
         <div className="mb-3 overflow-x-auto">
           <div className="inline-flex min-w-full items-stretch gap-0.5 rounded-[1.25rem] bg-slate-100/90 p-1.5 dark:bg-slate-800/80">
-            {TABS.map((t) => {
+            {visibleTabs.map((t) => {
               const Icon = t.icon;
               const on = sub === t.id;
               return (
@@ -122,6 +141,12 @@ export function OfficeScreen() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-4 text-[15px]">
+        {readOnly && (
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
+            View only — your role does not allow changes in this area.
+          </div>
+        )}
+        <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
         {sub === "games" && <GamesPanel />}
         {sub === "fast_play" && <FastPlayPanel />}
         {sub === "calendar" && (
@@ -145,7 +170,9 @@ export function OfficeScreen() {
         {sub === "retailers" && <RetailersPanel />}
         {sub === "isp" && <IspPanel />}
         {sub === "account" && <AccountPanel />}
+        {sub === "staff" && <StaffPanel />}
         {sub === "help" && <HelpPanel />}
+        </fieldset>
       </div>
     </div>
   );
@@ -187,7 +214,7 @@ function ReportsPanel() {
     ticketsToday,
     unpaidPrizes,
   } = useStore();
-  const isOwner = user?.role === "owner";
+  const isOwner = isBackOffice(user);
   const list = isOwner
     ? soldTickets
     : soldTickets.filter((t) => t.retailer_id === selectedRetailerId);

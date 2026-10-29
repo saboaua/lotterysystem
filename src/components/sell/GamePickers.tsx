@@ -187,6 +187,22 @@ export function PlayWhePicker({
           Play Whe marks — tap to select several (1–36)
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setWhePicks(
+                whePicks.length === PLAY_WHE_MARKS.length ? [] : PLAY_WHE_MARKS.map((m) => m.num)
+              )
+            }
+            className={
+              "rounded-full px-3 py-1 text-[11px] font-extrabold transition " +
+              (whePicks.length === PLAY_WHE_MARKS.length
+                ? "bg-rose-600 text-white"
+                : "bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800")
+            }
+          >
+            {whePicks.length === PLAY_WHE_MARKS.length ? "All marks ✓" : "All marks"}
+          </button>
           <span className="text-xs font-bold text-rose-500">{selected.size} selected</span>
           {selected.size > 0 && (
             <button

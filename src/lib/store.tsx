@@ -41,6 +41,15 @@ import { persistSoldTicket, fetchTicketsFromSupabase } from "./tickets-api";
 import { loadJson, saveJson } from "./persist";
 import { migrateGamePayouts } from "./prize-tiers";
 import {
+  auditCollectionChanges,
+  describeChanges,
+  diffFields,
+  flushPendingAudit,
+  logAudit,
+  setAuditActor,
+} from "./audit";
+import { can, isBackOffice } from "./permissions";
+import {
   holidayRowId,
   newUuid,
   pingRetailerRemote,
@@ -148,7 +157,7 @@ let holidaySeq = 0;
 let resultSeq = 0;
 let retailerSeq = 100;
 
-type CloudSnap = { hash: string; ids: string[] };
+type CloudSnap = { hash: string; ids: string[]; items: unknown[] };
 
 /**
  * Saves a collection to Supabase whenever it changes (owner only, after the first successful pull).
@@ -161,9 +170,12 @@ function useCloudSync<T>(
   push: (items: T[], removed: string[]) => Promise<{ ok: true } | { ok: false; error: string }>,
   enabled: boolean,
   snaps: React.MutableRefObject<Record<string, CloudSnap>>,
-  onError: (msg: string) => void
+  onError: (msg: string) => void,
+  audit?: { entity: string; label: (t: T) => string }
 ) {
   const pushRef = useRef(push);
+  const auditRef = useRef(audit);
+  auditRef.current = audit;
   const idRef = useRef(idOf);
   const errRef = useRef(onError);
   pushRef.current = push;
@@ -182,7 +194,13 @@ function useCloudSync<T>(
         errRef.current(`Not saved to Supabase (${name}): ${res.error}. Run supabase/sync.sql if columns are missing.`);
         return;
       }
-      snaps.current[name] = { hash, ids };
+      snaps.current[name] = { hash, ids, items };
+      const a = auditRef.current;
+      if (a && prev) {
+        auditCollectionChanges(a.entity, prev.items as T[], items, idRef.current, a.label);
+      } else if (a && !prev) {
+        void logAudit({ action: "create", entity: a.entity, summary: `Initial save of ${items.length} ${a.entity} record(s) to Supabase`, details: { count: items.length } });
+      }
     }, 800);
     return () => clearTimeout(timer);
   }, [items, enabled, name, snaps]);
@@ -194,7 +212,7 @@ function markSynced<T>(
   items: T[],
   idOf: (t: T) => string
 ) {
-  snaps.current[name] = { hash: JSON.stringify(items), ids: items.map(idOf) };
+  snaps.current[name] = { hash: JSON.stringify(items), ids: items.map(idOf), items };
 }
 
 function padTicket(n: number) {
@@ -269,6 +287,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [retailers]);
   useEffect(() => {
     userRef.current = user;
+    setAuditActor(
+      user ? { id: user.id, name: user.name || user.email, email: user.email, role: user.role } : null
+    );
   }, [user]);
   const soldTicketsRef = useRef<Ticket[]>([]);
   const topUpsRef = useRef<TopUp[]>([]);
@@ -363,15 +384,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated, syncRetailers]);
 
   const persistRetailer = useCallback(
-    (oldId: string, r: Retailer) => {
+    (oldId: string, r: Retailer, before?: Retailer) => {
       if (!isSupabaseConfigured) return;
-      if (userRef.current?.role !== "owner") return;
+      if (!can(userRef.current, "retailers:edit")) return;
       void persistRetailerToSupabase(r).then((res) => {
         if (res.ok === false) {
           toast(`Retailer saved locally only: ${res.error}`, true);
           return;
         }
         const saved = res.retailer;
+        if (before) {
+          const changes = diffFields(
+            before as unknown as Record<string, unknown>,
+            r as unknown as Record<string, unknown>,
+            ["last_seen", "last_ack"]
+          );
+          if (Object.keys(changes).length) {
+            void logAudit({
+              action: "update",
+              entity: "retailer",
+              entity_id: saved.id,
+              summary: `Changed retailer "${r.name}": ${describeChanges(changes)}`,
+              details: { changes },
+            });
+          }
+        } else {
+          void logAudit({
+            action: "create",
+            entity: "retailer",
+            entity_id: saved.id,
+            summary: `Created retailer "${r.name}" (#${r.number})`,
+          });
+        }
         setRetailers((prev) =>
           prev.map((x) =>
             x.id === oldId ? { ...saved, last_seen: x.last_seen, last_ack: x.last_ack } : x
@@ -468,34 +512,49 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Owner screens: refresh presence (last seen) and shared data regularly.
   useEffect(() => {
-    if (!isSupabaseConfigured || user?.role !== "owner") return;
+    if (!isSupabaseConfigured || !isBackOffice(user)) return;
     const id = setInterval(() => void syncRetailers(), 30_000);
     return () => clearInterval(id);
   }, [user, syncRetailers]);
 
-  const canSave = cloudReady && isSupabaseConfigured && user?.role === "owner";
-  useCloudSync("games", games, (x) => x.id, pushGames, canSave, snaps, cloudError);
-  useCloudSync("bet_types", betTypes, (x) => x.key, pushBetTypes, canSave, snaps, cloudError);
-  useCloudSync("results", drawResults, resultRowId, pushResults, canSave, snaps, cloudError);
-  useCloudSync("holidays", holidays, holidayRowId, pushHolidays, canSave, snaps, cloudError);
-  useCloudSync("promotions", promotions, (x) => x.id, pushPromotions, canSave, snaps, cloudError);
-  useCloudSync("brand", [brand], () => "brand", (b) => pushBrand(b[0]), canSave, snaps, cloudError);
+  const canSave = cloudReady && isSupabaseConfigured && isBackOffice(user);
+  const may = (perm: string) => canSave && can(user, perm);
+  const label = (x: { name?: string; label?: string; key?: string; date?: string; id?: string }) =>
+    x.name || x.label || x.key || x.date || x.id || "";
+  useCloudSync("games", games, (x) => x.id, pushGames, may("games:edit"), snaps, cloudError, { entity: "game", label });
+  useCloudSync("bet_types", betTypes, (x) => x.key, pushBetTypes, may("games:edit"), snaps, cloudError, { entity: "bet type", label });
+  useCloudSync(
+    "results",
+    drawResults,
+    resultRowId,
+    pushResults,
+    may("results:edit"),
+    snaps,
+    cloudError,
+    { entity: "draw result", label: (r) => `${r.game_id} ${r.draw_date}${r.session ? " " + r.session : ""}` }
+  );
+  useCloudSync("holidays", holidays, holidayRowId, pushHolidays, may("schedule:edit"), snaps, cloudError, { entity: "holiday", label: (h) => `${h.name} ${h.date}` });
+  useCloudSync("promotions", promotions, (x) => x.id, pushPromotions, may("promos:edit"), snaps, cloudError, { entity: "promotion", label });
+  useCloudSync("brand", [brand], () => "brand", (b) => pushBrand(b[0]), may("brand:edit"), snaps, cloudError, { entity: "branding", label: () => "Branding & message" });
   useCloudSync(
     "ticket_design",
     [ticketDesign],
     () => "ticket_design",
     (d) => pushTicketDesign(d[0]),
-    canSave,
+    may("ticket:edit"),
     snaps,
-    cloudError
+    cloudError,
+    { entity: "ticket design", label: () => "Ticket design" }
   );
-  useCloudSync("fast_play", fastPlayGames, (x) => x.id, (f) => pushFastPlay(f), canSave, snaps, cloudError);
+  useCloudSync("fast_play", fastPlayGames, (x) => x.id, (f) => pushFastPlay(f), may("fastplay:edit"), snaps, cloudError, { entity: "fast play game", label });
 
   const loginAs = useCallback(
     (userId: string) => {
       const u = DEMO_USERS.find((x) => x.id === userId);
       if (!u) return toast("User not found", true);
       setUser(u);
+      setAuditActor({ id: u.id, name: u.name || u.email, email: u.email, role: u.role });
+      void logAudit({ action: "login", summary: `${u.name || u.email} signed in (${u.role})` });
       if (u.role === "retailer" && u.retailer_id) setSelectedRetailerId(u.retailer_id);
       toast(`Signed in as ${u.name}`);
     },
@@ -506,6 +565,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
     if (u.role === "retailer" && u.retailer_id) setSelectedRetailerId(u.retailer_id);
     userRef.current = u;
+    setAuditActor({ id: u.id, name: u.name || u.email, email: u.email, role: u.role });
+    void logAudit({
+      action: "login",
+      summary: `${u.name || u.email} signed in (${u.role}${u.staff_role ? ` · ${u.staff_role}` : ""})`,
+    }).then(() => flushPendingAudit());
     if (isSupabaseConfigured) {
       void syncRetailers();
       void pullAll();
@@ -519,9 +583,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [syncRetailers, pullAll, pullPrivate]);
 
   const logout = useCallback(() => {
+    const u = userRef.current;
     setUser(null);
     setLines([]);
-    if (isSupabaseConfigured) void sbSignOut();
+    // Record the sign-out while the session is still valid, then end it.
+    const done = u ? logAudit({ action: "logout", summary: `${u.name || u.email} signed out` }) : Promise.resolve();
+    if (isSupabaseConfigured) void done.then(() => sbSignOut());
   }, []);
 
   const addLine = useCallback((line: Omit<TicketLine, "id">) => {
@@ -596,6 +663,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (r.ok === false) toast(`Cancel not saved to server: ${r.error}`, true);
         });
       }
+      void logAudit({ action: "cancel_ticket", entity: "ticket", entity_id: id, summary: `Cancelled ticket ${id}` });
     },
     [toast]
   );
@@ -618,6 +686,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (r.ok === false) toast(`Redeem not saved to server: ${r.error}`, true);
         });
       }
+      void logAudit({ action: "redeem_ticket", entity: "ticket", entity_id: id, summary: `Redeemed ticket ${id}${prize != null ? ` (prize ${prize.toFixed(2)})` : ""}` });
     },
     [toast]
   );
@@ -664,7 +733,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!changed) return;
       const next = { ...current, ...patch };
       setRetailers((r) => r.map((x) => (x.id === id ? next : x)));
-      persistRetailer(id, next);
+      persistRetailer(id, next, current);
     },
     [persistRetailer]
   );
@@ -697,6 +766,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (t: TopUp) => {
       setTopUps((prev) => [t, ...prev]);
       saveTopUp(t);
+      void logAudit({
+        action: "topup",
+        entity: "topup",
+        entity_id: t.id,
+        summary: `Top up ${t.kind} ${t.amount.toFixed(2)}${t.demo ? " (demo)" : ""}`,
+        details: { retailer_id: t.retailer_id, kind: t.kind, amount: t.amount },
+      });
     },
     [saveTopUp]
   );
@@ -866,7 +942,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         (t) =>
           arubaDate(t.created_at) === todayStr &&
           t.status !== "cancelled" &&
-          (user?.role === "owner" || t.retailer_id === selectedRetailerId)
+          (isBackOffice(user) || t.retailer_id === selectedRetailerId)
       ),
     [soldTickets, todayStr, user, selectedRetailerId]
   );
