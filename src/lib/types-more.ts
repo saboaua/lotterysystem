@@ -140,11 +140,20 @@ export interface TicketDesign {
 
 export interface BroadcastMessage {
   id: string;
-  title: string;
-  body: string;
-  enabled?: boolean;
-  created_at?: string;
-  [key: string]: unknown;
+  /** Message body; supports tokens e.g. {game} {retailer} {jackpot} {currency} {amount} */
+  text: string;
+  /** How long the popup stays on the seller screen (minutes). */
+  duration_minutes: number;
+  /** When the broadcast was sent (ISO). */
+  sent_at: string;
+  /** Optional title shown above the body. */
+  title?: string;
+  /** If true, seller terminal may auto-print the message. */
+  print?: boolean;
+  /** Optional sample values used only for back-office preview. */
+  preview_game?: string;
+  preview_retailer?: string;
+  preview_amount?: number;
 }
 
 export interface AppState {
