@@ -3,18 +3,50 @@ import type { AppUser, Role } from "./types";
 
 export type AuthResult =
   | { ok: true; user: AppUser }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: string };
+
+/** Map provider errors to safe, user-facing messages (no account enumeration). */
+export function friendlyAuthError(message?: string | null): string {
+  const m = (message || "").toLowerCase();
+  if (
+    m.includes("invalid login") ||
+    m.includes("invalid credentials") ||
+    m.includes("wrong password") ||
+    m.includes("email not confirmed") ||
+    m.includes("user not found") ||
+    m.includes("invalid email or password")
+  ) {
+    return "Invalid email or password";
+  }
+  if (m.includes("email rate") || m.includes("too many") || m.includes("rate limit")) {
+    return "Too many attempts. Please wait a moment and try again.";
+  }
+  if (m.includes("network") || m.includes("fetch")) {
+    return "Network error. Check your connection and try again.";
+  }
+  if (m.includes("not configured")) {
+    return "Sign-in is not configured. Contact support.";
+  }
+  // Default: never echo raw provider text that might leak account state
+  return "Invalid email or password";
+}
 
 export async function signInWithPassword(
   email: string,
   password: string
 ): Promise<AuthResult> {
   const sb = getSupabase();
-  if (!sb) return { ok: false, error: "Supabase not configured" };
+  if (!sb) return { ok: false, error: "Sign-in is not configured. Contact support.", code: "config" };
 
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
-    return { ok: false, error: error?.message || "Login failed" };
+    return {
+      ok: false,
+      error: friendlyAuthError(error?.message),
+      code: error?.status === 400 || error?.message?.toLowerCase().includes("invalid")
+        ? "invalid_credentials"
+        : "auth_error",
+    };
   }
 
   const profile = await loadProfile(data.user.id);
@@ -31,7 +63,7 @@ export async function signInWithPassword(
   }
   if ((profile as AppUser & { disabled?: boolean }).disabled) {
     await sb.auth.signOut();
-    return { ok: false, error: "This account has been disabled. Contact the owner." };
+    return { ok: false, error: "This account has been disabled. Contact the owner.", code: "disabled" };
   }
   return { ok: true, user: profile };
 }
@@ -77,6 +109,5 @@ async function loadProfile(userId: string): Promise<AppUser | null> {
     ...(data.active === false ? { disabled: true } : {}),
   } as AppUser;
 }
-
 
 export { isSupabaseConfigured };
