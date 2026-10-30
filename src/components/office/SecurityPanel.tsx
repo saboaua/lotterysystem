@@ -18,6 +18,20 @@ import {
 
 type SecTab = "staff" | "geo" | "events";
 
+/** UI-facing level derived from enabled + mode */
+type GeoLevel = "off" | "monitor" | "block";
+
+function levelFromPolicy(p: GeoPolicy): GeoLevel {
+  if (!p.enabled) return "off";
+  return p.mode === "monitor" ? "monitor" : "block";
+}
+
+function applyLevel(p: GeoPolicy, level: GeoLevel): GeoPolicy {
+  if (level === "off") return { ...p, enabled: false };
+  if (level === "monitor") return { ...p, enabled: true, mode: "monitor" };
+  return { ...p, enabled: true, mode: "block" };
+}
+
 const card =
   "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900";
 
@@ -96,10 +110,13 @@ export function SecurityPanel() {
       return;
     }
     setPolicy(payload);
+    const level = levelFromPolicy(payload);
     toast(
-      payload.enabled
-        ? `Geo fence ${payload.mode === "block" ? "ON (blocking)" : "ON (monitor only)"} · ${payload.allowed_countries.length} countries`
-        : "Geo fence disabled — all regions allowed"
+      level === "off"
+        ? "Geo fence OFF — all regions allowed"
+        : level === "monitor"
+          ? `Monitor ON · logging outside ${payload.allowed_countries.length} allowed countries`
+          : `Block ON · ${payload.allowed_countries.length} countries allowed`
     );
   }
 
@@ -115,10 +132,30 @@ export function SecurityPanel() {
     });
   }
 
+  const level = levelFromPolicy(policy);
+
   const tabs: { id: SecTab; label: string; icon: typeof Shield }[] = [
     { id: "staff", label: "Staff & roles", icon: Users },
     { id: "geo", label: "Geo fence", icon: Globe2 },
     { id: "events", label: "Security events", icon: ShieldAlert },
+  ];
+
+  const modes: { id: GeoLevel; title: string; desc: string }[] = [
+    {
+      id: "off",
+      title: "Off",
+      desc: "No restriction. Everyone can open the system.",
+    },
+    {
+      id: "monitor",
+      title: "Monitor",
+      desc: "Allow everyone. Log visits from outside the allowlist (recommended first).",
+    },
+    {
+      id: "block",
+      title: "Block",
+      desc: "Refuse access outside the allowlist and show the blocked page.",
+    },
   ];
 
   return (
@@ -165,60 +202,61 @@ export function SecurityPanel() {
           )}
 
           <div className={card + " space-y-4"}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-bold">Region restriction (geo fence)</h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  When enabled, the edge middleware checks the visitor country (Vercel / Cloudflare IP
-                  country header) and blocks or monitors access outside the allowlist. Attempts are
-                  logged under Security events.
-                </p>
-              </div>
-              <label className="flex items-center gap-2 text-sm font-semibold">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300"
-                  checked={policy.enabled}
-                  onChange={(e) => setPolicy((p) => ({ ...p, enabled: e.target.checked }))}
-                />
-                Enabled
-              </label>
+            <div>
+              <h3 className="text-sm font-bold">Region restriction (geo fence)</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Choose how to treat visitors outside your allowed countries. Start with Monitor so you can
+                see events without locking anyone out.
+              </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-[11px] font-semibold text-slate-500">
-                Mode
-                <select
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
-                  value={policy.mode}
-                  onChange={(e) =>
-                    setPolicy((p) => ({ ...p, mode: e.target.value as GeoPolicy["mode"] }))
-                  }
-                  disabled={!policy.enabled}
-                >
-                  <option value="block">Block — refuse access outside allowlist</option>
-                  <option value="monitor">Monitor — allow all, log out-of-region hits</option>
-                </select>
-              </label>
-              <label className="flex items-end gap-2 pb-2 text-sm font-semibold">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300"
-                  checked={policy.allow_unknown}
-                  onChange={(e) => setPolicy((p) => ({ ...p, allow_unknown: e.target.checked }))}
-                  disabled={!policy.enabled}
-                />
-                Allow when country cannot be detected
-              </label>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {modes.map((m) => {
+                const on = level === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setPolicy((p) => applyLevel(p, m.id))}
+                    className={
+                      "rounded-2xl border p-3 text-left transition " +
+                      (on
+                        ? m.id === "block"
+                          ? "border-rose-400 bg-rose-50 ring-2 ring-rose-400 dark:border-rose-500 dark:bg-rose-950/40"
+                          : m.id === "monitor"
+                            ? "border-amber-400 bg-amber-50 ring-2 ring-amber-400 dark:border-amber-500 dark:bg-amber-950/40"
+                            : "border-slate-400 bg-slate-100 ring-2 ring-slate-400 dark:border-slate-500 dark:bg-slate-800"
+                        : "border-slate-200 hover:border-slate-300 dark:border-slate-700")
+                    }
+                  >
+                    <div className="text-sm font-extrabold">{m.title}</div>
+                    <div className="mt-1 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+                      {m.desc}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300"
+                checked={policy.allow_unknown}
+                onChange={(e) => setPolicy((p) => ({ ...p, allow_unknown: e.target.checked }))}
+                disabled={level === "off"}
+              />
+              Allow when country cannot be detected (recommended until you verify headers)
+            </label>
 
             <label className="block text-[11px] font-semibold text-slate-500">
-              Message on blocked page
+              Message on blocked page (only used in Block mode)
               <input
                 className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
                 value={policy.block_message || ""}
                 onChange={(e) => setPolicy((p) => ({ ...p, block_message: e.target.value }))}
                 placeholder="This system is only available in authorised regions."
+                disabled={level !== "block"}
               />
             </label>
 
@@ -294,30 +332,19 @@ export function SecurityPanel() {
                 {saving ? "Saving…" : "Save geo policy"}
               </button>
               <span className="text-[11px] text-slate-500">
-                Enforcement runs in Next.js middleware using CDN country headers. Changes apply within
-                ~30s.
+                Current: <strong className="uppercase">{level}</strong> · applies within ~30s after save
               </span>
             </div>
           </div>
 
           <div className={card + " space-y-1 text-xs text-slate-500"}>
-            <p className="font-semibold text-slate-700 dark:text-slate-200">Best-practice notes</p>
-            <ul className="list-disc space-y-1 pl-4">
-              <li>Server-side middleware is the real control — client checks alone are easy to bypass.</li>
-              <li>
-                IP country is approximate (VPN / mobile roaming can look foreign). Prefer monitor mode
-                first.
-              </li>
-              <li>
-                Keep <code className="font-mono">allow unknown</code> on until you confirm headers work on
-                Vercel.
-              </li>
-              <li>
-                Blocked attempts are stored under settings key{" "}
-                <code className="font-mono">security_events</code> and mirrored to audit when the service
-                role key is set.
-              </li>
-            </ul>
+            <p className="font-semibold text-slate-700 dark:text-slate-200">Suggested rollout</p>
+            <ol className="list-decimal space-y-1 pl-4">
+              <li>Select countries (or Preset: Dutch Caribbean).</li>
+              <li>Choose <strong>Monitor</strong> and click Save.</li>
+              <li>Open Security events after traffic appears.</li>
+              <li>When the list looks correct, switch to <strong>Block</strong> and Save.</li>
+            </ol>
           </div>
         </div>
       )}
