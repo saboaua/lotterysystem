@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Ban,
   Network,
+  Palette,
   Shield,
   Sparkles,
   Store,
@@ -37,12 +38,13 @@ import { NumberControlPanel } from "./office/NumberControlPanel";
 import { ChangePasswordCard } from "./ChangePasswordCard";
 import { MyProfileCard } from "./MyProfileCard";
 
-/** Top-level nav tabs (some open a hub with inner sub-tabs). */
 type Nav =
   | "games"
   | "fast_play"
   | "calendar"
-  | "comms"
+  | "brand"
+  | "bulletin"
+  | "broadcast"
   | "ticket"
   | "promos"
   | "results"
@@ -55,7 +57,6 @@ type Nav =
   | "help";
 
 type ReportsSub = "draw" | "sales";
-type CommsSub = "brand" | "broadcast";
 
 const ICON_SIZE = 26;
 const ICON_STROKE = 1.75;
@@ -65,7 +66,9 @@ const TABS: { id: Nav; label: string; icon: typeof Gamepad2 }[] = [
   { id: "numbers", label: "Number control", icon: Ban },
   { id: "fast_play", label: "Fast Play", icon: Sparkles },
   { id: "calendar", label: "Draw calendar", icon: CalendarDays },
-  { id: "comms", label: "Branding & broadcast", icon: Megaphone },
+  { id: "brand", label: "Branding", icon: Palette },
+  { id: "bulletin", label: "Bulletin", icon: MessageSquare },
+  { id: "broadcast", label: "Broadcast", icon: Megaphone },
   { id: "ticket", label: "Ticket design", icon: Ticket },
   { id: "promos", label: "Promotions", icon: Gift },
   { id: "results", label: "Results & winners", icon: Trophy },
@@ -77,18 +80,15 @@ const TABS: { id: Nav; label: string; icon: typeof Gamepad2 }[] = [
   { id: "help", label: "Help", icon: HelpCircle },
 ];
 
-/** Map nav id → permission module used for can() / view-only. */
-function navModule(nav: Nav, reportsSub: ReportsSub, commsSub: CommsSub): string | undefined {
-  if (nav === "comms") return TAB_MODULE[commsSub === "broadcast" ? "broadcast" : "brand"];
+function navModule(nav: Nav, reportsSub: ReportsSub): string | undefined {
+  if (nav === "bulletin") return "brand";
   if (nav === "reports_hub") return TAB_MODULE[reportsSub === "draw" ? "draw_reports" : "reports"];
   return TAB_MODULE[nav];
 }
 
 function canSeeNav(user: ReturnType<typeof useStore>["user"], id: Nav): boolean {
   if (id === "staff") return user?.role === "owner";
-  if (id === "comms") {
-    return can(user, "brand:view") || can(user, "broadcast:view");
-  }
+  if (id === "bulletin") return can(user, "brand:view");
   if (id === "reports_hub") {
     return can(user, "results:view") || can(user, "reports:view");
   }
@@ -136,14 +136,13 @@ export function OfficeScreen() {
   const visibleTabs = TABS.filter((t) => canSeeNav(user, t.id));
   const [chosen, setNav] = useState<Nav | null>(null);
   const [reportsSub, setReportsSub] = useState<ReportsSub>("draw");
-  const [commsSub, setCommsSub] = useState<CommsSub>("brand");
 
   const nav: Nav =
     chosen && visibleTabs.some((t) => t.id === chosen)
       ? chosen
       : (visibleTabs.find((t) => t.id === "games") ?? visibleTabs[0] ?? TABS[0]).id;
 
-  const mod = navModule(nav, reportsSub, commsSub);
+  const mod = navModule(nav, reportsSub);
   const readOnly =
     !!mod &&
     !can(user, `${mod}:edit`) &&
@@ -170,7 +169,7 @@ export function OfficeScreen() {
         </div>
 
         <div className="mb-3 overflow-x-auto">
-          <div className="inline-flex min-w-full items-stretch gap-1 rounded-[1.25rem] bg-slate-100/90 p-1.5 dark:bg-slate-800/80">
+          <div className="inline-flex min-w-full items-center justify-center gap-1 rounded-[1.25rem] bg-slate-100/90 p-1.5 dark:bg-slate-800/80">
             {visibleTabs.map((t) => {
               const Icon = t.icon;
               const on = nav === t.id;
@@ -180,18 +179,20 @@ export function OfficeScreen() {
                   type="button"
                   onClick={() => setNav(t.id)}
                   className={
-                    "flex min-w-[5.75rem] shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-3 transition " +
+                    "flex min-w-[5.75rem] shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-3 text-center transition " +
                     (on
                       ? "bg-violet-600 text-white shadow-md shadow-violet-600/25"
                       : "text-slate-500 hover:bg-white/70 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200")
                   }
                 >
-                  <Icon
-                    size={ICON_SIZE}
-                    strokeWidth={ICON_STROKE}
-                    className="h-7 w-7 shrink-0"
-                    aria-hidden
-                  />
+                  <span className="grid h-7 w-7 place-items-center">
+                    <Icon
+                      size={ICON_SIZE}
+                      strokeWidth={ICON_STROKE}
+                      className="h-7 w-7 shrink-0"
+                      aria-hidden
+                    />
+                  </span>
                   <span className="max-w-[7rem] text-center text-[10px] font-semibold leading-tight">
                     {t.label}
                   </span>
@@ -212,26 +213,9 @@ export function OfficeScreen() {
           {nav === "games" && <GamesPanel />}
           {nav === "fast_play" && <FastPlayPanel />}
           {nav === "calendar" && <ResultsPanel mode="calendar" />}
-
-          {nav === "comms" && (
-            <div>
-              <div className="mb-1">
-                <h2 className="text-lg font-bold">Branding & broadcast</h2>
-                <p className="text-xs text-slate-500">Look & feel, LED bulletin, and seller popups.</p>
-              </div>
-              <SubTabs
-                items={[
-                  { id: "brand" as const, label: "Branding & bulletin", icon: MessageSquare },
-                  { id: "broadcast" as const, label: "Broadcast", icon: Megaphone },
-                ]}
-                value={commsSub}
-                onChange={setCommsSub}
-              />
-              {commsSub === "brand" && <BrandPanel />}
-              {commsSub === "broadcast" && <BroadcastPanel />}
-            </div>
-          )}
-
+          {nav === "brand" && <BrandPanel mode="brand" />}
+          {nav === "bulletin" && <BrandPanel mode="bulletin" />}
+          {nav === "broadcast" && <BroadcastPanel />}
           {nav === "ticket" && <TicketDesignPanel />}
           {nav === "promos" && <PromosPanel />}
           {nav === "results" && <ResultsPanel mode="results" />}
