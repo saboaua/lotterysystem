@@ -16,7 +16,6 @@ type PingSample = {
   lossPct: number;
   note?: string;
   publicIp?: string;
-  /** true when created by the scheduled auto-check */
   auto?: boolean;
 };
 
@@ -26,7 +25,8 @@ type IspSettings = {
   last_public_ip?: string;
   last_check_at?: string;
   last_latency_ms?: number;
-  /** Minutes between automatic checks (1–120). 0 = off */
+  last_download_mbps?: number;
+  last_upload_mbps?: number;
   auto_interval_min: number;
   auto_enabled: boolean;
 };
@@ -39,6 +39,7 @@ const DEFAULT_SETTINGS: IspSettings = {
 };
 
 const MAX_SAMPLES = 200;
+const CHART_H = 160; // px bar area
 
 function ageLabel(iso?: string) {
   if (!iso) return "never";
@@ -50,8 +51,7 @@ function ageLabel(iso?: string) {
 }
 
 function formatClock(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 async function measureLatencyMs(rounds = 4): Promise<{ median: number; lossPct: number }> {
@@ -71,9 +71,7 @@ async function measureLatencyMs(rounds = 4): Promise<{ median: number; lossPct: 
     }
   }
   const ok = times.filter((t) => t < 9000).sort((a, b) => a - b);
-  const median = ok.length
-    ? Math.round(ok[Math.floor(ok.length / 2)])
-    : 9999;
+  const median = ok.length ? Math.round(ok[Math.floor(ok.length / 2)]) : 9999;
   const lossPct = Math.round((fails / rounds) * 1000) / 10;
   return { median, lossPct };
 }
@@ -95,21 +93,62 @@ async function fetchPublicIp(): Promise<string | null> {
   }
 }
 
-/** Rough download estimate via Cloudflare speed endpoint (1 MB). */
+function toMbps(bytes: number, ms: number): number {
+  if (ms <= 0) return 0;
+  return Math.round(((bytes * 8) / (ms / 1000) / 1_000_000) * 10) / 10;
+}
+
+/** Download probe — try Cloudflare, then a public test file. */
 async function measureDownloadMbps(): Promise<number | null> {
-  const bytes = 1_000_000;
-  const url = `https://speed.cloudflare.com/__down?bytes=${bytes}&_=${Date.now()}`;
-  const t0 = performance.now();
-  try {
-    const r = await fetch(url, { cache: "no-store", mode: "cors" });
-    if (!r.ok) return null;
-    await r.arrayBuffer();
-    const sec = (performance.now() - t0) / 1000;
-    if (sec <= 0) return null;
-    return Math.round(((bytes * 8) / sec / 1_000_000) * 10) / 10;
-  } catch {
-    return null;
+  const attempts: { url: string; bytes: number }[] = [
+    { url: `https://speed.cloudflare.com/__down?bytes=1000000&_=${Date.now()}`, bytes: 1_000_000 },
+    {
+      url: `https://proof.ovh.net/files/1Mb.dat?_=${Date.now()}`,
+      bytes: 1_048_576,
+    },
+  ];
+  for (const a of attempts) {
+    const t0 = performance.now();
+    try {
+      const r = await fetch(a.url, { cache: "no-store", mode: "cors" });
+      if (!r.ok) continue;
+      const buf = await r.arrayBuffer();
+      const ms = performance.now() - t0;
+      const n = toMbps(buf.byteLength || a.bytes, ms);
+      if (n > 0) return n;
+    } catch {
+      /* try next */
+    }
   }
+  return null;
+}
+
+/** Upload probe — POST payload to Cloudflare speed up, fallback httpbin. */
+async function measureUploadMbps(): Promise<number | null> {
+  const bytes = 512_000;
+  const body = new Blob([new Uint8Array(bytes)]);
+  const targets = [
+    `https://speed.cloudflare.com/__up?_=${Date.now()}`,
+    "https://httpbin.org/post",
+  ];
+  for (const url of targets) {
+    const t0 = performance.now();
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        body,
+        mode: "cors",
+        cache: "no-store",
+      });
+      await r.arrayBuffer().catch(() => undefined);
+      const ms = performance.now() - t0;
+      const n = toMbps(bytes, ms);
+      if (n > 0) return n;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
 }
 
 export function IspPanel() {
@@ -122,6 +161,8 @@ export function IspPanel() {
   const [publicIp, setPublicIp] = useState<string | null>(null);
   const [lastCheckAt, setLastCheckAt] = useState<string | undefined>();
   const [lastLatencyMs, setLastLatencyMs] = useState<number | undefined>();
+  const [lastDown, setLastDown] = useState<number | undefined>();
+  const [lastUp, setLastUp] = useState<number | undefined>();
   const [autoEnabled, setAutoEnabled] = useState(DEFAULT_SETTINGS.auto_enabled);
   const [autoIntervalMin, setAutoIntervalMin] = useState(DEFAULT_SETTINGS.auto_interval_min);
   const [pingMs, setPingMs] = useState("");
@@ -136,6 +177,8 @@ export function IspPanel() {
     publicIp,
     lastCheckAt,
     lastLatencyMs,
+    lastDown,
+    lastUp,
     autoEnabled,
     autoIntervalMin,
   });
@@ -145,15 +188,15 @@ export function IspPanel() {
     publicIp,
     lastCheckAt,
     lastLatencyMs,
+    lastDown,
+    lastUp,
     autoEnabled,
     autoIntervalMin,
   };
 
   const persistFull = useCallback(
     async (payload: IspSettings) => {
-      if (!isSupabaseConfigured) {
-        return false;
-      }
+      if (!isSupabaseConfigured) return false;
       setSaving(true);
       const res = await pushSetting("isp_network", payload);
       setSaving(false);
@@ -166,21 +209,20 @@ export function IspPanel() {
     [toast]
   );
 
-  const buildPayload = useCallback(
-    (overrides: Partial<IspSettings> = {}): IspSettings => {
-      const s = stateRef.current;
-      return {
-        provider: overrides.provider ?? s.provider,
-        samples: overrides.samples ?? s.samples,
-        last_public_ip: overrides.last_public_ip ?? s.publicIp ?? undefined,
-        last_check_at: overrides.last_check_at ?? s.lastCheckAt,
-        last_latency_ms: overrides.last_latency_ms ?? s.lastLatencyMs,
-        auto_interval_min: overrides.auto_interval_min ?? s.autoIntervalMin,
-        auto_enabled: overrides.auto_enabled ?? s.autoEnabled,
-      };
-    },
-    []
-  );
+  const buildPayload = useCallback((overrides: Partial<IspSettings> = {}): IspSettings => {
+    const s = stateRef.current;
+    return {
+      provider: overrides.provider ?? s.provider,
+      samples: overrides.samples ?? s.samples,
+      last_public_ip: overrides.last_public_ip ?? s.publicIp ?? undefined,
+      last_check_at: overrides.last_check_at ?? s.lastCheckAt,
+      last_latency_ms: overrides.last_latency_ms ?? s.lastLatencyMs,
+      last_download_mbps: overrides.last_download_mbps ?? s.lastDown,
+      last_upload_mbps: overrides.last_upload_mbps ?? s.lastUp,
+      auto_interval_min: overrides.auto_interval_min ?? s.autoIntervalMin,
+      auto_enabled: overrides.auto_enabled ?? s.autoEnabled,
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,10 +235,13 @@ export function IspPanel() {
       if (cancelled) return;
       if (res.ok && res.data) {
         setProvider(res.data.provider || "SETAR");
-        setSamples(Array.isArray(res.data.samples) ? res.data.samples : []);
+        const loadedSamples = Array.isArray(res.data.samples) ? res.data.samples : [];
+        setSamples(loadedSamples);
         if (res.data.last_public_ip) setPublicIp(res.data.last_public_ip);
         if (res.data.last_check_at) setLastCheckAt(res.data.last_check_at);
         if (res.data.last_latency_ms != null) setLastLatencyMs(res.data.last_latency_ms);
+        if (res.data.last_download_mbps != null) setLastDown(res.data.last_download_mbps);
+        if (res.data.last_upload_mbps != null) setLastUp(res.data.last_upload_mbps);
         if (typeof res.data.auto_interval_min === "number") {
           setAutoIntervalMin(Math.max(0, Math.min(120, res.data.auto_interval_min)));
         }
@@ -214,11 +259,13 @@ export function IspPanel() {
       setChecking(true);
       try {
         const measureBw = opts?.measureBw !== false;
-        const [ip, lat, downMbps] = await Promise.all([
-          fetchPublicIp(),
-          measureLatencyMs(4),
-          measureBw ? measureDownloadMbps() : Promise.resolve(null),
-        ]);
+        const [ip, lat] = await Promise.all([fetchPublicIp(), measureLatencyMs(4)]);
+        let downMbps: number | null = null;
+        let upMbps: number | null = null;
+        if (measureBw) {
+          downMbps = await measureDownloadMbps();
+          upMbps = await measureUploadMbps();
+        }
         const at = new Date().toISOString();
         const sample: PingSample = {
           id: `${Date.now()}`,
@@ -226,7 +273,7 @@ export function IspPanel() {
           provider: stateRef.current.provider,
           pingMs: lat.median,
           downloadMbps: downMbps ?? 0,
-          uploadMbps: 0,
+          uploadMbps: upMbps ?? 0,
           lossPct: lat.lossPct,
           note: opts?.silent ? "auto" : "manual check",
           publicIp: ip || undefined,
@@ -237,26 +284,29 @@ export function IspPanel() {
         setLastLatencyMs(lat.median);
         setLastCheckAt(at);
         setSamples(nextSamples);
+        if (downMbps != null) setLastDown(downMbps);
+        if (upMbps != null) setLastUp(upMbps);
         if (lat.median < 5000) setPingMs(String(lat.median));
         if (downMbps != null && downMbps > 0) setDown(String(downMbps));
+        if (upMbps != null && upMbps > 0) setUp(String(upMbps));
 
         const payload = buildPayload({
           samples: nextSamples,
           last_public_ip: ip || undefined,
           last_check_at: at,
           last_latency_ms: lat.median,
+          last_download_mbps: downMbps ?? stateRef.current.lastDown,
+          last_upload_mbps: upMbps ?? stateRef.current.lastUp,
         });
         const ok = await persistFull(payload);
         if (!opts?.silent) {
-          if (ok) {
-            toast(
-              `Logged · ${lat.median} ms` +
-                (downMbps != null ? ` · ↓ ${downMbps} Mbps` : "") +
-                (ip ? ` · ${ip}` : "")
-            );
-          } else if (!isSupabaseConfigured) {
-            toast("Sample kept in session (Supabase not configured)", true);
-          }
+          const parts = [`${lat.median} ms`];
+          if (downMbps != null) parts.push(`↓ ${downMbps} Mbps`);
+          if (upMbps != null) parts.push(`↑ ${upMbps} Mbps`);
+          if (ip) parts.push(ip);
+          if (ok) toast(`Logged · ${parts.join(" · ")}`);
+          else if (!isSupabaseConfigured) toast("Sample kept in session (Supabase not configured)", true);
+          else toast(`Logged locally · ${parts.join(" · ")} (cloud save failed)`, true);
         }
       } catch {
         if (!opts?.silent) toast("Connectivity check failed", true);
@@ -284,19 +334,25 @@ export function IspPanel() {
 
   const latest = samples[samples.length - 1];
   const history = samples.slice(-40);
-  const avgPing = samples.reduce((s, x) => s + x.pingMs, 0) / (samples.length || 1);
-  const avgDown =
-    samples.filter((x) => x.downloadMbps > 0).reduce((s, x) => s + x.downloadMbps, 0) /
-    (samples.filter((x) => x.downloadMbps > 0).length || 1);
-  const avgUp =
-    samples.filter((x) => x.uploadMbps > 0).reduce((s, x) => s + x.uploadMbps, 0) /
-    (samples.filter((x) => x.uploadMbps > 0).length || 1);
+
+  const avgPing = samples.length
+    ? samples.reduce((s, x) => s + x.pingMs, 0) / samples.length
+    : 0;
+  const downSamples = samples.filter((x) => x.downloadMbps > 0);
+  const upSamples = samples.filter((x) => x.uploadMbps > 0);
+  const avgDown = downSamples.length
+    ? downSamples.reduce((s, x) => s + x.downloadMbps, 0) / downSamples.length
+    : 0;
+  const avgUp = upSamples.length
+    ? upSamples.reduce((s, x) => s + x.uploadMbps, 0) / upSamples.length
+    : 0;
 
   const chart = useMemo(() => {
     if (!history.length) return { maxPing: 1, maxBw: 1 };
-    const maxPing = Math.max(...history.map((s) => (s.pingMs < 9000 ? s.pingMs : 0)), 1);
+    const pings = history.map((s) => (s.pingMs < 9000 ? s.pingMs : 0));
+    const maxPing = Math.max(...pings, 1);
     const maxBw = Math.max(
-      ...history.map((s) => Math.max(s.downloadMbps, s.uploadMbps)),
+      ...history.map((s) => Math.max(s.downloadMbps || 0, s.uploadMbps || 0)),
       1
     );
     return { maxPing, maxBw };
@@ -315,8 +371,8 @@ export function IspPanel() {
       at: new Date().toISOString(),
       provider,
       pingMs: p,
-      downloadMbps: d || 0,
-      uploadMbps: u || 0,
+      downloadMbps: Number.isFinite(d) ? d : 0,
+      uploadMbps: Number.isFinite(u) ? u : 0,
       lossPct: parseFloat(loss) || 0,
       note: note || "manual",
       publicIp: publicIp || undefined,
@@ -324,8 +380,19 @@ export function IspPanel() {
     };
     const next = [...samples, sample].slice(-MAX_SAMPLES);
     setSamples(next);
+    if (sample.downloadMbps > 0) setLastDown(sample.downloadMbps);
+    if (sample.uploadMbps > 0) setLastUp(sample.uploadMbps);
+    setLastLatencyMs(sample.pingMs);
+    setLastCheckAt(sample.at);
     setNote("");
-    const payload = buildPayload({ samples: next, provider });
+    const payload = buildPayload({
+      samples: next,
+      provider,
+      last_latency_ms: sample.pingMs,
+      last_check_at: sample.at,
+      last_download_mbps: sample.downloadMbps || stateRef.current.lastDown,
+      last_upload_mbps: sample.uploadMbps || stateRef.current.lastUp,
+    });
     const ok = await persistFull(payload);
     if (ok) toast("Sample saved to history");
     else if (!isSupabaseConfigured) toast("Sample kept in session only", true);
@@ -334,17 +401,12 @@ export function IspPanel() {
   async function saveSchedule() {
     const n = Math.max(0, Math.min(120, Math.round(autoIntervalMin) || 0));
     setAutoIntervalMin(n);
-    const payload = buildPayload({
-      auto_interval_min: n,
-      auto_enabled: autoEnabled,
-      provider,
-    });
-    const ok = await persistFull(payload);
+    const ok = await persistFull(
+      buildPayload({ auto_interval_min: n, auto_enabled: autoEnabled, provider })
+    );
     if (ok) {
       toast(
-        autoEnabled && n > 0
-          ? `Auto-check every ${n} min — saved`
-          : "Auto-check off — saved"
+        autoEnabled && n > 0 ? `Auto-check every ${n} min — saved` : "Auto-check off — saved"
       );
     }
   }
@@ -406,8 +468,8 @@ export function IspPanel() {
         <div>
           <h2 className="text-lg font-bold">ISP / network</h2>
           <p className="text-xs text-slate-500">
-            Internet quality history for your ISP — ping, download estimate, IP. Auto-checks run on
-            a schedule and save to Supabase.
+            Ping, download & upload history for your ISP. Auto-checks run on a schedule and save to
+            Supabase.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -468,15 +530,10 @@ export function IspPanel() {
           </button>
           <span className="text-[11px] text-slate-500">
             {autoEnabled && autoIntervalMin > 0
-              ? `Next auto tests ~ every ${autoIntervalMin} min while this page is open`
+              ? `Auto every ${autoIntervalMin} min while this page is open`
               : "Auto-check is off"}
-            {saving ? " · saving…" : ""}
           </span>
         </div>
-        <p className="mt-2 text-[10px] text-slate-500">
-          Each auto run measures latency + a ~1 MB download estimate, appends a row to history, and
-          stores it under settings key <code className="font-mono">isp_network</code>.
-        </p>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -487,7 +544,7 @@ export function IspPanel() {
             {isSupabaseConfigured ? " · cloud" : " · local"}
           </span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
             <div className="text-[10px] font-bold uppercase text-slate-400">Public IP</div>
             <div className="font-mono text-sm font-bold">{publicIp || "—"}</div>
@@ -499,8 +556,16 @@ export function IspPanel() {
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-[10px] font-bold uppercase text-slate-400">Samples in history</div>
-            <div className="text-sm font-extrabold">{samples.length}</div>
+            <div className="text-[10px] font-bold uppercase text-slate-400">Last ↓ / ↑</div>
+            <div className="text-sm font-extrabold">
+              {lastDown != null || lastUp != null
+                ? `${lastDown != null ? lastDown : "—"} / ${lastUp != null ? lastUp : "—"} Mbps`
+                : "—"}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-[10px] font-bold uppercase text-slate-400">History</div>
+            <div className="text-sm font-extrabold">{samples.length} samples</div>
           </div>
         </div>
       </div>
@@ -511,22 +576,22 @@ export function IspPanel() {
         <Stat
           icon={Download}
           label="Avg download"
-          value={samples.some((s) => s.downloadMbps > 0) ? `${avgDown.toFixed(1)} Mbps` : "—"}
+          value={downSamples.length ? `${avgDown.toFixed(1)} Mbps` : "—"}
         />
         <Stat
           icon={Upload}
           label="Avg upload"
-          value={samples.some((s) => s.uploadMbps > 0) ? `${avgUp.toFixed(1)} Mbps` : "—"}
+          value={upSamples.length ? `${avgUp.toFixed(1)} Mbps` : "—"}
         />
       </div>
 
       {latest && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
           Latest: <b>{new Date(latest.at).toLocaleString()}</b> · {latest.pingMs} ms
-          {latest.downloadMbps > 0 ? ` · ↓ ${latest.downloadMbps} Mbps` : ""}
-          {latest.uploadMbps > 0 ? ` · ↑ ${latest.uploadMbps} Mbps` : ""}
+          {` · ↓ ${latest.downloadMbps} Mbps`}
+          {` · ↑ ${latest.uploadMbps} Mbps`}
           {latest.publicIp ? ` · ${latest.publicIp}` : ""}
-          {latest.auto ? " · auto" : ""}
+          {latest.auto ? " · auto" : " · manual"}
         </div>
       )}
 
@@ -534,26 +599,24 @@ export function IspPanel() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-xs font-bold uppercase text-slate-500">Ping history (ms)</div>
-            <span className="text-[10px] text-slate-400">last {history.length || 0}</span>
+            <span className="text-[10px] text-slate-400">{history.length} points</span>
           </div>
           {history.length ? (
-            <div className="flex h-44 items-end gap-1">
+            <div className="flex items-end gap-1" style={{ height: CHART_H }}>
               {history.map((s) => {
-                const h =
-                  s.pingMs >= 9000
-                    ? 100
-                    : Math.max(6, (s.pingMs / chart.maxPing) * 100);
+                const val = s.pingMs >= 9000 ? chart.maxPing : s.pingMs;
+                const px = Math.max(4, Math.round((val / chart.maxPing) * CHART_H));
                 return (
-                  <div key={s.id} className="group relative flex min-w-0 flex-1 flex-col items-center">
+                  <div key={s.id} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end">
                     <div
                       className={
-                        "w-full rounded-t " +
-                        (s.pingMs >= 9000 ? "bg-rose-500/80" : "bg-violet-500/80")
+                        "w-full max-w-[28px] rounded-t " +
+                        (s.pingMs >= 9000 ? "bg-rose-500" : "bg-violet-500")
                       }
-                      style={{ height: `${h}%` }}
-                      title={`${s.pingMs} ms · ${new Date(s.at).toLocaleString()}${s.auto ? " · auto" : ""}`}
+                      style={{ height: px }}
+                      title={`${s.pingMs} ms · ${new Date(s.at).toLocaleString()}`}
                     />
-                    <span className="mt-1 max-w-full truncate text-[8px] text-slate-400">
+                    <span className="mt-1 max-w-full truncate text-[8px] leading-none text-slate-400">
                       {formatClock(s.at)}
                     </span>
                   </div>
@@ -561,36 +624,64 @@ export function IspPanel() {
               })}
             </div>
           ) : (
-            <div className="flex h-44 items-center justify-center text-sm text-slate-400">
-              No history yet — run a test or wait for auto-check
+            <div
+              className="flex items-center justify-center text-sm text-slate-400"
+              style={{ height: CHART_H }}
+            >
+              No history yet — run a test
             </div>
           )}
         </div>
+
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-3 flex items-center justify-between text-xs font-bold uppercase text-slate-500">
-            <span>Download history (Mbps)</span>
-            <span className="font-normal normal-case text-sky-600">↓ estimated</span>
+            <span>Bandwidth history</span>
+            <span className="font-normal normal-case">
+              <span className="text-sky-600">↓ down</span> ·{" "}
+              <span className="text-amber-600">↑ up</span>
+            </span>
           </div>
-          {history.some((s) => s.downloadMbps > 0) ? (
-            <div className="flex h-44 items-end gap-1">
-              {history.map((s) => (
-                <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center">
+          {history.length ? (
+            <div className="flex items-end gap-1" style={{ height: CHART_H }}>
+              {history.map((s) => {
+                const dPx = Math.max(
+                  s.downloadMbps > 0 ? 6 : 2,
+                  Math.round((s.downloadMbps / chart.maxBw) * CHART_H)
+                );
+                const uPx = Math.max(
+                  s.uploadMbps > 0 ? 6 : 2,
+                  Math.round((s.uploadMbps / chart.maxBw) * CHART_H)
+                );
+                return (
                   <div
-                    className="w-full rounded-t bg-sky-500/80"
-                    style={{
-                      height: `${Math.max(s.downloadMbps > 0 ? 6 : 2, (s.downloadMbps / chart.maxBw) * 100)}%`,
-                    }}
-                    title={`↓ ${s.downloadMbps} Mbps · ${new Date(s.at).toLocaleString()}`}
-                  />
-                  <span className="mt-1 max-w-full truncate text-[8px] text-slate-400">
-                    {formatClock(s.at)}
-                  </span>
-                </div>
-              ))}
+                    key={s.id}
+                    className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+                  >
+                    <div className="flex w-full max-w-[28px] items-end gap-0.5">
+                      <div
+                        className="flex-1 rounded-t bg-sky-500"
+                        style={{ height: dPx }}
+                        title={`↓ ${s.downloadMbps} Mbps · ${new Date(s.at).toLocaleString()}`}
+                      />
+                      <div
+                        className="flex-1 rounded-t bg-amber-500"
+                        style={{ height: uPx }}
+                        title={`↑ ${s.uploadMbps} Mbps · ${new Date(s.at).toLocaleString()}`}
+                      />
+                    </div>
+                    <span className="mt-1 max-w-full truncate text-[8px] leading-none text-slate-400">
+                      {formatClock(s.at)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className="flex h-44 items-center justify-center text-sm text-slate-400">
-              Download bars appear after a successful bandwidth probe
+            <div
+              className="flex items-center justify-center text-sm text-slate-400"
+              style={{ height: CHART_H }}
+            >
+              No history yet — run a test
             </div>
           )}
         </div>
@@ -601,7 +692,7 @@ export function IspPanel() {
           <h3 className="text-sm font-bold">Manual speed test entry</h3>
           <div className="flex items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-slate-300 px-3 py-1 text-[11px] font-bold dark:border-slate-600">
-              <Upload size={12} /> Import CSV
+              Import CSV
               <input
                 type="file"
                 accept=".csv,text/csv"
@@ -618,9 +709,9 @@ export function IspPanel() {
               type="button"
               onClick={exportCsv}
               disabled={!samples.length}
-              className="inline-flex items-center gap-1 rounded-full border border-slate-300 px-3 py-1 text-[11px] font-bold disabled:opacity-40 dark:border-slate-600"
+              className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-bold disabled:opacity-40 dark:border-slate-600"
             >
-              <Download size={12} /> Export
+              Export
             </button>
             <button
               type="button"
@@ -681,6 +772,10 @@ export function IspPanel() {
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
+        <p className="mt-2 text-[10px] text-slate-500">
+          Tip: enter real speedtest numbers for accurate ↑ upload history. Auto tests estimate both
+          directions when the browser allows it.
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -709,7 +804,7 @@ export function IspPanel() {
                   <td className="px-3 py-2 font-mono">{new Date(s.at).toLocaleString()}</td>
                   <td className="px-3 py-2">
                     {s.auto ? (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
                         auto
                       </span>
                     ) : (
@@ -719,8 +814,8 @@ export function IspPanel() {
                     )}
                   </td>
                   <td className="px-3 py-2">{s.pingMs} ms</td>
-                  <td className="px-3 py-2">{s.downloadMbps || "—"}</td>
-                  <td className="px-3 py-2">{s.uploadMbps || "—"}</td>
+                  <td className="px-3 py-2 font-semibold">{s.downloadMbps}</td>
+                  <td className="px-3 py-2 font-semibold">{s.uploadMbps}</td>
                   <td className="px-3 py-2">{s.lossPct}%</td>
                   <td className="px-3 py-2 font-mono text-[10px]">{s.publicIp || "—"}</td>
                   <td className="px-3 py-2 text-slate-500">{s.note || "—"}</td>
