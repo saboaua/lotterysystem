@@ -26,7 +26,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
       "The bulletin board replaces the scrolling ticker on sell screens: sellers see a slim bar that opens to news cards.",
       "Each post has a headline, message, type (Info, Update, Promotion, Important, Urgent), optional dates and button link.",
       "Pin posts to the top, choose who sees them (all or selected retailers), and decide if sellers may close them.",
-      "Urgent posts need a Got it from the seller. Editing a post shows it again to sellers who closed the old one.",
+      "Important and Urgent posts stay open on the sell screen until the seller presses Got it (switch “Seller must acknowledge” on or off for any post). Editing a post shows it again to sellers who already acknowledged the old version.",
       "The live preview on the right shows exactly what a seller sees, for any retailer and date.",
     ],
   },

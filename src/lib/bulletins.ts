@@ -98,6 +98,11 @@ export function ensureBulletins(b: BrandSettings): BrandSettings {
   return { ...b, bulletins: posts, bulletin_on: b.led_on ?? true };
 }
 
+/** Must the seller acknowledge this post? Explicit setting wins, otherwise Important / Urgent do. */
+export function needsAck(p: Pick<Bulletin, "level" | "require_ack">): boolean {
+  return p.require_ack ?? (p.level === "urgent" || p.level === "important");
+}
+
 export type BulletinStatus = "live" | "scheduled" | "expired" | "off";
 
 export function statusOf(p: Bulletin, today: string): BulletinStatus {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, ExternalLink, Newspaper, Pin, X } from "lucide-react";
 import type { BrandSettings, Bulletin } from "@/lib/types";
 import { arubaToday } from "@/lib/dates";
-import { LEVELS, livePosts, safeUrl, timeAgo } from "@/lib/bulletins";
+import { LEVELS, livePosts, needsAck, safeUrl, timeAgo } from "@/lib/bulletins";
 
 interface Props {
   brand: BrandSettings;
@@ -37,9 +37,10 @@ const write = (key: string, v: Marks) => {
 /**
  * Seller bulletin board. Replaces the scrolling ticker:
  *  - static, readable cards (no moving text) with level colours, pinned first, urgent on top
- *  - collapsed to one slim bar; opens by itself only for unread urgent / important posts
- *  - sellers can close posts; a post edited later reappears; closed posts can be restored
- *  - urgent posts need an explicit "Got it"
+ *  - collapsed to one slim bar; opens by itself for unread urgent / important posts
+ *  - sellers can close posts; a post edited later reappears; closed posts can be shown again
+ *  - posts that need acknowledgement (Important / Urgent by default) keep the board open
+ *    until the seller presses "Got it"
  */
 export function BulletinBoard({ brand, retailerId, userKey, preview = false, previewToday }: Props) {
   const dKey = `bulletin:closed:${userKey}`;
@@ -49,6 +50,7 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
   const [seen, setSeen] = useState<Marks>({});
   const [open, setOpen] = useState<boolean | null>(null); // null = decide automatically
   const [full, setFull] = useState<Record<string, boolean>>({});
+  const [revealed, setRevealed] = useState(false);
   const [ready, setReady] = useState(preview);
 
   useEffect(() => {
@@ -68,8 +70,11 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
   const visible = all.filter((p) => closed[p.id] !== p.updated_at);
   const closedCount = all.length - visible.length;
   const unread = visible.filter((p) => seen[p.id] !== p.updated_at);
+  const pendingAck = visible.filter(needsAck);
   const attention = unread.some((p) => p.level === "urgent" || p.level === "important");
-  const expanded = preview ? true : open ?? attention;
+  // Unacknowledged posts keep the board open: it cannot be minimised until they are acknowledged.
+  const locked = pendingAck.length > 0;
+  const expanded = preview ? true : locked ? true : open ?? attention;
 
   const markSeen = useCallback(
     (posts: Bulletin[]) => {
@@ -101,21 +106,21 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
     if (preview) return;
     setClosed((prev) => {
       const next = { ...prev };
-      for (const p of visible) if (p.level !== "urgent" && p.dismissible !== false) next[p.id] = p.updated_at;
+      for (const p of visible) if (!needsAck(p) && p.dismissible !== false) next[p.id] = p.updated_at;
       write(dKey, next);
       return next;
     });
   }
+  /** Show closed / acknowledged posts again (read-only, they do not ask for acknowledgement again). */
   function restore() {
-    setClosed({});
-    write(dKey, {});
+    setRevealed(true);
     setOpen(true);
   }
 
   if (!ready) return null;
 
   // Nothing to show: a slim line only when the seller closed something and may want it back.
-  if (!visible.length) {
+  if (!visible.length && !(revealed && all.length > 0)) {
     if (closedCount === 0 || preview) {
       return preview ? (
         <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-center text-xs text-slate-400">
@@ -135,7 +140,8 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
     );
   }
 
-  const top = visible[0];
+  const listed = revealed && !preview ? all : visible;
+  const top = visible[0] ?? all[0];
   const topMeta = LEVELS[top.level];
 
   return (
@@ -150,7 +156,7 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
       {/* Slim bar */}
       <button
         type="button"
-        onClick={() => !preview && setOpen(!expanded)}
+        onClick={() => !preview && !locked && setOpen(!expanded)}
         aria-expanded={expanded}
         aria-controls="bulletin-panel"
         className="flex w-full min-h-[40px] items-center gap-2.5 px-3 py-1.5 text-left"
@@ -171,25 +177,35 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
             {visible.length > 1 && <span className="shrink-0 text-xs font-bold text-slate-400">+{visible.length - 1} more</span>}
           </span>
         )}
-        {expanded && <span className="flex-1 text-xs text-slate-500">{visible.length} post{visible.length === 1 ? "" : "s"}</span>}
-        {!preview && (expanded ? <ChevronUp size={16} className="shrink-0 text-slate-400" /> : <ChevronDown size={16} className="shrink-0 text-slate-400" />)}
+        {expanded && (
+          <span className={`flex-1 text-xs ${locked && !preview ? "font-bold text-rose-600 dark:text-rose-400" : "text-slate-500"}`}>
+            {locked && !preview
+              ? `${pendingAck.length} ${pendingAck.length === 1 ? "post needs" : "posts need"} your acknowledgement`
+              : `${visible.length} post${visible.length === 1 ? "" : "s"}`}
+          </span>
+        )}
+        {!preview && !locked && (expanded ? <ChevronUp size={16} className="shrink-0 text-slate-400" /> : <ChevronDown size={16} className="shrink-0 text-slate-400" />)}
       </button>
 
       {expanded && (
         <div id="bulletin-panel" className="px-3 pb-3">
           <ul className="grid max-h-[min(46vh,24rem)] gap-2 overflow-auto sm:grid-cols-2 xl:grid-cols-3">
-            {visible.map((p) => {
+            {listed.map((p) => {
               const meta = LEVELS[p.level];
               const url = safeUrl(p.link_url);
               const urgent = p.level === "urgent";
-              const canClose = urgent || p.dismissible !== false;
+              const isClosed = closed[p.id] === p.updated_at;
+              const ack = needsAck(p) && !isClosed;
+              const canClose = !needsAck(p) && p.dismissible !== false && !isClosed;
               const long = p.body.length > 140;
               const showAll = full[p.id];
               return (
                 <li
                   key={p.id}
                   role={urgent ? "alert" : undefined}
-                  className={`relative overflow-hidden rounded-xl border p-3 pl-4 shadow-sm motion-safe:animate-[fadeIn_.25s_ease-out] ${meta.card}`}
+                  className={`relative overflow-hidden rounded-xl border p-3 pl-4 shadow-sm motion-safe:animate-[fadeIn_.25s_ease-out] ${meta.card} ${
+                    isClosed ? "opacity-60" : ""
+                  }`}
                 >
                   <span className={`absolute inset-y-0 left-0 w-1.5 ${meta.bar}`} aria-hidden />
                   <div className="flex items-start gap-2">
@@ -201,6 +217,11 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
                         <span className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${meta.chip}`}>
                           {meta.label}
                         </span>
+                        {isClosed && (
+                          <span className="text-[10px] font-bold text-emerald-600">
+                            {needsAck(p) ? "Acknowledged ✓" : "Closed"}
+                          </span>
+                        )}
                         {p.pinned && (
                           <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-500">
                             <Pin size={10} /> Pinned
@@ -238,18 +259,20 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
                             {p.link_label || "Open"} <ExternalLink size={11} />
                           </a>
                         )}
-                        {urgent && (
+                        {ack && (
                           <button
                             type="button"
                             onClick={() => close(p)}
-                            className="inline-flex min-h-[32px] items-center rounded-lg bg-rose-600 px-3 text-[11px] font-extrabold text-white hover:bg-rose-700"
+                            className={`inline-flex min-h-[36px] items-center rounded-lg px-4 text-xs font-extrabold text-white ${
+                              urgent ? "bg-rose-600 hover:bg-rose-700" : "bg-amber-600 hover:bg-amber-700"
+                            }`}
                           >
                             Got it
                           </button>
                         )}
                       </div>
                     </div>
-                    {canClose && !urgent && (
+                    {canClose && (
                       <button
                         type="button"
                         onClick={() => close(p)}
@@ -268,21 +291,28 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
           {!preview && (
             <div className="mt-2 flex items-center justify-between text-[11px]">
               <span className="text-slate-400">
-                {closedCount > 0 && (
-                  <button type="button" onClick={restore} className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
-                    Show closed ({closedCount})
-                  </button>
-                )}
+                {closedCount > 0 &&
+                  (revealed ? (
+                    <button type="button" onClick={() => setRevealed(false)} className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+                      Hide closed
+                    </button>
+                  ) : (
+                    <button type="button" onClick={restore} className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+                      Show closed ({closedCount})
+                    </button>
+                  ))}
               </span>
               <span className="flex items-center gap-3">
-                {visible.some((p) => p.level !== "urgent" && p.dismissible !== false) && (
+                {visible.some((p) => !needsAck(p) && p.dismissible !== false) && (
                   <button type="button" onClick={closeAll} className="font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
                     Close all
                   </button>
                 )}
-                <button type="button" onClick={() => setOpen(false)} className="font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-                  Minimise
-                </button>
+                {!locked && (
+                  <button type="button" onClick={() => setOpen(false)} className="font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+                    Minimise
+                  </button>
+                )}
               </span>
             </div>
           )}

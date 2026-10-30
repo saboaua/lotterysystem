@@ -8,6 +8,7 @@ import { arubaToday } from "@/lib/dates";
 import { BulletinBoard } from "@/components/BulletinBoard";
 import {
   BULLETIN_TEMPLATES,
+  needsAck,
   LEVELS,
   LEVEL_ORDER,
   newBulletin,
@@ -183,6 +184,11 @@ export function BulletinEditor() {
                     </span>
                     <span className="block truncate text-xs text-[var(--mut)]">{p.body || "No message yet"}</span>
                   </span>
+                  {needsAck(p) && (
+                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-800" title="Seller must press Got it">
+                      Acknowledge
+                    </span>
+                  )}
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${STATUS_STYLE[st]}`}>
                     {STATUS_LABEL[st]}
                   </span>
@@ -214,7 +220,7 @@ export function BulletinEditor() {
                     </label>
 
                     <div>
-                      <div className="mb-1 text-[11px] font-semibold text-[var(--mut)]">Type</div>
+                      <div className="mb-1 text-[11px] font-semibold text-[var(--mut)]">Importance</div>
                       <div className="flex flex-wrap gap-1.5">
                         {LEVEL_ORDER.map((lv: BulletinLevel) => (
                           <button
@@ -231,6 +237,29 @@ export function BulletinEditor() {
                         ))}
                       </div>
                     </div>
+
+                    <label
+                      className={
+                        "flex items-start gap-3 rounded-xl border p-3 text-sm " +
+                        (needsAck(p)
+                          ? "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-950/20"
+                          : "border-[var(--line)]")
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-5 w-5 accent-indigo-600"
+                        checked={needsAck(p)}
+                        onChange={(e) => patch(p.id, { require_ack: e.target.checked })}
+                      />
+                      <span>
+                        <span className="block font-bold">Seller must acknowledge</span>
+                        <span className="block text-xs text-[var(--mut)]">
+                          The post stays open on the sell screen until the seller presses “Got it”. On by default for
+                          Important and Urgent; you can switch it on for any type or off for these two.
+                        </span>
+                      </span>
+                    </label>
 
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="text-[11px] font-semibold text-[var(--mut)]">
@@ -264,11 +293,15 @@ export function BulletinEditor() {
                         <input type="checkbox" className="h-5 w-5 accent-indigo-600" checked={!!p.pinned} onChange={(e) => patch(p.id, { pinned: e.target.checked })} />
                         Pin to top
                       </label>
-                      <label className="flex items-center gap-2" title="Urgent posts always need a Got it">
+                      <label
+                        className={"flex items-center gap-2 " + (needsAck(p) ? "opacity-50" : "")}
+                        title={needsAck(p) ? "Not used: sellers acknowledge this post with Got it" : undefined}
+                      >
                         <input
                           type="checkbox"
                           className="h-5 w-5 accent-indigo-600"
-                          checked={p.dismissible !== false}
+                          disabled={needsAck(p)}
+                          checked={p.dismissible !== false && !needsAck(p)}
                           onChange={(e) => patch(p.id, { dismissible: e.target.checked })}
                         />
                         Sellers can close it
@@ -344,7 +377,7 @@ export function BulletinEditor() {
           <div className="rounded-2xl bg-[var(--key)]/60 p-4 text-xs leading-relaxed text-[var(--mut)]">
             <div className="mb-1 font-bold text-[var(--ink)]">Tips for a good bulletin board</div>
             One message per post, headline under 60 characters, and say what the seller should do. Set “Hide after” so old
-            news disappears by itself. Keep Urgent for things that stop sales. Edit a post and it shows again to sellers who
+            news disappears by itself. Keep Urgent for things that stop sales; Important and Urgent stay open until the seller presses “Got it”. Edit a post and it shows again to sellers who
             closed the old version. For something that must be seen this minute, use Broadcast instead.
           </div>
         </div>

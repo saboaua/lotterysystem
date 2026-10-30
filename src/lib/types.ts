@@ -293,8 +293,13 @@ export interface Bulletin {
   /** Show from / until (YYYY-MM-DD, Aruba date). Empty = no limit. */
   start?: string;
   end?: string;
-  /** Sellers may close it (default true). Urgent posts always need an explicit "Got it". */
+  /** Sellers may close it (default true). Ignored when the post requires acknowledgement. */
   dismissible?: boolean;
+  /**
+   * Stays open on the seller screen until the seller presses "Got it".
+   * Default (when not set): on for Important and Urgent, off for the other types.
+   */
+  require_ack?: boolean;
   /** Only these retailers see it; empty / missing = everyone. */
   retailer_ids?: string[];
   link_label?: string;
