@@ -155,7 +155,7 @@ export function OfficeScreen() {
         {sub === "promos" && <PromosPanel />}
         {sub === "results" && <ResultsPanel mode="results" />}
         {sub === "draw_reports" && (
-          <div className="space-y-6">
+          <div className="mx-auto max-w-5xl space-y-6">
             <DrawSchedulePanel />
             <ResultsPanel mode="reports" />
           </div>
