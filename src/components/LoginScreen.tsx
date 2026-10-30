@@ -5,6 +5,7 @@ import { AlertCircle, Building2, Eye, EyeOff, Lock, Mail, Store } from "lucide-r
 import { DEMO_USERS } from "@/lib/demo-data";
 import { useStore } from "@/lib/store";
 import { friendlyAuthError, isSupabaseConfigured, signInWithPassword } from "@/lib/auth";
+import { applyThemePreset } from "@/lib/theme";
 
 /** Offline demo passwords — only used when Supabase env is not set. */
 const DEMO_PASSWORDS: Record<string, string> = {
@@ -31,6 +32,10 @@ export function LoginScreen() {
     setError(null);
     setShowPassword(false);
   }, [mode]);
+
+  useEffect(() => {
+    applyThemePreset(brand.theme_id);
+  }, [brand.theme_id]);
 
   function fail(message: string) {
     setError(message);
@@ -129,6 +134,13 @@ export function LoginScreen() {
           border: "border-emerald-200 dark:border-emerald-900",
           panel: "bg-emerald-50/40 dark:bg-emerald-950/20",
         };
+
+  const initials = (brand.name || "SL")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() || "")
+    .join("") || "SL";
 
   const formFields = (
       <form onSubmit={onSubmit} className={`space-y-3 rounded-2xl border p-4 ${accent.border} ${accent.panel}`} noValidate>
@@ -249,13 +261,30 @@ export function LoginScreen() {
     <div className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-slate-100 to-slate-200/80 p-6 dark:from-slate-950 dark:to-slate-900">
       <div className="w-full max-w-lg rounded-3xl border border-slate-200/80 bg-white p-8 shadow-xl shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-extrabold text-white shadow-lg shadow-violet-500/25">
-            SL
-          </div>
+          {brand.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brand.logo}
+              alt={brand.name || "Logo"}
+              className="mx-auto mb-3 h-16 w-16 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-lg dark:border-slate-700"
+            />
+          ) : (
+            <div
+              className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl text-xl font-extrabold text-white shadow-lg"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--accent, #7c3aed), var(--accent-hover, #6d28d9))",
+              }}
+            >
+              {initials}
+            </div>
+          )}
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            {brand.name}
+            {brand.login_welcome?.trim() || brand.name}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">{brand.tagline}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {brand.login_subtitle?.trim() || brand.tagline}
+          </p>
         </div>
 
         {mode === "pick" && (
