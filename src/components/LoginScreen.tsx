@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { Building2, Store } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { AlertCircle, Building2, Eye, EyeOff, Lock, Mail, Store } from "lucide-react";
 import { DEMO_USERS } from "@/lib/demo-data";
 import { useStore } from "@/lib/store";
-import { isSupabaseConfigured, signInWithPassword } from "@/lib/auth";
+import { friendlyAuthError, isSupabaseConfigured, signInWithPassword } from "@/lib/auth";
 
 /** Offline demo passwords — only used when Supabase env is not set. */
 const DEMO_PASSWORDS: Record<string, string> = {
@@ -18,106 +18,258 @@ export function LoginScreen() {
   const [mode, setMode] = useState<"pick" | "owner" | "retailer">("pick");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const owners = DEMO_USERS.filter((u) => u.role === "owner");
   const retailers = DEMO_USERS.filter((u) => u.role === "retailer");
 
+  useEffect(() => {
+    setError(null);
+    setShowPassword(false);
+  }, [mode]);
+
+  function fail(message: string) {
+    setError(message);
+    setPassword("");
+    setBusy(false);
+    requestAnimationFrame(() => {
+      passwordRef.current?.focus();
+      errorRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  }
+
   function enterAs(userId: string) {
     if (isSupabaseConfigured) {
-      toast(
-        "Demo accounts are disabled while Supabase is connected. Create the user in Authentication and sign in with email/password.",
-        true
+      setError(
+        "Demo accounts are disabled while Supabase is connected. Sign in with email and password."
       );
       return;
     }
+    setError(null);
     loginAs(userId);
   }
 
-  function tryDemoPassword(emailIn: string, passwordIn: string): boolean {
+  function tryDemoPassword(emailIn: string, passwordIn: string): "ok" | "bad" | "role" {
     const key = emailIn.trim().toLowerCase();
     const expected = DEMO_PASSWORDS[key];
-    if (!expected || passwordIn !== expected) return false;
+    if (!expected || passwordIn !== expected) return "bad";
     const u = DEMO_USERS.find((x) => x.email.toLowerCase() === key);
-    if (!u) return false;
+    if (!u) return "bad";
     if (mode === "owner" && u.role !== "owner") {
-      toast("This account is not an owner", true);
-      return true;
+      fail("This account is not an owner / back-office account.");
+      return "role";
     }
     if (mode === "retailer" && u.role !== "retailer") {
-      toast("This account is not a retailer", true);
-      return true;
+      fail("This account is not a retailer.");
+      return "role";
     }
     loginAs(u.id);
-    return true;
+    return "ok";
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
+
     const em = email.trim();
     const pw = password;
     if (!em || !pw) {
-      toast("Enter email and password", true);
+      fail("Enter your email and password.");
       return;
     }
 
     setBusy(true);
 
-    // Supabase configured → real Auth only (no silent demo fallback)
     if (isSupabaseConfigured) {
       const res = await signInWithPassword(em, pw);
-      setBusy(false);
       if (!res.ok) {
-        toast(
-          res.error ||
-            "Wrong email or password. This account must exist under Supabase → Authentication → Users.",
-          true
-        );
+        fail(res.error || "Invalid email or password");
         return;
       }
       if (mode === "owner" && res.user.role === "retailer") {
-        toast("This account is not a back-office account (check profiles.role)", true);
+        fail("This account is not a back-office account.");
         return;
       }
       if (mode === "retailer" && res.user.role !== "retailer") {
-        toast("This account is not a retailer (check profiles.role)", true);
+        fail("This account is not a retailer.");
         return;
       }
+      setBusy(false);
       setUserFromAuth(res.user);
       toast(`Signed in as ${res.user.name || res.user.email}`);
       return;
     }
 
-    // Offline demo only
-    if (tryDemoPassword(em, pw)) {
+    const demo = tryDemoPassword(em, pw);
+    if (demo === "ok") {
       setBusy(false);
       return;
     }
-
-    setBusy(false);
-    toast("Wrong email or password", true);
+    if (demo === "role") return;
+    fail(friendlyAuthError("Invalid login credentials"));
   }
 
+  const accent =
+    mode === "owner"
+      ? {
+          ring: "focus:ring-violet-500/30 focus:border-violet-500",
+          btn: "bg-violet-600 hover:bg-violet-700",
+          title: "text-violet-700 dark:text-violet-400",
+          border: "border-violet-200 dark:border-violet-900",
+          panel: "bg-violet-50/50 dark:bg-violet-950/20",
+        }
+      : {
+          ring: "focus:ring-emerald-500/30 focus:border-emerald-500",
+          btn: "bg-emerald-600 hover:bg-emerald-700",
+          title: "text-emerald-700 dark:text-emerald-400",
+          border: "border-emerald-200 dark:border-emerald-900",
+          panel: "bg-emerald-50/40 dark:bg-emerald-950/20",
+        };
+
+  const formFields = (
+      <form onSubmit={onSubmit} className={`space-y-3 rounded-2xl border p-4 ${accent.border} ${accent.panel}`} noValidate>
+        {error && (
+          <div
+            ref={errorRef}
+            role="alert"
+            aria-live="assertive"
+            className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-200"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <div>
+              <p className="font-semibold">Sign-in failed</p>
+              <p className="mt-0.5 text-[13px] leading-snug opacity-90">{error}</p>
+            </div>
+          </div>
+        )}
+
+        <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Email
+          <div className="relative mt-1">
+            <Mail
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              aria-hidden
+            />
+            <input
+              type="email"
+              required
+              autoComplete="username"
+              inputMode="email"
+              placeholder={mode === "owner" ? "Owner email" : "Shop email"}
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (error) setError(null);
+              }}
+              aria-invalid={!!error}
+              className={
+                "h-11 w-full rounded-xl border bg-white pl-10 pr-3 text-sm outline-none transition dark:bg-slate-800 " +
+                (error
+                  ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                  : `border-slate-300 dark:border-slate-600 focus:ring-2 ${accent.ring}`)
+              }
+            />
+          </div>
+        </label>
+
+        <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Password
+          <div className="relative mt-1">
+            <Lock
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              aria-hidden
+            />
+            <input
+              ref={passwordRef}
+              type={showPassword ? "text" : "password"}
+              required
+              autoComplete="current-password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError(null);
+              }}
+              aria-invalid={!!error}
+              className={
+                "h-11 w-full rounded-xl border bg-white pl-10 pr-11 text-sm outline-none transition dark:bg-slate-800 " +
+                (error
+                  ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                  : `border-slate-300 dark:border-slate-600 focus:ring-2 ${accent.ring}`)
+              }
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </label>
+
+        <button
+          type="submit"
+          disabled={busy}
+          className={`h-11 w-full rounded-xl text-sm font-bold text-white transition disabled:opacity-60 ${accent.btn}`}
+        >
+          {busy ? "Signing in…" : mode === "owner" ? "Sign in as owner" : "Sign in as retailer"}
+        </button>
+
+        <p className="text-center text-[11px] text-slate-500">
+          {isSupabaseConfigured ? (
+            mode === "owner" ? (
+              <>
+                Account must exist in Supabase Auth with{" "}
+                <code className="font-mono">profiles.role = owner</code>
+              </>
+            ) : (
+              <>Must exist in Supabase Auth + profiles (role=retailer)</>
+            )
+          ) : mode === "owner" ? (
+            <>
+              Demo: <span className="font-mono font-semibold">owner@shocolottery.aw</span> /{" "}
+              <span className="font-mono font-semibold">owner123</span>
+            </>
+          ) : (
+            <>Demo: main@shop.aw / retailer123</>
+          )}
+        </p>
+      </form>
+  );
+
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-slate-100 p-6 dark:bg-slate-950">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-slate-100 to-slate-200/80 p-6 dark:from-slate-950 dark:to-slate-900">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200/80 bg-white p-8 shadow-xl shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-extrabold text-white shadow-lg">
+          <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-extrabold text-white shadow-lg shadow-violet-500/25">
             SL
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">{brand.name}</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            {brand.name}
+          </h1>
           <p className="mt-1 text-sm text-slate-500">{brand.tagline}</p>
         </div>
 
         {mode === "pick" && (
           <div className="space-y-4">
-            <p className="text-center text-xs font-bold uppercase tracking-wider text-slate-400">Choose sign-in</p>
+            <p className="text-center text-xs font-bold uppercase tracking-wider text-slate-400">
+              Choose sign-in
+            </p>
             <button
               type="button"
               onClick={() => {
                 setMode("retailer");
                 setEmail("");
                 setPassword("");
+                setError(null);
               }}
               className="flex w-full items-start gap-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50/80 p-5 text-left transition hover:border-emerald-400 hover:shadow-md dark:border-emerald-900 dark:bg-emerald-950/40"
             >
@@ -125,7 +277,9 @@ export function LoginScreen() {
                 <Store size={22} />
               </span>
               <span>
-                <span className="block text-lg font-extrabold text-slate-900 dark:text-white">Retailer</span>
+                <span className="block text-lg font-extrabold text-slate-900 dark:text-white">
+                  Retailer
+                </span>
                 <span className="mt-1 block text-sm text-slate-600 dark:text-slate-300">
                   Shop terminal — sell tickets only
                 </span>
@@ -137,6 +291,7 @@ export function LoginScreen() {
                 setMode("owner");
                 setEmail("owner@shocolottery.aw");
                 setPassword("");
+                setError(null);
               }}
               className="flex w-full items-start gap-4 rounded-2xl border-2 border-violet-200 bg-violet-50/80 p-5 text-left transition hover:border-violet-400 hover:shadow-md dark:border-violet-900 dark:bg-violet-950/40"
             >
@@ -144,7 +299,9 @@ export function LoginScreen() {
                 <Building2 size={22} />
               </span>
               <span>
-                <span className="block text-lg font-extrabold text-slate-900 dark:text-white">Owner</span>
+                <span className="block text-lg font-extrabold text-slate-900 dark:text-white">
+                  Owner
+                </span>
                 <span className="mt-1 block text-sm text-slate-600 dark:text-slate-300">
                   Back office — games, retailers, results, reports
                 </span>
@@ -155,48 +312,21 @@ export function LoginScreen() {
 
         {mode === "retailer" && (
           <div className="space-y-4">
-            <button type="button" onClick={() => setMode("pick")} className="text-xs font-semibold text-slate-500 hover:text-indigo-600">
+            <button
+              type="button"
+              onClick={() => setMode("pick")}
+              className="text-xs font-semibold text-slate-500 hover:text-indigo-600"
+            >
               ← Change role
             </button>
-            <h2 className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400">Retailer terminal</h2>
+            <h2 className={`text-lg font-extrabold ${accent.title}`}>Retailer terminal</h2>
             <p className="text-sm text-slate-500">Sell tickets at your shop. No back-office access.</p>
-
-            <form onSubmit={onSubmit} className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-              <input
-                type="email"
-                required
-                autoComplete="username"
-                placeholder="Shop email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
-              />
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
-              />
-              <button
-                type="submit"
-                disabled={busy}
-                className="h-11 w-full rounded-xl bg-emerald-600 text-sm font-bold text-white disabled:opacity-60"
-              >
-                {busy ? "Signing in…" : "Sign in as retailer"}
-              </button>
-              <p className="text-center text-[11px] text-slate-400">
-                {isSupabaseConfigured
-                  ? "Must exist in Supabase Auth + profiles (role=retailer, retailer_id=shop UUID)"
-                  : "Demo: main@shop.aw / retailer123"}
-              </p>
-            </form>
-
+            {formFields}
             {!isSupabaseConfigured && (
               <>
-                <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or one-tap demo</p>
+                <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Or one-tap demo
+                </p>
                 <div className="space-y-2">
                   {retailers.map((u) => (
                     <button
@@ -222,56 +352,23 @@ export function LoginScreen() {
 
         {mode === "owner" && (
           <div className="space-y-4">
-            <button type="button" onClick={() => setMode("pick")} className="text-xs font-semibold text-slate-500 hover:text-indigo-600">
+            <button
+              type="button"
+              onClick={() => setMode("pick")}
+              className="text-xs font-semibold text-slate-500 hover:text-indigo-600"
+            >
               ← Change role
             </button>
-            <h2 className="text-lg font-extrabold text-violet-700 dark:text-violet-400">Owner back office</h2>
-            <p className="text-sm text-slate-500">Manage games, retailers, results, promotions and reports.</p>
-
-            <form onSubmit={onSubmit} className="space-y-3 rounded-2xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900 dark:bg-violet-950/20">
-              <input
-                type="email"
-                required
-                autoComplete="username"
-                placeholder="Owner email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
-              />
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800"
-              />
-              <button
-                type="submit"
-                disabled={busy}
-                className="h-11 w-full rounded-xl bg-violet-600 text-sm font-bold text-white disabled:opacity-60"
-              >
-                {busy ? "Signing in…" : "Sign in as owner"}
-              </button>
-              <p className="text-center text-[11px] text-slate-500">
-                {isSupabaseConfigured ? (
-                  <>
-                    Create this user in Supabase Auth, then a row in <code className="font-mono">profiles</code> with{" "}
-                    <code className="font-mono">role = owner</code>
-                  </>
-                ) : (
-                  <>
-                    Demo: <span className="font-mono font-semibold">owner@shocolottery.aw</span> /{" "}
-                    <span className="font-mono font-semibold">owner123</span>
-                  </>
-                )}
-              </p>
-            </form>
-
+            <h2 className={`text-lg font-extrabold ${accent.title}`}>Owner back office</h2>
+            <p className="text-sm text-slate-500">
+              Manage games, retailers, results, promotions and reports.
+            </p>
+            {formFields}
             {!isSupabaseConfigured && (
               <>
-                <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or one-tap demo</p>
+                <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Or one-tap demo
+                </p>
                 <div className="space-y-2">
                   {owners.map((u) => (
                     <button
