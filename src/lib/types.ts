@@ -280,6 +280,29 @@ export interface LedScheduleMessage {
   end?: string;
 }
 
+export type BulletinLevel = "info" | "update" | "promo" | "important" | "urgent";
+
+/** A post on the seller bulletin board (replaces the scrolling ticker). */
+export interface Bulletin {
+  id: string;
+  title: string;
+  body: string;
+  level: BulletinLevel;
+  pinned?: boolean;
+  enabled: boolean;
+  /** Show from / until (YYYY-MM-DD, Aruba date). Empty = no limit. */
+  start?: string;
+  end?: string;
+  /** Sellers may close it (default true). Urgent posts always need an explicit "Got it". */
+  dismissible?: boolean;
+  /** Only these retailers see it; empty / missing = everyone. */
+  retailer_ids?: string[];
+  link_label?: string;
+  link_url?: string;
+  /** ISO time of the last edit: editing a post shows it again to sellers who closed the old version. */
+  updated_at: string;
+}
+
 export interface BrandSettings {
   name: string;
   tagline: string;
@@ -289,6 +312,9 @@ export interface BrandSettings {
   led_color: string;
   logo?: string;
   led_schedule?: LedScheduleMessage[];
+  /** Bulletin board posts and on/off switch (replace the old LED ticker fields above). */
+  bulletins?: Bulletin[];
+  bulletin_on?: boolean;
   ping_interval_sec?: number;
   offline_after_sec?: number;
 }

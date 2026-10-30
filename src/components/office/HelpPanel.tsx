@@ -20,12 +20,14 @@ const SECTIONS: { title: string; body: string[] }[] = [
     ],
   },
   {
-    title: "Branding & scrolling ticker",
+    title: "Branding & bulletin board",
     body: [
-      "Upload the office/login logo under Branding & message.",
-      "Manual ticker text always shows when LED is on.",
-      "Add scheduled messages with optional start/end dates — they append to the ticker.",
-      "Set speed (Slow / Normal / Fast) and colour; use the live preview.",
+      "Upload the office/login logo under Branding & bulletin.",
+      "The bulletin board replaces the scrolling ticker on sell screens: sellers see a slim bar that opens to news cards.",
+      "Each post has a headline, message, type (Info, Update, Promotion, Important, Urgent), optional dates and button link.",
+      "Pin posts to the top, choose who sees them (all or selected retailers), and decide if sellers may close them.",
+      "Urgent posts need a Got it from the seller. Editing a post shows it again to sellers who closed the old one.",
+      "The live preview on the right shows exactly what a seller sees, for any retailer and date.",
     ],
   },
   {
@@ -70,7 +72,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     body: [
       "Game logos from back office show on sell tiles.",
       "Add plays, multi-draw, Hold/Recall, Send & Print.",
-      "LED ticker uses branding + scheduled messages.",
+      "News for sellers is managed under Branding & bulletin (bulletin board).",
     ],
   },
 ];

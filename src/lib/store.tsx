@@ -49,6 +49,7 @@ import {
   setAuditActor,
 } from "./audit";
 import { can, isBackOffice } from "./permissions";
+import { ensureBulletins } from "./bulletins";
 import {
   holidayRowId,
   newUuid,
@@ -296,7 +297,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setGames(migrateGamePayouts(loadJson("games", DEMO_GAMES)));
-    setBrand(loadJson("brand", DEMO_BRAND));
+    setBrand(ensureBulletins(loadJson("brand", DEMO_BRAND)));
     setTicketDesign(loadJson("ticketDesign", DEMO_TICKET_DESIGN));
     setHolidays(loadJson("holidays", []));
     setDrawResults(loadJson("drawResults", []));
@@ -481,7 +482,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       markSynced(snaps, "promotions", pm.data, (x) => x.id);
     }
     if (br.ok && br.data) {
-      const merged = { ...DEMO_BRAND, ...br.data };
+      // Brands saved before the bulletin board existed get their ticker messages converted once.
+      const raw = { ...DEMO_BRAND, ...br.data };
+      const merged = ensureBulletins(br.data.bulletins === undefined ? { ...raw, bulletins: undefined } : raw);
       setBrand(merged);
       markSynced(snaps, "brand", [merged], () => "brand");
     }
@@ -516,6 +519,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const id = setInterval(() => void syncRetailers(), 30_000);
     return () => clearInterval(id);
   }, [user, syncRetailers]);
+
+  // Seller terminals pick up new bulletin posts without signing in again.
+  useEffect(() => {
+    if (!isSupabaseConfigured || user?.role !== "retailer") return;
+    let stopped = false;
+    const refresh = async () => {
+      const r = await pullSetting<Partial<BrandSettings>>("brand");
+      if (stopped || r.ok === false || !r.data) return;
+      const data = r.data;
+      setBrand((prev) => {
+        const next = ensureBulletins({
+          ...prev,
+          ...data,
+          bulletins: data.bulletins !== undefined ? data.bulletins : prev.bulletins,
+        });
+        return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+      });
+    };
+    const id = setInterval(refresh, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [user]);
 
   const canSave = cloudReady && isSupabaseConfigured && isBackOffice(user);
   const may = (perm: string) => canSave && can(user, perm);

@@ -32,6 +32,7 @@ import { DrawSchedulePanel } from "./office/DrawSchedule";
 import { BroadcastPanel } from "./office/BroadcastPanel";
 import { TAB_MODULE, can, isBackOffice } from "@/lib/permissions";
 import { StaffPanel } from "./office/StaffPanel";
+import { ChangePasswordCard } from "./ChangePasswordCard";
 
 type Sub =
   | "games"
@@ -57,7 +58,7 @@ const TABS: { id: Sub; label: string; icon: typeof Gamepad2 }[] = [
   { id: "games", label: "Games & schedule", icon: Gamepad2 },
   { id: "fast_play", label: "Fast Play", icon: Sparkles },
   { id: "calendar", label: "Draw calendar", icon: CalendarDays },
-  { id: "brand", label: "Branding & message", icon: MessageSquare },
+  { id: "brand", label: "Branding & bulletin", icon: MessageSquare },
   { id: "broadcast", label: "Broadcast", icon: Megaphone },
   { id: "ticket", label: "Ticket design", icon: Ticket },
   { id: "promos", label: "Promotions", icon: Gift },
@@ -175,24 +176,27 @@ export function OfficeScreen() {
 function AccountPanel() {
   const { user, brand, logout } = useStore();
   return (
-    <div className="mx-auto max-w-lg space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-lg font-bold">Account</h2>
-      <div className="text-sm">
-        <div className="text-slate-500">Signed in as</div>
-        <div className="font-bold">{user?.name}</div>
-        <div className="text-slate-500">{user?.email}</div>
-        <div className="mt-1 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">
-          {user?.role?.toUpperCase()}
+    <div className="mx-auto max-w-lg space-y-4">
+      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-bold">Account</h2>
+        <div className="text-sm">
+          <div className="text-slate-500">Signed in as</div>
+          <div className="font-bold">{user?.name}</div>
+          <div className="text-slate-500">{user?.email}</div>
+          <div className="mt-1 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">
+            {user?.role === "staff" && user.staff_role ? `STAFF · ${user.staff_role.toUpperCase()}` : user?.role?.toUpperCase()}
+          </div>
         </div>
+        <div className="text-sm text-slate-500">Brand: {brand.name}</div>
+        <button
+          type="button"
+          onClick={logout}
+          className="rounded-full bg-rose-600 px-5 py-2 text-sm font-semibold text-white"
+        >
+          Sign out
+        </button>
       </div>
-      <div className="text-sm text-slate-500">Brand: {brand.name}</div>
-      <button
-        type="button"
-        onClick={logout}
-        className="rounded-full bg-rose-600 px-5 py-2 text-sm font-semibold text-white"
-      >
-        Sign out
-      </button>
+      <ChangePasswordCard />
     </div>
   );
 }

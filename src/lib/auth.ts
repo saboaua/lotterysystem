@@ -68,6 +68,24 @@ export async function signInWithPassword(
   return { ok: true, user: profile };
 }
 
+/**
+ * Change the signed-in user's own password. The current password is checked first
+ * (a stolen, unlocked session cannot silently change it).
+ */
+export async function changePassword(
+  email: string,
+  current: string,
+  next: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Password changes need Supabase to be configured." };
+  const { error: verifyErr } = await sb.auth.signInWithPassword({ email, password: current });
+  if (verifyErr) return { ok: false, error: "Current password is incorrect." };
+  const { error } = await sb.auth.updateUser({ password: next });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function signOut(): Promise<void> {
   const sb = getSupabase();
   if (sb) await sb.auth.signOut();

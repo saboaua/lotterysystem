@@ -150,7 +150,7 @@ export function AuditPanel() {
         </select>
         <select className={field} value={entity} onChange={(e) => setEntity(e.target.value)}>
           <option value="">All areas</option>
-          {["game", "bet type", "draw result", "holiday", "promotion", "branding", "ticket design", "fast play game", "retailer", "ticket", "topup", "staff", "role"].map(
+          {["game", "bet type", "draw result", "holiday", "promotion", "branding", "ticket design", "fast play game", "retailer", "ticket", "topup", "staff", "role", "account"].map(
             (e) => (
               <option key={e} value={e}>
                 {e}
