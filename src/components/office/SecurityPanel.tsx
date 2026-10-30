@@ -305,7 +305,7 @@ export function SecurityPanel() {
             <ul className="list-disc space-y-1 pl-4">
               <li>Server-side middleware is the real control — client checks alone are easy to bypass.</li>
               <li>
-                IP country is approximate (VPN / mobile roaming can look "foreign"). Prefer monitor mode
+                IP country is approximate (VPN / mobile roaming can look foreign). Prefer monitor mode
                 first.
               </li>
               <li>
