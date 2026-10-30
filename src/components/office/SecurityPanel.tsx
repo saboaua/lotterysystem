@@ -75,7 +75,11 @@ export function SecurityPanel() {
   }, [tab, loadEvents]);
 
   if (user?.role !== "owner") {
-    return <div className={card + " text-sm text-slate-500"}>Only the owner can manage security settings.</div>;
+    return (
+      <div className={card + " text-sm text-slate-500"}>
+        Only the owner can manage security settings.
+      </div>
+    );
   }
 
   async function savePolicy(next: GeoPolicy) {
@@ -222,14 +226,18 @@ export function SecurityPanel() {
               <button
                 type="button"
                 className="rounded-full border border-slate-300 px-3 py-1.5 text-[11px] font-bold dark:border-slate-600"
-                onClick={() => setPolicy((p) => ({ ...p, allowed_countries: [...DUTCH_CARIBBEAN_PRESET] }))}
+                onClick={() =>
+                  setPolicy((p) => ({ ...p, allowed_countries: [...DUTCH_CARIBBEAN_PRESET] }))
+                }
               >
                 Preset: Dutch Caribbean
               </button>
               <button
                 type="button"
                 className="rounded-full border border-slate-300 px-3 py-1.5 text-[11px] font-bold dark:border-slate-600"
-                onClick={() => setPolicy((p) => ({ ...p, allowed_countries: [...CARIBBEAN_PRESET] }))}
+                onClick={() =>
+                  setPolicy((p) => ({ ...p, allowed_countries: [...CARIBBEAN_PRESET] }))
+                }
               >
                 Preset: Wider Caribbean
               </button>
@@ -267,7 +275,9 @@ export function SecurityPanel() {
                       />
                       <span className="font-mono font-bold">{c.code}</span>
                       <span className="truncate text-slate-600 dark:text-slate-300">{c.name}</span>
-                      <span className="ml-auto hidden text-[10px] text-slate-400 sm:inline">{c.region}</span>
+                      <span className="ml-auto hidden text-[10px] text-slate-400 sm:inline">
+                        {c.region}
+                      </span>
                     </label>
                   );
                 })}
@@ -284,18 +294,29 @@ export function SecurityPanel() {
                 {saving ? "Saving…" : "Save geo policy"}
               </button>
               <span className="text-[11px] text-slate-500">
-                Enforcement runs in Next.js middleware using CDN country headers. Changes apply within ~30s.
+                Enforcement runs in Next.js middleware using CDN country headers. Changes apply within
+                ~30s.
               </span>
             </div>
           </div>
 
-          <div className={card + " text-xs text-slate-500 space-y-1"}>
+          <div className={card + " space-y-1 text-xs text-slate-500"}>
             <p className="font-semibold text-slate-700 dark:text-slate-200">Best-practice notes</p>
             <ul className="list-disc space-y-1 pl-4">
               <li>Server-side middleware is the real control — client checks alone are easy to bypass.</li>
-              <li>IP country is approximate (VPN / mobile roaming can look “foreign”). Prefer monitor mode first.</li>
-              <li>Keep <code className="font-mono">allow unknown</code> on until you confirm headers work on Vercel.</li>
-              <li>Blocked attempts are stored under settings key <code className="font-mono">security_events</code> and mirrored to audit when the service role key is set.</li>
+              <li>
+                IP country is approximate (VPN / mobile roaming can look "foreign"). Prefer monitor mode
+                first.
+              </li>
+              <li>
+                Keep <code className="font-mono">allow unknown</code> on until you confirm headers work on
+                Vercel.
+              </li>
+              <li>
+                Blocked attempts are stored under settings key{" "}
+                <code className="font-mono">security_events</code> and mirrored to audit when the service
+                role key is set.
+              </li>
             </ul>
           </div>
         </div>
@@ -306,7 +327,9 @@ export function SecurityPanel() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-bold">Security events</h3>
-              <p className="text-xs text-slate-500">Blocked or monitored access attempts from outside the allowlist.</p>
+              <p className="text-xs text-slate-500">
+                Blocked or monitored access attempts from outside the allowlist.
+              </p>
             </div>
             <button
               type="button"
@@ -366,3 +389,5 @@ export function SecurityPanel() {
     </div>
   );
 }
+
+export default SecurityPanel;
