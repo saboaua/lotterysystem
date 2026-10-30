@@ -35,7 +35,7 @@ export function BrandPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="mx-auto max-w-2xl space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
+      <div className="mx-auto max-w-5xl space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
         <h2 className="text-lg font-bold">Branding & message</h2>
 
         <div className="grid gap-3 sm:grid-cols-2">

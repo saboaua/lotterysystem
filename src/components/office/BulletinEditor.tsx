@@ -44,6 +44,7 @@ export function BulletinEditor() {
   const [previewRetailer, setPreviewRetailer] = useState("");
   const [previewDate, setPreviewDate] = useState(arubaToday());
   const [previewDark, setPreviewDark] = useState(false);
+  const [keepInView, setKeepInView] = useState(false);
   const lastCommitted = useRef(JSON.stringify(brand.bulletins || []));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<Bulletin[] | null>(null);
@@ -159,7 +160,54 @@ export function BulletinEditor() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="space-y-4">
+        {/* Live preview */}
+        <div className={keepInView ? "sticky top-2 z-20" : ""}>
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2 text-sm font-bold">
+                <Eye size={15} /> Seller view (live preview)
+              </h3>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--mut)]">
+                  <input type="checkbox" checked={keepInView} onChange={(e) => setKeepInView(e.target.checked)} /> Keep in view while editing
+                </label>
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--mut)]">
+                  <input type="checkbox" checked={previewDark} onChange={(e) => setPreviewDark(e.target.checked)} /> Dark
+                </label>
+              </div>
+            </div>
+            <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:max-w-xl">
+              <label className="text-[11px] font-semibold text-[var(--mut)]">
+                As retailer
+                <select className={field + " h-9"} value={previewRetailer} onChange={(e) => setPreviewRetailer(e.target.value)}>
+                  <option value="">Everyone (all posts)</option>
+                  {activeRetailers.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.number} · {r.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-[11px] font-semibold text-[var(--mut)]">
+                On date
+                <input type="date" className={field + " h-9"} value={previewDate} onChange={(e) => setPreviewDate(e.target.value || arubaToday())} />
+              </label>
+            </div>
+            <div className={(previewDark ? "dark bg-slate-900 " : "bg-white ring-1 ring-slate-200 ") + "max-h-[55vh] overflow-auto rounded-2xl p-3"}>
+              {boardOn ? (
+                <BulletinBoard brand={previewBrand} retailerId={previewRetailer || undefined} userKey="preview" preview previewToday={previewDate} />
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-center text-xs text-slate-400">
+                  The bulletin board is switched off for sell screens.
+                </div>
+              )}
+            </div>
+            <p className="mt-2 text-[11px] text-[var(--mut)]">
+              Sellers see a slim bar that opens to these cards. Changes save automatically.
+            </p>
+          </div>
+        </div>
         {/* Posts */}
         <div className="space-y-2">
           {ordered.map((p) => {
@@ -379,49 +427,6 @@ export function BulletinEditor() {
             One message per post, headline under 60 characters, and say what the seller should do. Set “Hide after” so old
             news disappears by itself. Keep Urgent for things that stop sales; Important and Urgent stay open until the seller presses “Got it”. Edit a post and it shows again to sellers who
             closed the old version. For something that must be seen this minute, use Broadcast instead.
-          </div>
-        </div>
-
-        {/* Live preview */}
-        <div className="lg:sticky lg:top-2 lg:self-start">
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-4 shadow-sm">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="flex items-center gap-2 text-sm font-bold">
-                <Eye size={15} /> Seller view (live preview)
-              </h3>
-              <label className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--mut)]">
-                <input type="checkbox" checked={previewDark} onChange={(e) => setPreviewDark(e.target.checked)} /> Dark
-              </label>
-            </div>
-            <div className="mb-3 grid gap-2 sm:grid-cols-2">
-              <label className="text-[11px] font-semibold text-[var(--mut)]">
-                As retailer
-                <select className={field + " h-9"} value={previewRetailer} onChange={(e) => setPreviewRetailer(e.target.value)}>
-                  <option value="">Everyone (all posts)</option>
-                  {activeRetailers.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.number} · {r.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-[11px] font-semibold text-[var(--mut)]">
-                On date
-                <input type="date" className={field + " h-9"} value={previewDate} onChange={(e) => setPreviewDate(e.target.value || arubaToday())} />
-              </label>
-            </div>
-            <div className={previewDark ? "dark rounded-2xl bg-slate-900 p-3" : "rounded-2xl bg-white p-3 ring-1 ring-slate-200"}>
-              {boardOn ? (
-                <BulletinBoard brand={previewBrand} retailerId={previewRetailer || undefined} userKey="preview" preview previewToday={previewDate} />
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-center text-xs text-slate-400">
-                  The bulletin board is switched off for sell screens.
-                </div>
-              )}
-            </div>
-            <p className="mt-2 text-[11px] text-[var(--mut)]">
-              Sellers see a slim bar that opens to these cards. Changes save automatically.
-            </p>
           </div>
         </div>
       </div>

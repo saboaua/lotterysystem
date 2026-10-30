@@ -189,7 +189,11 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
 
       {expanded && (
         <div id="bulletin-panel" className="px-3 pb-3">
-          <ul className="grid max-h-[min(46vh,24rem)] gap-2 overflow-auto sm:grid-cols-2 xl:grid-cols-3">
+          <ul
+            className={`grid gap-2 ${preview ? "" : "max-h-[min(46vh,24rem)] overflow-auto"}`}
+            // Cards fit the width they are given (works in the narrow seller window and the wide preview alike).
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 19rem), 1fr))" }}
+          >
             {listed.map((p) => {
               const meta = LEVELS[p.level];
               const url = safeUrl(p.link_url);
