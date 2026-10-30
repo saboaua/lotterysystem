@@ -39,7 +39,9 @@ export interface PrizeTier {
   amount: number;
   rule: PrizeMatchRule;
   digits?: number;
+  /** Which draw result to compare against: 1 = 1st prize number (default), 2 = 2nd, 3 = 3rd. */
   position?: 1 | 2 | 3;
+  /** Restrict this tier to one play type (BetType.key). When set, `amount` is paid per 1.00 wagered. */
   bet_type?: string;
   enabled: boolean;
 }
@@ -54,14 +56,26 @@ export interface Game {
   cutoff: string;
   enabled: boolean;
   draw_days?: number[];
+  /** Advertised progressive pool for the next / current open draw */
   jackpot_current?: number;
+  /** Pool amount before the last rollover or win (for MOTD / reports) */
   jackpot_previous?: number;
+  /** Seed / floor after a jackpot win (progressive reset amount) */
   jackpot_base?: number;
+  /** Optional fixed amount added each draw with no jackpot winner */
   jackpot_increment?: number;
+  /** Percent of that draw's sales added to the progressive pool (0–100) */
   jackpot_sales_pct?: number;
+  /** Optional hard ceiling on the progressive pool */
   jackpot_cap?: number;
+  /** Optional % of won jackpot reserved to help fund the next seed (0–100) */
   jackpot_reserve_pct?: number;
+  /**
+   * Short code for ticket tokens, e.g. "lm" → {jackpot_lm} and {prev_jackpot_lm}.
+   * Also always available as {jackpot_<game_id>}.
+   */
   jackpot_token?: string;
+  /** Short ticket-text shortcut for this game, e.g. "dia" → {dia} prints "Diario". Defaults to the first 3 letters of the name. */
   token?: string;
   main_count?: number;
   mega_count?: number;
@@ -72,125 +86,3 @@ export interface Game {
   prize_tiers?: PrizeTier[];
   [key: string]: unknown;
 }
-
-export interface BrandSettings {
-  name: string;
-  tagline: string;
-  led_message: string;
-  led_on: boolean;
-  led_speed: number;
-  led_color: string;
-  logo?: string;
-  led_schedule?: LedScheduleMessage[];
-  bulletins?: Bulletin[];
-  bulletin_on?: boolean;
-  ping_interval_sec?: number;
-  offline_after_sec?: number;
-  theme_id?: string;
-  login_welcome?: string;
-  login_subtitle?: string;
-}
-
-export interface LedScheduleMessage {
-  id: string;
-  text: string;
-  enabled: boolean;
-  start?: string;
-  end?: string;
-}
-
-export type BulletinLevel = "info" | "warning" | "promo";
-
-export interface Bulletin {
-  id: string;
-  title: string;
-  body: string;
-  level: BulletinLevel;
-  pinned?: boolean;
-  enabled: boolean;
-  retailer_ids?: string[];
-  link_label?: string;
-  link_url?: string;
-  updated_at: string;
-}
-
-export type TicketMessagePlacement =
-  | "header"
-  | "footer"
-  | "after_lines"
-  | "before_total"
-  | "after_total"
-  | "after_promo";
-
-export interface TicketScheduleMessage {
-  id: string;
-  label: string;
-  text: string;
-  game_ids: string[];
-  enabled: boolean;
-  placement: TicketMessagePlacement;
-  relative_to_motd?: "before_manual" | "after_manual";
-  start?: string;
-  end?: string;
-}
-
-export type TopUpKind = "voucher" | "direct";
-export type TopUpStatus = "issued" | "redeemed" | "credited" | "failed" | "void";
-
-export interface TopUp {
-  id: string;
-  kind: TopUpKind;
-  amount: number;
-  status: TopUpStatus;
-  code?: string;
-  player_code?: string;
-  retailer_id?: string;
-  created_at: string;
-  [key: string]: unknown;
-}
-
-export interface AppUser {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  staff_role?: string;
-  permissions?: string[];
-  retailer_id?: string;
-  [key: string]: unknown;
-}
-
-export interface Retailer {
-  id: string;
-  name: string;
-  code?: string;
-  status?: string;
-  commission_pct?: number;
-  [key: string]: unknown;
-}
-
-export interface Promotion {
-  id: string;
-  name: string;
-  code?: string;
-  enabled: boolean;
-  [key: string]: unknown;
-}
-
-export interface TicketDesign {
-  [key: string]: unknown;
-}
-
-export interface TopUpDesign {
-  [key: string]: unknown;
-}
-
-/** Minimal stubs for other types used across the app — extend as needed. */
-export type SoldTicket = {
-  id: string;
-  retailer_id: string;
-  total: number;
-  status: string;
-  promo_code?: string;
-  [key: string]: unknown;
-};
