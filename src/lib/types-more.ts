@@ -1,3 +1,5 @@
+import type { Role, Game, Retailer, BetType } from "./types-core";
+
 export interface AppUser {
   id: string;
   email: string;
