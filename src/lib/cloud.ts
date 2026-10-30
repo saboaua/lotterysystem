@@ -7,6 +7,7 @@
 import { getSupabase, isSupabaseConfigured } from "./supabase";
 import type {
   BetType,
+  BlockedNumber,
   BrandSettings,
   BroadcastMessage,
   DrawResult,
@@ -311,6 +312,13 @@ export async function pullFastPlay(): Promise<Res<FastPlayGame[] | null>> {
   const r = await pullSetting<{ items?: FastPlayGame[] }>("fast_play_games");
   if (r.ok === false) return r;
   return { ok: true, data: r.data?.items?.length ? r.data.items : null };
+}
+
+export const pushBlockedNumbers = (items: BlockedNumber[]) => pushSetting("blocked_numbers", { items });
+export async function pullBlockedNumbers(): Promise<Res<BlockedNumber[] | null>> {
+  const r = await pullSetting<{ items?: BlockedNumber[] }>("blocked_numbers");
+  if (r.ok === false) return r;
+  return { ok: true, data: r.data?.items ?? null };
 }
 
 export async function pullBroadcast(): Promise<Res<BroadcastMessage | null>> {

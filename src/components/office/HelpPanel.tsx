@@ -31,6 +31,16 @@ const SECTIONS: { title: string; body: string[] }[] = [
     ],
   },
   {
+    title: "Number control (sold-out numbers)",
+    body: [
+      "Block numbers you do not want to sell, e.g. a popular 4-digit number like 2323. Sellers see “sold out” and cannot add it.",
+      "Type one or many numbers (comma or space separated). Use * for any digit: 23** blocks 2300–2399, **99 blocks every number ending 99.",
+      "Choose all play types or only some, optionally block the same digits in any order, and set Until I remove it / Today only / Until a date.",
+      "Pause a rule to sell the number again without losing the rule. Use “Check a number” to test what a seller would see.",
+      "Terminals refresh the list about every 30 seconds and check again when the ticket is completed.",
+    ],
+  },
+  {
     title: "Ticket design",
     body: [
       "Adjust header, footer, font, logo height and toggles (barcode, QR, retailer block).",

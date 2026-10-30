@@ -42,6 +42,8 @@ export function SellScreen() {
     removeLine,
     clearLines,
     sellTicket,
+    checkBlocked,
+    refreshBlockedNumbers,
     selectedRetailerId,
     retailers,
     total,
@@ -231,6 +233,15 @@ export function SellScreen() {
         return;
       }
       const number = num.padStart(digits, "0").slice(0, digits);
+      // Sold-out numbers (Number control in the back office) cannot be added.
+      for (const gid of sel) {
+        for (const dd of dates) {
+          if (checkBlocked(gid, bt, number, dd)) {
+            toast(`${number} is sold out${sel.length > 1 ? " for " + (games.find((g) => g.id === gid)?.name || gid) : ""}`, true);
+            return;
+          }
+        }
+      }
       for (const gid of sel) {
         for (const dd of dates) {
           addLine({
@@ -256,6 +267,10 @@ export function SellScreen() {
         return;
       }
       const number = num.padStart(need, "0").slice(0, need);
+      if (checkBlocked(primary.id, "zodiac", number, date)) {
+        toast(`${number} is sold out`, true);
+        return;
+      }
       for (const z of syms) {
         addLine({
           game: primary.id,
@@ -278,7 +293,13 @@ export function SellScreen() {
         toast("Pick at least one Play Whe mark", true);
         return;
       }
-      for (const mark of marks) {
+      const soldOut = marks.filter((m) => checkBlocked(primary.id, "play_whe", String(m), date));
+      if (soldOut.length === marks.length) {
+        toast(`Sold out: ${soldOut.join(", ")}`, true);
+        return;
+      }
+      if (soldOut.length) toast(`Skipped sold-out marks: ${soldOut.join(", ")}`, true);
+      for (const mark of marks.filter((m) => !soldOut.includes(m))) {
         addLine({
           game: primary.id,
           bet_type: "play_whe",
@@ -317,11 +338,13 @@ export function SellScreen() {
     toast("Play added");
   }
 
-  function sendTicket() {
+  async function sendTicket() {
     if (!lines.length) {
       toast("No plays on ticket", true);
       return;
     }
+    // Pick up numbers blocked in the last moments before the sale is completed.
+    await refreshBlockedNumbers();
     const t = sellTicket();
     if (!t) return;
     try {
@@ -473,6 +496,12 @@ export function SellScreen() {
 
   const shop = retailers.find((r) => r.id === selectedRetailerId);
   const digitSlots = Array.from({ length: digits }, (_, i) => num[i] || "");
+  const liveSoldOut =
+    (primary?.format === "digit" || primary?.format === "zodiac") && num.length >= digits && digits > 0
+      ? sel
+          .map((gid) => checkBlocked(gid, primary.format === "zodiac" ? "zodiac" : bt, num.padStart(digits, "0").slice(0, digits), date))
+          .find(Boolean) ?? null
+      : null;
 
   function gameStatus(g: Game) {
     const [hh, mm] = (g.cutoff || "12:00").split(":").map(Number);
@@ -666,6 +695,7 @@ export function SellScreen() {
                 whePicks={whePicks}
                 setWhePicks={setWhePicks}
                 typed={parseInt(num, 10)}
+                isBlocked={(n) => !!primary && !!checkBlocked(primary.id, "play_whe", String(n), date)}
               />
             )}
             {primary?.format === "jackpot" && (
@@ -748,6 +778,14 @@ export function SellScreen() {
                         </span>
                       ))}
                     </div>
+                    {liveSoldOut && (
+                      <div
+                        role="alert"
+                        className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-white"
+                      >
+                        ⛔ {num.padStart(digits, "0")} is sold out
+                      </div>
+                    )}
                     <div className="mt-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
                       Bet: {activeBet?.label || "—"}
                       {activeBet?.mode === "exact" ? " Direct" : activeBet?.mode ? " " + activeBet.mode : ""}
@@ -935,7 +973,12 @@ export function SellScreen() {
             lines.map((l) => (
               <div
                 key={l.id}
-                className="flex items-start gap-2 rounded-xl bg-slate-50 px-2 py-1.5 text-xs dark:bg-slate-800"
+                className={
+                  "flex items-start gap-2 rounded-xl px-2 py-1.5 text-xs " +
+                  (checkBlocked(l.game, l.bet_type, l.number, l.date)
+                    ? "bg-rose-50 ring-1 ring-rose-300 dark:bg-rose-950/30"
+                    : "bg-slate-50 dark:bg-slate-800")
+                }
               >
                 <div className="min-w-0 flex-1">
                   <div className="font-bold">
@@ -945,6 +988,9 @@ export function SellScreen() {
                     {l.number}
                     {l.session ? " · " + l.session : ""} · {l.date}
                   </div>
+                  {checkBlocked(l.game, l.bet_type, l.number, l.date) && (
+                    <div className="mt-0.5 font-extrabold uppercase text-rose-600">Sold out — remove</div>
+                  )}
                 </div>
                 <span className="font-bold">
                   {currency} {l.amount.toFixed(2)}

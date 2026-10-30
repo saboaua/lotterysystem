@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Megaphone,
   MessageSquare,
+  Ban,
   Network,
   Shield,
   Sparkles,
@@ -32,7 +33,9 @@ import { DrawSchedulePanel } from "./office/DrawSchedule";
 import { BroadcastPanel } from "./office/BroadcastPanel";
 import { TAB_MODULE, can, isBackOffice } from "@/lib/permissions";
 import { StaffPanel } from "./office/StaffPanel";
+import { NumberControlPanel } from "./office/NumberControlPanel";
 import { ChangePasswordCard } from "./ChangePasswordCard";
+import { MyProfileCard } from "./MyProfileCard";
 
 type Sub =
   | "games"
@@ -46,6 +49,7 @@ type Sub =
   | "draw_reports"
   | "reports"
   | "retailers"
+  | "numbers"
   | "isp"
   | "staff"
   | "account"
@@ -56,6 +60,7 @@ const ICON_STROKE = 1.75;
 
 const TABS: { id: Sub; label: string; icon: typeof Gamepad2 }[] = [
   { id: "games", label: "Games & schedule", icon: Gamepad2 },
+  { id: "numbers", label: "Number control", icon: Ban },
   { id: "fast_play", label: "Fast Play", icon: Sparkles },
   { id: "calendar", label: "Draw calendar", icon: CalendarDays },
   { id: "brand", label: "Branding & bulletin", icon: MessageSquare },
@@ -83,7 +88,7 @@ export function OfficeScreen() {
   const sub: Sub =
     chosen && visibleTabs.some((t) => t.id === chosen)
       ? chosen
-      : (visibleTabs.find((t) => t.id === "results") ?? visibleTabs[0] ?? TABS[0]).id;
+      : (visibleTabs.find((t) => t.id === "games") ?? visibleTabs[0] ?? TABS[0]).id;
   const subModule = TAB_MODULE[sub];
   const readOnly = !!subModule && !can(user, `${subModule}:edit`) && !["reports", "isp"].includes(sub);
 
@@ -165,6 +170,7 @@ export function OfficeScreen() {
         {sub === "retailers" && <RetailersPanel />}
         {sub === "isp" && <IspPanel />}
         {sub === "account" && <AccountPanel />}
+        {sub === "numbers" && <NumberControlPanel />}
         {sub === "staff" && <StaffPanel />}
         {sub === "help" && <HelpPanel />}
         </fieldset>
@@ -176,7 +182,7 @@ export function OfficeScreen() {
 function AccountPanel() {
   const { user, brand, logout } = useStore();
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <h2 className="text-lg font-bold">Account</h2>
         <div className="text-sm">
@@ -196,6 +202,7 @@ function AccountPanel() {
           Sign out
         </button>
       </div>
+      <MyProfileCard />
       <ChangePasswordCard />
     </div>
   );

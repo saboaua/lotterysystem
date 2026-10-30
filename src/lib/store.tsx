@@ -12,6 +12,7 @@ import React, {
 import type {
   AppUser,
   BetType,
+  BlockedNumber,
   BrandSettings,
   DrawResult,
   FastPlayGame,
@@ -50,11 +51,13 @@ import {
 } from "./audit";
 import { can, isBackOffice } from "./permissions";
 import { ensureBulletins } from "./bulletins";
+import { findBlocked } from "./blocked-numbers";
 import {
   holidayRowId,
   newUuid,
   pingRetailerRemote,
   pullBetTypes,
+  pullBlockedNumbers,
   pullFastPlay,
   pullGames,
   pullHolidays,
@@ -64,6 +67,7 @@ import {
   pullSupport,
   pullTopUps,
   pushBetTypes,
+  pushBlockedNumbers,
   pushBrand,
   pushFastPlay,
   pushGames,
@@ -110,11 +114,19 @@ interface Store {
   loginAs: (userId: string) => void;
   setUserFromAuth: (user: AppUser) => void;
   logout: () => void;
+  /** Update fields of the signed-in user in memory (after saving their profile). */
+  patchUser: (patch: Partial<AppUser>) => void;
   setSelectedRetailer: (id: string) => void;
-  addLine: (line: Omit<TicketLine, "id">) => void;
+  addLine: (line: Omit<TicketLine, "id">) => boolean;
   removeLine: (id: string) => void;
   clearLines: () => void;
   sellTicket: () => Ticket | null;
+  blockedNumbers: BlockedNumber[];
+  setBlockedNumbers: (next: BlockedNumber[]) => void;
+  /** Fetch the latest sold-out rules (call right before a sale). Falls back to the cached list. */
+  refreshBlockedNumbers: () => Promise<BlockedNumber[]>;
+  /** The rule that blocks this play, or null when it can be sold. */
+  checkBlocked: (gameId: string, betType: string, number: string, drawDate: string) => BlockedNumber | null;
   cancelTicket: (id: string) => void;
   redeemTicket: (id: string) => void;
   replayTicket: (id: string) => void;
@@ -281,6 +293,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [lastTicketId, setLastTicketId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [fastPlayGames, setFastPlayGames] = useState<FastPlayGame[]>(DEMO_FAST_PLAY);
+  const [blockedNumbers, setBlockedNumbersState] = useState<BlockedNumber[]>([]);
+  const blockedRef = useRef<BlockedNumber[]>([]);
+  useEffect(() => {
+    blockedRef.current = blockedNumbers;
+  }, [blockedNumbers]);
   const retailersRef = useRef<Retailer[]>(retailers);
   const userRef = useRef<AppUser | null>(user);
   useEffect(() => {
@@ -304,6 +321,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setRetailers(loadJson("retailers", DEMO_RETAILERS));
     setPromotions(loadJson("promotions", DEMO_PROMOTIONS));
     setFastPlayGames(loadJson("fastPlayGames", DEMO_FAST_PLAY));
+    setBlockedNumbersState(loadJson("blockedNumbers", []));
     setTopUps(loadJson("topUps", []));
     setHydrated(true);
   }, []);
@@ -344,6 +362,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
     saveJson("fastPlayGames", fastPlayGames);
   }, [fastPlayGames, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJson("blockedNumbers", blockedNumbers);
+  }, [blockedNumbers, hydrated]);
 
   const toast = useCallback((message: string, err = false) => {
     const id = ++toastSeq;
@@ -443,7 +465,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const pullAll = useCallback(async () => {
     if (!isSupabaseConfigured) return;
-    const [g, bt, rs, hd, pm, br, td, fp] = await Promise.all([
+    const [g, bt, rs, hd, pm, br, td, fp, bn] = await Promise.all([
       pullGames(DEMO_GAMES),
       pullBetTypes(),
       pullResults(),
@@ -452,8 +474,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       pullSetting<Partial<BrandSettings>>("brand"),
       pullSetting<Partial<TicketDesign>>("ticket_design"),
       pullFastPlay(),
+      pullBlockedNumbers(),
     ]);
-    const failed = [g, bt, rs, hd, pm, br, td, fp].find((x) => x.ok === false);
+    const failed = [g, bt, rs, hd, pm, br, td, fp, bn].find((x) => x.ok === false);
     if (failed && failed.ok === false) {
       cloudError(`Could not load from Supabase: ${failed.error}`);
       return;
@@ -497,6 +520,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setFastPlayGames(fp.data);
       markSynced(snaps, "fast_play", fp.data, (x) => x.id);
     }
+    if (bn.ok && bn.data) {
+      setBlockedNumbersState(bn.data);
+      markSynced(snaps, "blocked_numbers", bn.data, (x) => x.id);
+    }
     lastCloudErr.current = "";
     setCloudReady(true);
   }, [cloudError]);
@@ -525,6 +552,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!isSupabaseConfigured || user?.role !== "retailer") return;
     let stopped = false;
     const refresh = async () => {
+      void pullBlockedNumbers().then((b) => {
+        if (!stopped && b.ok && b.data) setBlockedNumbersState(b.data);
+      });
       const r = await pullSetting<Partial<BrandSettings>>("brand");
       if (stopped || r.ok === false || !r.data) return;
       const data = r.data;
@@ -537,7 +567,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
       });
     };
-    const id = setInterval(refresh, 60_000);
+    const id = setInterval(refresh, 30_000);
     const onVisible = () => {
       if (document.visibilityState === "visible") void refresh();
     };
@@ -578,6 +608,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     cloudError,
     { entity: "ticket design", label: () => "Ticket design" }
   );
+  useCloudSync(
+    "blocked_numbers",
+    blockedNumbers,
+    (x) => x.id,
+    (items) => pushBlockedNumbers(items),
+    may("numbers:edit"),
+    snaps,
+    cloudError,
+    { entity: "blocked number", label: (x) => `${x.number} (${x.game_id})` }
+  );
   useCloudSync("fast_play", fastPlayGames, (x) => x.id, (f) => pushFastPlay(f), may("fastplay:edit"), snaps, cloudError, { entity: "fast play game", label });
 
   const loginAs = useCallback(
@@ -614,6 +654,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [syncRetailers, pullAll, pullPrivate]);
 
+  const patchUser = useCallback((patch: Partial<AppUser>) => {
+    setUser((u) => (u ? { ...u, ...patch } : u));
+  }, []);
+
   const logout = useCallback(() => {
     const u = userRef.current;
     setUser(null);
@@ -623,9 +667,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (isSupabaseConfigured) void done.then(() => sbSignOut());
   }, []);
 
-  const addLine = useCallback((line: Omit<TicketLine, "id">) => {
-    setLines((prev) => [...prev, { ...line, id: `L${++lineSeq}` }]);
+  const setBlockedNumbers = useCallback((next: BlockedNumber[]) => setBlockedNumbersState(next), []);
+
+  const gamesRef = useRef<Game[]>(games);
+  useEffect(() => {
+    gamesRef.current = games;
+  }, [games]);
+
+  const checkBlocked = useCallback(
+    (gameId: string, betType: string, number: string, drawDate: string) =>
+      findBlocked(
+        blockedRef.current,
+        gamesRef.current.find((g) => g.id === gameId),
+        betType,
+        number,
+        drawDate
+      ),
+    []
+  );
+
+  const refreshBlockedNumbers = useCallback(async (): Promise<BlockedNumber[]> => {
+    if (!isSupabaseConfigured) return blockedRef.current;
+    const r = await Promise.race([
+      pullBlockedNumbers(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+    ]);
+    if (r && r.ok && r.data) {
+      blockedRef.current = r.data;
+      setBlockedNumbersState(r.data);
+      return r.data;
+    }
+    return blockedRef.current; // offline / slow: use the last list we have
   }, []);
+
+  const addLine = useCallback(
+    (line: Omit<TicketLine, "id">): boolean => {
+      if (checkBlocked(line.game, line.bet_type, line.number, line.date)) return false;
+      setLines((prev) => [...prev, { ...line, id: `L${++lineSeq}` }]);
+      return true;
+    },
+    [checkBlocked]
+  );
 
   const removeLine = useCallback((id: string) => {
     setLines((prev) => prev.filter((l) => l.id !== id));
@@ -635,6 +717,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const sellTicket = useCallback((): Ticket | null => {
     if (!lines.length) return null;
+    // Last safety net: never sell a number that has been blocked since it was added to the ticket.
+    const soldOut = lines.find((l) => checkBlocked(l.game, l.bet_type, l.number, l.date));
+    if (soldOut) {
+      toast(`${soldOut.number.split("-")[0]} is sold out — remove it from the ticket to continue`, true);
+      return null;
+    }
     // Live mode: ids must be unique across terminals and page reloads (tickets.id is the primary key).
     const id = isSupabaseConfigured
       ? `T${String(Math.floor(Date.now() / 10)).slice(-10)}`
@@ -677,7 +765,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
     }
     return t;
-  }, [lines, selectedRetailerId, promotions, toast, user]);
+  }, [lines, selectedRetailerId, promotions, toast, user, checkBlocked]);
 
   const cancelTicket = useCallback(
     (id: string) => {
@@ -1011,11 +1099,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     loginAs,
     setUserFromAuth,
     logout,
+    patchUser,
     setSelectedRetailer: setSelectedRetailerId,
     addLine,
     removeLine,
     clearLines,
     sellTicket,
+    blockedNumbers,
+    setBlockedNumbers,
+    refreshBlockedNumbers,
+    checkBlocked,
     cancelTicket,
     redeemTicket,
     replayTicket,

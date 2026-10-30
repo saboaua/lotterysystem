@@ -269,6 +269,14 @@ export interface AppUser {
   /** Staff only: name of the assigned role and the permissions it grants (e.g. "games:edit"). */
   staff_role?: string;
   permissions?: string[];
+  /** Contact details the user can edit themselves (Account tab). */
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  address_line?: string;
+  city?: string;
+  country?: string;
+  postal_code?: string;
 }
 
 export interface LedScheduleMessage {
@@ -278,6 +286,25 @@ export interface LedScheduleMessage {
   enabled: boolean;
   start?: string;
   end?: string;
+}
+
+/** A number (or pattern) that sellers cannot sell: "sold out". */
+export interface BlockedNumber {
+  id: string;
+  game_id: string;
+  /** Digits; for digit games `*` stands for any digit (e.g. "23**" blocks 2300-2399). */
+  number: string;
+  /** Only these play types (BetType.key); empty / missing = every play type of that length. */
+  bet_types?: string[];
+  /** Also block the same digits in any order (2323 → 3232, 2233...). Not used with wildcards. */
+  permutations?: boolean;
+  /** Blocked for draws up to and including this date (YYYY-MM-DD). Missing = until removed. */
+  until?: string;
+  /** Paused rules stay in the list but do not block. */
+  enabled: boolean;
+  reason?: string;
+  created_at: string;
+  created_by?: string;
 }
 
 export type BulletinLevel = "info" | "update" | "promo" | "important" | "urgent";

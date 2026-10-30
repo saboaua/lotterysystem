@@ -11,6 +11,7 @@ export interface PermissionModule {
 
 export const PERMISSION_MODULES: PermissionModule[] = [
   { key: "games", label: "Games & bet types", description: "Games, schedule, prize payouts, tokens, bet types" },
+  { key: "numbers", label: "Number control", description: "Block numbers so sellers cannot sell them (sold out)" },
   { key: "fastplay", label: "Fast Play", description: "Fast Play instant games" },
   { key: "schedule", label: "Draw calendar", description: "Draw calendar and holidays" },
   { key: "results", label: "Results & draw reports", description: "Enter draw results, winners, draw reports" },
@@ -47,6 +48,7 @@ export function can(u: Pick<AppUser, "role" | "permissions"> | null | undefined,
 /** Back-office tab → permission module (tabs not listed are open to every back-office user). */
 export const TAB_MODULE: Record<string, string | undefined> = {
   games: "games",
+  numbers: "numbers",
   fast_play: "fastplay",
   calendar: "schedule",
   brand: "brand",

@@ -86,9 +86,72 @@ export async function changePassword(
   return { ok: true };
 }
 
+export interface ProfileDetails {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  address_line: string;
+  city: string;
+  country: string;
+  postal_code: string;
+}
+
+/** Save the signed-in user's own contact details (server function only touches these fields). */
+export async function updateMyProfile(d: ProfileDetails): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Supabase is not configured" };
+  const { error } = await sb.rpc("update_my_profile", {
+    p_first: d.first_name,
+    p_last: d.last_name,
+    p_phone: d.phone,
+    p_address: d.address_line,
+    p_city: d.city,
+    p_country: d.country,
+    p_postal: d.postal_code,
+  });
+  if (error) {
+    const missing = /update_my_profile|function/i.test(error.message);
+    return { ok: false, error: missing ? "Run supabase/v3_profile_numbers.sql in Supabase first." : error.message };
+  }
+  return { ok: true };
+}
+
+/**
+ * Change the login email. Supabase sends a confirmation link; the address only changes after it is
+ * confirmed. The current password is checked first.
+ */
+export async function changeEmail(
+  currentEmail: string,
+  password: string,
+  newEmail: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Email changes need Supabase to be configured." };
+  const { error: verifyErr } = await sb.auth.signInWithPassword({ email: currentEmail, password });
+  if (verifyErr) return { ok: false, error: "Current password is incorrect." };
+  const { error } = await sb.auth.updateUser({ email: newEmail });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function signOut(): Promise<void> {
   const sb = getSupabase();
   if (sb) await sb.auth.signOut();
+}
+
+/** Optional contact fields (need supabase/v3_profile_numbers.sql). A failure here must never block sign-in. */
+async function loadProfileExtras(userId: string): Promise<Partial<AppUser>> {
+  const sb = getSupabase();
+  if (!sb) return {};
+  const { data, error } = await sb
+    .from("profiles")
+    .select("first_name, last_name, phone, address_line, city, country, postal_code")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return {};
+  const out: Partial<AppUser> = {};
+  for (const [k, v] of Object.entries(data)) if (typeof v === "string" && v) (out as Record<string, string>)[k] = v;
+  return out;
 }
 
 async function loadProfile(userId: string): Promise<AppUser | null> {
@@ -114,7 +177,9 @@ async function loadProfile(userId: string): Promise<AppUser | null> {
   } else if (data.role === "staff") {
     permissions = [];
   }
+  const extras = await loadProfileExtras(userId);
   return {
+    ...extras,
     id: data.id,
     email: data.email || "",
     name: data.name || "",

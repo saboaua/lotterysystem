@@ -167,17 +167,22 @@ export function PlayWhePicker({
   whePicks,
   setWhePicks,
   typed,
+  isBlocked,
 }: {
   primary?: Game;
   whePicks: number[];
   setWhePicks: (n: number[]) => void;
   /** Mark currently typed on the keypad (NaN when none). */
   typed: number;
+  /** Sold-out marks (Number control) cannot be picked. */
+  isBlocked?: (n: number) => boolean;
 }) {
   if (primary?.format !== "whe") return null;
+  const available = PLAY_WHE_MARKS.filter((m) => !isBlocked?.(m.num)).length;
   const selected = new Set(whePicks);
   if (typed >= 1 && typed <= 36) selected.add(typed);
   function toggle(n: number) {
+    if (isBlocked?.(n)) return;
     setWhePicks(whePicks.includes(n) ? whePicks.filter((x) => x !== n) : [...whePicks, n]);
   }
   return (
@@ -191,17 +196,19 @@ export function PlayWhePicker({
             type="button"
             onClick={() =>
               setWhePicks(
-                whePicks.length === PLAY_WHE_MARKS.length ? [] : PLAY_WHE_MARKS.map((m) => m.num)
+                (available > 0 && whePicks.length === available)
+                  ? []
+                  : PLAY_WHE_MARKS.map((m) => m.num).filter((n) => !isBlocked?.(n))
               )
             }
             className={
               "rounded-full px-3 py-1 text-[11px] font-extrabold transition " +
-              (whePicks.length === PLAY_WHE_MARKS.length
+              ((available > 0 && whePicks.length === available)
                 ? "bg-rose-600 text-white"
                 : "bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800")
             }
           >
-            {whePicks.length === PLAY_WHE_MARKS.length ? "All marks ✓" : "All marks"}
+            {(available > 0 && whePicks.length === available) ? "All marks ✓" : "All marks"}
           </button>
           <span className="text-xs font-bold text-rose-500">{selected.size} selected</span>
           {selected.size > 0 && (
@@ -221,12 +228,21 @@ export function PlayWhePicker({
             key={m.id}
             type="button"
             onClick={() => toggle(m.num)}
-            className={`btn-tactile flex flex-col items-center rounded-xl border p-1.5 text-center ${
-              selected.has(m.num)
-                ? "border-rose-400 bg-rose-500/15 ring-2 ring-rose-400"
-                : "border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-700"
+            disabled={isBlocked?.(m.num)}
+            aria-label={isBlocked?.(m.num) ? `${m.label} sold out` : undefined}
+            className={`btn-tactile relative flex flex-col items-center rounded-xl border p-1.5 text-center ${
+              isBlocked?.(m.num)
+                ? "cursor-not-allowed border-rose-200 bg-rose-50 opacity-60 dark:border-rose-900 dark:bg-rose-950/30"
+                : selected.has(m.num)
+                  ? "border-rose-400 bg-rose-500/15 ring-2 ring-rose-400"
+                  : "border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-700"
             }`}
           >
+            {isBlocked?.(m.num) && (
+              <span className="absolute inset-x-0 top-0 rounded-t-xl bg-rose-600 py-px text-[8px] font-extrabold uppercase text-white">
+                Sold out
+              </span>
+            )}
             <span className="text-lg leading-none">{m.emoji}</span>
             <span className="text-[10px] font-bold">{String(m.num).padStart(2, "0")}</span>
             <span className="w-full truncate text-[8px] text-slate-500">{m.label}</span>
