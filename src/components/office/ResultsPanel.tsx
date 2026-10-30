@@ -268,8 +268,9 @@ export function ResultsPanel({ mode = "all" }: ResultsPanelProps) {
                 disabled={!c.day}
                 onClick={() => {
                   if (!c.dateStr) return;
-                  setD(c.dateStr);
-                  setExpandedDay((prev) => (prev === c.dateStr ? null : c.dateStr));
+                  const dateStr = c.dateStr;
+                  setD(dateStr);
+                  setExpandedDay((prev) => (prev === dateStr ? null : dateStr));
                 }}
                 className={
                   "min-h-[64px] rounded-lg border p-1 text-left " +
@@ -557,7 +558,7 @@ export function ResultsPanel({ mode = "all" }: ResultsPanelProps) {
                     <label className="text-[11px] font-semibold text-slate-500">
                       2nd prize
                       <input
-                        className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 font-mono text-sm"
+                        className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm font-mono"
                         value={second}
                         onChange={(e) => setSecond(e.target.value)}
                         placeholder="0000"
