@@ -83,38 +83,45 @@ export function DrawSchedulePanel({
   const passed = slots.filter((s) => s.status === "passed");
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">Draw calculation schedule</h2>
           <p className="text-xs text-slate-500">
             All games open for today. Past cutoff = closed for sales / ready for result entry.
           </p>
         </div>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-slate-800">
           Live
         </span>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-          <div className="text-[10px] font-bold uppercase text-emerald-700">Open for sell</div>
-          <div className="text-xl font-extrabold text-emerald-800">{open.length}</div>
+      {/* Same 4-col KPI rhythm as Draws & winners */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+          <div className="text-[10px] font-bold uppercase text-slate-400">Open for sell</div>
+          <div className="text-xl font-extrabold text-emerald-700 dark:text-emerald-400">{open.length}</div>
         </div>
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
-          <div className="text-[10px] font-bold uppercase text-rose-700">Past cutoff</div>
-          <div className="text-xl font-extrabold text-rose-800">{passed.length}</div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+          <div className="text-[10px] font-bold uppercase text-slate-400">Past cutoff</div>
+          <div className="text-xl font-extrabold text-rose-700 dark:text-rose-400">{passed.length}</div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <div className="text-[10px] font-bold uppercase text-slate-500">Total slots</div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+          <div className="text-[10px] font-bold uppercase text-slate-400">Total slots</div>
           <div className="text-xl font-extrabold">{slots.length}</div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+          <div className="text-[10px] font-bold uppercase text-slate-400">Next cutoff</div>
+          <div className="text-xl font-extrabold font-mono">
+            {open[0] ? open[0].cutoff : "—"}
+          </div>
         </div>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-slate-200 text-slate-500">
+            <tr className="border-b border-slate-200 text-slate-500 dark:border-slate-700">
               <th className="px-2 py-2">Game</th>
               <th className="px-2 py-2">Session</th>
               <th className="px-2 py-2">Cutoff</th>
@@ -125,7 +132,7 @@ export function DrawSchedulePanel({
           </thead>
           <tbody>
             {slots.map((s) => (
-              <tr key={s.key} className="border-b border-slate-100">
+              <tr key={s.key} className="border-b border-slate-100 dark:border-slate-800">
                 <td className="px-2 py-2">
                   <span className="inline-flex items-center gap-1.5 font-semibold">
                     <span
@@ -140,11 +147,11 @@ export function DrawSchedulePanel({
                 <td className="px-2 py-2 font-mono">{s.draw_time}</td>
                 <td className="px-2 py-2">
                   {s.status === "open" ? (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
                       Open · closes in {s.minutesToCutoff}m
                     </span>
                   ) : (
-                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
                       Closed · past cutoff
                     </span>
                   )}
@@ -154,7 +161,7 @@ export function DrawSchedulePanel({
                     <button
                       type="button"
                       onClick={() => onSelect(s)}
-                      className="rounded-full bg-violet-600/10 px-2.5 py-1 text-[10px] font-bold text-violet-700"
+                      className="rounded-full bg-violet-600/10 px-2.5 py-1 text-[10px] font-bold text-violet-700 dark:text-violet-300"
                     >
                       Enter results
                     </button>
