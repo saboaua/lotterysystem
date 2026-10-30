@@ -153,13 +153,13 @@ export function OfficeScreen() {
         {sub === "broadcast" && <BroadcastPanel />}
         {sub === "ticket" && <TicketDesignPanel />}
         {sub === "promos" && <PromosPanel />}
-        {sub === "results" && (
+        {sub === "results" && <ResultsPanel mode="results" />}
+        {sub === "draw_reports" && (
           <div className="space-y-6">
             <DrawSchedulePanel />
-            <ResultsPanel mode="results" />
+            <ResultsPanel mode="reports" />
           </div>
         )}
-        {sub === "draw_reports" && <ResultsPanel mode="reports" />}
         {sub === "reports" && <ReportsPanel />}
         {sub === "retailers" && <RetailersPanel />}
         {sub === "isp" && <IspPanel />}
