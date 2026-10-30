@@ -37,17 +37,16 @@ import { NumberControlPanel } from "./office/NumberControlPanel";
 import { ChangePasswordCard } from "./ChangePasswordCard";
 import { MyProfileCard } from "./MyProfileCard";
 
-type Sub =
+/** Top-level nav tabs (some open a hub with inner sub-tabs). */
+type Nav =
   | "games"
   | "fast_play"
   | "calendar"
-  | "brand"
-  | "broadcast"
+  | "comms"
   | "ticket"
   | "promos"
   | "results"
-  | "draw_reports"
-  | "reports"
+  | "reports_hub"
   | "retailers"
   | "numbers"
   | "isp"
@@ -55,21 +54,22 @@ type Sub =
   | "account"
   | "help";
 
-const ICON_SIZE = 20;
+type ReportsSub = "draw" | "sales";
+type CommsSub = "brand" | "broadcast";
+
+const ICON_SIZE = 26;
 const ICON_STROKE = 1.75;
 
-const TABS: { id: Sub; label: string; icon: typeof Gamepad2 }[] = [
+const TABS: { id: Nav; label: string; icon: typeof Gamepad2 }[] = [
   { id: "games", label: "Games & schedule", icon: Gamepad2 },
   { id: "numbers", label: "Number control", icon: Ban },
   { id: "fast_play", label: "Fast Play", icon: Sparkles },
   { id: "calendar", label: "Draw calendar", icon: CalendarDays },
-  { id: "brand", label: "Branding & bulletin", icon: MessageSquare },
-  { id: "broadcast", label: "Broadcast", icon: Megaphone },
+  { id: "comms", label: "Branding & broadcast", icon: Megaphone },
   { id: "ticket", label: "Ticket design", icon: Ticket },
   { id: "promos", label: "Promotions", icon: Gift },
   { id: "results", label: "Results & winners", icon: Trophy },
-  { id: "draw_reports", label: "Draw reports", icon: FileBarChart },
-  { id: "reports", label: "Reports", icon: ClipboardList },
+  { id: "reports_hub", label: "Reports", icon: ClipboardList },
   { id: "retailers", label: "Retailers", icon: Store },
   { id: "isp", label: "ISP / network", icon: Network },
   { id: "staff", label: "Security & access", icon: Shield },
@@ -77,20 +77,77 @@ const TABS: { id: Sub; label: string; icon: typeof Gamepad2 }[] = [
   { id: "help", label: "Help", icon: HelpCircle },
 ];
 
+/** Map nav id → permission module used for can() / view-only. */
+function navModule(nav: Nav, reportsSub: ReportsSub, commsSub: CommsSub): string | undefined {
+  if (nav === "comms") return TAB_MODULE[commsSub === "broadcast" ? "broadcast" : "brand"];
+  if (nav === "reports_hub") return TAB_MODULE[reportsSub === "draw" ? "draw_reports" : "reports"];
+  return TAB_MODULE[nav];
+}
+
+function canSeeNav(user: ReturnType<typeof useStore>["user"], id: Nav): boolean {
+  if (id === "staff") return user?.role === "owner";
+  if (id === "comms") {
+    return can(user, "brand:view") || can(user, "broadcast:view");
+  }
+  if (id === "reports_hub") {
+    return can(user, "results:view") || can(user, "reports:view");
+  }
+  const mod = TAB_MODULE[id];
+  return !mod || can(user, `${mod}:view`);
+}
+
+function SubTabs<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: { id: T; label: string; icon?: typeof Gamepad2 }[];
+  value: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div className="mb-4 inline-flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+      {items.map((t) => {
+        const Icon = t.icon;
+        const on = value === t.id;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onChange(t.id)}
+            className={
+              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold " +
+              (on
+                ? "bg-violet-600 text-white shadow"
+                : "text-slate-600 hover:text-slate-900 dark:text-slate-300")
+            }
+          >
+            {Icon ? <Icon size={14} /> : null}
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function OfficeScreen() {
   const { brand, user } = useStore();
-  const visibleTabs = TABS.filter((t) => {
-    if (t.id === "staff") return user?.role === "owner";
-    const mod = TAB_MODULE[t.id];
-    return !mod || can(user, `${mod}:view`);
-  });
-  const [chosen, setSub] = useState<Sub | null>(null);
-  const sub: Sub =
+  const visibleTabs = TABS.filter((t) => canSeeNav(user, t.id));
+  const [chosen, setNav] = useState<Nav | null>(null);
+  const [reportsSub, setReportsSub] = useState<ReportsSub>("draw");
+  const [commsSub, setCommsSub] = useState<CommsSub>("brand");
+
+  const nav: Nav =
     chosen && visibleTabs.some((t) => t.id === chosen)
       ? chosen
       : (visibleTabs.find((t) => t.id === "games") ?? visibleTabs[0] ?? TABS[0]).id;
-  const subModule = TAB_MODULE[sub];
-  const readOnly = !!subModule && !can(user, `${subModule}:edit`) && !["reports", "isp"].includes(sub);
+
+  const mod = navModule(nav, reportsSub, commsSub);
+  const readOnly =
+    !!mod &&
+    !can(user, `${mod}:edit`) &&
+    !(["reports", "isp"] as string[]).includes(mod);
 
   return (
     <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
@@ -113,17 +170,17 @@ export function OfficeScreen() {
         </div>
 
         <div className="mb-3 overflow-x-auto">
-          <div className="inline-flex min-w-full items-stretch gap-0.5 rounded-[1.25rem] bg-slate-100/90 p-1.5 dark:bg-slate-800/80">
+          <div className="inline-flex min-w-full items-stretch gap-1 rounded-[1.25rem] bg-slate-100/90 p-1.5 dark:bg-slate-800/80">
             {visibleTabs.map((t) => {
               const Icon = t.icon;
-              const on = sub === t.id;
+              const on = nav === t.id;
               return (
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => setSub(t.id)}
+                  onClick={() => setNav(t.id)}
                   className={
-                    "flex min-w-[5.5rem] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2.5 transition " +
+                    "flex min-w-[5.75rem] shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-3 transition " +
                     (on
                       ? "bg-violet-600 text-white shadow-md shadow-violet-600/25"
                       : "text-slate-500 hover:bg-white/70 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200")
@@ -132,10 +189,10 @@ export function OfficeScreen() {
                   <Icon
                     size={ICON_SIZE}
                     strokeWidth={ICON_STROKE}
-                    className="h-5 w-5 shrink-0"
+                    className="h-7 w-7 shrink-0"
                     aria-hidden
                   />
-                  <span className="max-w-[6.5rem] text-center text-[10px] font-semibold leading-tight">
+                  <span className="max-w-[7rem] text-center text-[10px] font-semibold leading-tight">
                     {t.label}
                   </span>
                 </button>
@@ -152,27 +209,63 @@ export function OfficeScreen() {
           </div>
         )}
         <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
-        {sub === "games" && <GamesPanel />}
-        {sub === "fast_play" && <FastPlayPanel />}
-        {sub === "calendar" && <ResultsPanel mode="calendar" />}
-        {sub === "brand" && <BrandPanel />}
-        {sub === "broadcast" && <BroadcastPanel />}
-        {sub === "ticket" && <TicketDesignPanel />}
-        {sub === "promos" && <PromosPanel />}
-        {sub === "results" && <ResultsPanel mode="results" />}
-        {sub === "draw_reports" && (
-          <div className="mx-auto max-w-5xl space-y-6">
-            <DrawSchedulePanel />
-            <ResultsPanel mode="reports" />
-          </div>
-        )}
-        {sub === "reports" && <ReportsPanel />}
-        {sub === "retailers" && <RetailersPanel />}
-        {sub === "isp" && <IspPanel />}
-        {sub === "account" && <AccountPanel />}
-        {sub === "numbers" && <NumberControlPanel />}
-        {sub === "staff" && <SecurityPanel />}
-        {sub === "help" && <HelpPanel />}
+          {nav === "games" && <GamesPanel />}
+          {nav === "fast_play" && <FastPlayPanel />}
+          {nav === "calendar" && <ResultsPanel mode="calendar" />}
+
+          {nav === "comms" && (
+            <div>
+              <div className="mb-1">
+                <h2 className="text-lg font-bold">Branding & broadcast</h2>
+                <p className="text-xs text-slate-500">Look & feel, LED bulletin, and seller popups.</p>
+              </div>
+              <SubTabs
+                items={[
+                  { id: "brand" as const, label: "Branding & bulletin", icon: MessageSquare },
+                  { id: "broadcast" as const, label: "Broadcast", icon: Megaphone },
+                ]}
+                value={commsSub}
+                onChange={setCommsSub}
+              />
+              {commsSub === "brand" && <BrandPanel />}
+              {commsSub === "broadcast" && <BroadcastPanel />}
+            </div>
+          )}
+
+          {nav === "ticket" && <TicketDesignPanel />}
+          {nav === "promos" && <PromosPanel />}
+          {nav === "results" && <ResultsPanel mode="results" />}
+
+          {nav === "reports_hub" && (
+            <div>
+              <div className="mb-1">
+                <h2 className="text-lg font-bold">Reports</h2>
+                <p className="text-xs text-slate-500">Draw calculations, winners, and sales / ticket reports.</p>
+              </div>
+              <SubTabs
+                items={[
+                  { id: "draw" as const, label: "Draw reports", icon: FileBarChart },
+                  { id: "sales" as const, label: "Sales & tickets", icon: ClipboardList },
+                ]}
+                value={reportsSub}
+                onChange={setReportsSub}
+              />
+              {reportsSub === "draw" && (
+                <div className="mx-auto max-w-5xl space-y-6">
+                  <DrawSchedulePanel />
+                  <ResultsPanel mode="reports" />
+                </div>
+              )}
+              {reportsSub === "sales" && <SalesReportsPanel />}
+            </div>
+          )}
+
+          {nav === "retailers" && <RetailersPanel />}
+          {nav === "isp" && <IspPanel />}
+          {nav === "account" && <AccountPanel />}
+          {nav === "numbers" && <NumberControlPanel />}
+          {nav === "staff" && <SecurityPanel />}
+          {nav === "help" && <HelpPanel />}
         </fieldset>
       </div>
     </div>
@@ -190,7 +283,9 @@ function AccountPanel() {
           <div className="font-bold">{user?.name}</div>
           <div className="text-slate-500">{user?.email}</div>
           <div className="mt-1 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">
-            {user?.role === "staff" && user.staff_role ? `STAFF · ${user.staff_role.toUpperCase()}` : user?.role?.toUpperCase()}
+            {user?.role === "staff" && user.staff_role
+              ? `STAFF · ${user.staff_role.toUpperCase()}`
+              : user?.role?.toUpperCase()}
           </div>
         </div>
         <div className="text-sm text-slate-500">Brand: {brand.name}</div>
@@ -208,7 +303,7 @@ function AccountPanel() {
   );
 }
 
-function ReportsPanel() {
+function SalesReportsPanel() {
   const {
     soldTickets,
     retailers,
@@ -227,7 +322,6 @@ function ReportsPanel() {
   const sales = sold.reduce((s, t) => s + t.total, 0);
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <h2 className="text-lg font-bold">Reports</h2>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Kpi label="Tickets" value={String(sold.length)} />
         <Kpi label={`Sales (${currency})`} value={sales.toFixed(2)} />
