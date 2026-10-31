@@ -1,0 +1,358 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  Bookmark,
+  Check,
+  Delete,
+  Printer,
+  RotateCcw,
+  Ticket,
+  Wallet,
+  X,
+  Zap,
+} from "lucide-react";
+import { useStore } from "@/lib/store";
+import type { Game, TicketLine } from "@/lib/types";
+import { BulletinBoard } from "@/components/BulletinBoard";
+import { HolidayDrawCard } from "@/components/sell/HolidayDrawCard";
+import { LineTitle } from "@/components/sell/LineTitle";
+import { ZODIAC_SYMBOLS } from "@/lib/constants";
+import { addDays, arubaToday as today } from "@/lib/dates";
+import { printReceipt } from "@/lib/print-receipt";
+import {
+  SessionsPicker,
+  MultiDrawPicker,
+  ZodiacPicker,
+  PlayWhePicker,
+  JackpotPicker,
+} from "@/components/sell/GamePickers";
+import { FastPlaySellGrid } from "@/components/sell/FastPlaySellGrid";
+import { TopUpModal } from "@/components/sell/TopUpModal";
+import { getTopUpDesign } from "@/lib/topup";
+
+
+const PRESETS = [0.5, 1, 2, 3, 5, 7, 10, 20, 50, 100];
+const BUMPS = [0.5, 1, 5];
+
+export function SellScreen() {
+  const {
+    games,
+    betTypes,
+    currency,
+    lines,
+    addLine,
+    removeLine,
+    clearLines,
+    sellTicket,
+    checkBlocked,
+    refreshBlockedNumbers,
+    selectedRetailerId,
+    retailers,
+    total,
+    toast,
+    brand,
+    ticketDesign,
+    soldTickets,
+    replayTicket,
+    holidays,
+    user,
+  } = useStore();
+
+  const enabled = [...games]
+    .filter((g) => g.enabled)
+    .sort(
+      (a, b) =>
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
+    );
+  const [sel, setSel] = useState<string[]>([]);
+  const [bt, setBt] = useState("4_cifra");
+  const [num, setNum] = useState("");
+  const [amt, setAmt] = useState(""); // no stake preselected
+  const [field, setField] = useState<"num" | "amt">("num");
+  const [date, setDate] = useState(today());
+  const [session, setSession] = useState("");
+  const [multiDraw, setMultiDraw] = useState(1);
+  const [heldLines, setHeldLines] = useState<TicketLine[] | null>(null);
+  const [zodiacPick, setZodiacPick] = useState<string[]>([]);
+  const [allZodiac, setAllZodiac] = useState(false);
+  const [whePicks, setWhePicks] = useState<number[]>([]);
+  const [jackBalls, setJackBalls] = useState<string[]>([]);
+  const [jackMega, setJackMega] = useState<string | null>(null);
+  const [sellTab, setSellTab] = useState<"lottery" | "fast_play">("lottery");
+  const [modal, setModal] = useState<null | "replay" | "scan">(null);
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const [serialInput, setSerialInput] = useState("");
+  const [scanResult, setScanResult] = useState<{
+    ok: boolean;
+    message: string;
+    ticket?: (typeof soldTickets)[0];
+  } | null>(null);
+
+  const primary: Game | undefined = useMemo(
+    () => (sel.length ? enabled.find((g) => g.id === sel[0]) : undefined),
+    [enabled, sel]
+  );
+
+  const allowedBets = useMemo(() => {
+    if (!primary) {
+      // No game selected yet: show the standard digit bet types so the keypad is usable
+      return betTypes.filter(
+        (b) =>
+          b.enabled &&
+          ["4_cifra", "3_cifra", "2_cifra_3ch", "4_skina", "3_skina", "2_cifra_bf", "2_cifra_b"].includes(b.key)
+      );
+    }
+    if (primary.format === "digit") {
+      const keys = primary.bet_types?.length
+        ? primary.bet_types
+        : [
+            "4_cifra",
+            "3_cifra",
+            "2_cifra_3ch",
+            "4_skina",
+            "3_skina",
+            "2_cifra_bf",
+            "2_cifra_b",
+          ];
+      return betTypes.filter((b) => b.enabled && keys.includes(b.key));
+    }
+    if (primary.format === "zodiac") return betTypes.filter((b) => b.key === "zodiac");
+    if (primary.format === "whe") return betTypes.filter((b) => b.key === "play_whe");
+    if (primary.format === "jackpot") return betTypes.filter((b) => b.key === "jackpot");
+    return [];
+  }, [primary, betTypes]);
+
+  const activeBet = allowedBets.find((b) => b.key === bt) || allowedBets[0];
+  const digits =
+    primary?.format === "zodiac"
+      ? primary.digits || 4
+      : primary?.format === "whe"
+        ? 2
+        : activeBet?.digits ?? primary?.digits ?? 4;
+
+  useEffect(() => {
+    if (allowedBets.length && !allowedBets.find((b) => b.key === bt)) {
+      setBt(allowedBets[0].key);
+    }
+  }, [allowedBets, bt]);
+
+  useEffect(() => {
+    if (primary?.sessions?.length) {
+      if (!session || !primary.sessions.find((s) => s.id === session)) {
+        setSession(primary.sessions[0].id);
+      }
+    } else setSession("");
+  }, [primary, session]);
+
+  useEffect(() => {
+    if (primary?.format === "jackpot" && primary.min_stake != null) {
+      setAmt(String(primary.min_stake));
+    }
+  }, [primary?.id, primary?.format, primary?.min_stake]);
+
+  function toggleGame(id: string) {
+    const g = enabled.find((x) => x.id === id);
+    if (!g) return;
+    if (g.format !== "digit") {
+      setSel([id]);
+    } else {
+      setSel((s) => {
+        const others = s.filter((x) => {
+          const gg = enabled.find((y) => y.id === x);
+          return gg?.format === "digit";
+        });
+        if (others.includes(id)) return others.length > 1 ? others.filter((x) => x !== id) : others;
+        return [...others, id];
+      });
+    }
+    setNum("");
+    setZodiacPick([]);
+    setAllZodiac(false);
+    setWhePicks([]);
+    setJackBalls([]);
+    setJackMega(null);
+  }
+
+  // Play Whe: marks are tapped on the grid, so the keypad is for the stake.
+  useEffect(() => {
+    setField(primary?.format === "whe" ? "amt" : "num");
+  }, [primary?.format]);
+
+  function pressKey(k: string | number) {
+    if (k === "CLR") {
+      if (field === "num") {
+        setNum("");
+        setWhePicks([]);
+      } else setAmt("");
+      return;
+    }
+    if (k === "DEL") {
+      if (field === "num") setNum((n) => n.slice(0, -1));
+      else setAmt((a) => a.slice(0, -1));
+      return;
+    }
+    if (field === "num") {
+      if (primary?.format === "whe") {
+        // Typed mark is held in `num` and added to the selection when the play is added.
+        setNum((num + String(k)).slice(-2));
+      } else if (!primary || primary.format === "digit" || primary.format === "zodiac") {
+        setNum((n) => (n.length >= digits ? n : n + String(k)));
+      }
+    } else {
+      if (String(k) === "." && amt.includes(".")) return;
+      setAmt((a) => a + String(k));
+    }
+  }
+
+  function addPlay() {
+    if (!primary) {
+      toast("Select a game", true);
+      return;
+    }
+    let amount = parseFloat(amt);
+    if (primary.format === "jackpot" && primary.min_stake != null) {
+      amount = primary.min_stake;
+    }
+    if (!amount || amount <= 0) {
+      toast("Enter amount", true);
+      return;
+    }
+    if (primary.format !== "jackpot") {
+      if (primary.min_stake != null && amount < primary.min_stake) {
+        toast("Min stake " + currency + " " + primary.min_stake, true);
+        return;
+      }
+      if (primary.max_stake != null && amount > primary.max_stake) {
+        toast("Max stake " + currency + " " + primary.max_stake, true);
+        return;
+      }
+    }
+    const dates = [date];
+    if (multiDraw > 1 && primary.format === "digit") {
+      for (let i = 1; i < multiDraw; i++) dates.push(addDays(date, i));
+    }
+    if (primary.format === "digit") {
+      if (num.length < digits) {
+        toast("Enter " + digits + "-digit number", true);
+        return;
+      }
+      const number = num.padStart(digits, "0").slice(0, digits);
+      // Sold-out numbers (Number control in the back office) cannot be added.
+      for (const gid of sel) {
+        for (const dd of dates) {
+          if (checkBlocked(gid, bt, number, dd)) {
+            toast(`${number} is sold out${sel.length > 1 ? " for " + (games.find((g) => g.id === gid)?.name || gid) : ""}`, true);
+            return;
+          }
+        }
+      }
+      for (const gid of sel) {
+        for (const dd of dates) {
+          addLine({
+            game: gid,
+            bet_type: bt,
+            number,
+            amount,
+            date: dd,
+            session: session || undefined,
+          });
+        }
+      }
+      setNum("");
+    } else if (primary.format === "zodiac") {
+      const syms = allZodiac ? ZODIAC_SYMBOLS.map((z) => z.id) : zodiacPick;
+      if (!syms.length) {
+        toast("Pick at least one sign", true);
+        return;
+      }
+      const need = primary.digits || 4;
+      if (num.length < need) {
+        toast("Enter " + need + "-digit number", true);
+        return;
+      }
+      const number = num.padStart(need, "0").slice(0, need);
+      if (checkBlocked(primary.id, "zodiac", number, date)) {
+        toast(`${number} is sold out`, true);
+        return;
+      }
+      for (const z of syms) {
+        addLine({
+          game: primary.id,
+          bet_type: "zodiac",
+          number: number + "-" + z,
+          amount,
+          date,
+          symbols: [z],
+        });
+      }
+      setNum("");
+      setZodiacPick([]);
+      setAllZodiac(false);
+    } else if (primary.format === "whe") {
+      const typed = parseInt(num, 10);
+      const marks = Array.from(
+        new Set([...whePicks, ...(typed >= 1 && typed <= 36 ? [typed] : [])])
+      ).sort((a, b) => a - b);
+      if (!marks.length) {
+        toast("Pick at least one Play Whe mark", true);
+        return;
+      }
+      const soldOut = marks.filter((m) => checkBlocked(primary.id, "play_whe", String(m), date));
+      if (soldOut.length === marks.length) {
+        toast(`Sold out: ${soldOut.join(", ")}`, true);
+        return;
+      }
+      if (soldOut.length) toast(`Skipped sold-out marks: ${soldOut.join(", ")}`, true);
+      for (const mark of marks.filter((m) => !soldOut.includes(m))) {
+        addLine({
+          game: primary.id,
+          bet_type: "play_whe",
+          number: String(mark),
+          amount,
+          date,
+          session: session || undefined,
+        });
+      }
+      setWhePicks([]);
+      setNum("");
+    } else if (primary.format === "jackpot") {
+      const need = primary.main_count ?? 5;
+      if (jackBalls.length !== need) {
+        toast("Pick " + need + " numbers", true);
+        return;
+      }
+      if (primary.mega_count && !jackMega) {
+        toast("Pick mega", true);
+        return;
+      }
+      addLine({
+        game: primary.id,
+        bet_type: "jackpot",
+        number:
+          [...jackBalls].sort().join("-") + (jackMega ? "+" + jackMega : ""),
+        amount,
+        date,
+        balls: jackBalls.map(Number).sort((a, b) => a - b),
+        mega: jackMega ? Number(jackMega) : undefined,
+      });
+      setJackBalls([]);
+      setJackMega(null);
+    }
+    setField("num");
+    toast("Play added");
+  }
+
+  async function sendTicket() {
+    if (!lines.length) {
+      toast("No plays on ticket", true);
+      return;
+    }
+    // Pick up numbers blocked in the last moments before the sale is completed.
+    await refreshBlockedNumbers();
+    const t = sellTicket();
+    if (!t) return;
+    try {
+      printReceipt({
+        ticket: t,
+        brand,
