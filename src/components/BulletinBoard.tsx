@@ -167,11 +167,11 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
 
       {expanded && (
         <div id="bulletin-panel" className="px-3 pb-3">
-          <div className={`grid gap-3 ${hasHolidayAside ? "sm:grid-cols-2" : ""} items-start`}>
-            <div className="min-w-0 space-y-2">
+          <div className={`grid gap-3 ${hasHolidayAside ? "sm:grid-cols-2" : ""} items-stretch`}>
+            <div className="flex min-h-0 min-w-0 flex-col gap-2">
               {listed.length > 0 && (
                 <ul
-                  className={`grid grid-cols-1 gap-2 ${preview ? "" : "max-h-[min(46vh,24rem)] overflow-auto"}`}
+                  className={`grid flex-1 grid-cols-1 gap-2 ${preview ? "" : "max-h-[min(46vh,24rem)] overflow-auto"}`}
                 >
                   {listed.map((p) => {
                     const meta = LEVELS[p.level];
@@ -186,7 +186,7 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
                       <li
                         key={p.id}
                         role={urgent ? "alert" : undefined}
-                        className={`relative w-full overflow-hidden rounded-xl border p-3 pl-4 shadow-sm ${meta.card}`}
+                        className={`relative h-full w-full overflow-hidden rounded-xl border p-3 pl-4 shadow-sm ${meta.card}`}
                       >
                         <div className={`absolute bottom-0 left-0 top-0 w-1 ${meta.bar}`} />
                         <div className="flex items-start gap-2">
@@ -302,7 +302,7 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
               </div>
             </div>
             {hasHolidayAside && (
-              <div className="min-w-0">
+              <div className="flex min-h-0 min-w-0 flex-col">
                 <HolidayDrawCard holidays={holidays!} games={games!} />
               </div>
             )}
