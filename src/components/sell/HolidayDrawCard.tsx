@@ -62,7 +62,7 @@ export function HolidayDrawCard({
   if (!items.length) return null;
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-xl border border-amber-200 bg-amber-50 p-3 pl-4 shadow-sm dark:border-amber-500/30 dark:bg-amber-950/30">
+    <div className="relative flex h-full min-h-[8rem] w-full flex-col overflow-hidden rounded-xl border border-amber-200 bg-amber-50 p-3 pl-4 shadow-sm dark:border-amber-500/30 dark:bg-amber-950/30">
       <div className="absolute bottom-0 left-0 top-0 w-1 bg-amber-500" />
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
