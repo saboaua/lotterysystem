@@ -7,10 +7,12 @@ const https = require("https");
 const partsDir = path.join(__dirname, "../src/components/sell/ss_parts");
 const out = path.join(__dirname, "../src/components/SellScreenImpl.tsx");
 const b64Path = path.join(partsDir, "sell.gz.b64");
+const printReceiptPath = path.join(__dirname, "../src/lib/print-receipt.ts");
 
-// Last known complete SellScreen.tsx before keypad was stripped (commit 6cfa204)
-const FALLBACK_RAW =
+const FALLBACK_SELL =
   "https://raw.githubusercontent.com/saboaua/lotterysystem/6cfa204826ef25726a2069fc3e3b46ef4283377e/src/components/SellScreen.tsx";
+const FALLBACK_PRINT =
+  "https://raw.githubusercontent.com/saboaua/lotterysystem/6cfa204826ef25726a2069fc3e3b46ef4283377e/src/lib/print-receipt.ts";
 
 function tryGzip() {
   if (!fs.existsSync(b64Path)) return null;
@@ -26,6 +28,7 @@ function tryGzip() {
 }
 
 function tryParts() {
+  if (!fs.existsSync(partsDir)) return null;
   const files = fs
     .readdirSync(partsDir)
     .filter((f) => /^part\d+\.txt$/.test(f))
@@ -36,7 +39,7 @@ function tryParts() {
     });
   if (!files.length) return null;
   const content = files.map((f) => fs.readFileSync(path.join(partsDir, f), "utf8")).join("");
-  if (content.length < 20000) return null; // incomplete split
+  if (content.length < 20000) return null;
   return content;
 }
 
@@ -61,12 +64,10 @@ function fetchUrl(url) {
 }
 
 function patchRestored(src) {
-  // Inject bulletin + holiday + LineTitle into the classic full SellScreen
-  if (src.includes("BulletinBoard")) return src; // already patched
+  if (src.includes("BulletinBoard")) return src;
 
   let out = src;
 
-  // imports
   if (!out.includes('from "@/components/BulletinBoard"')) {
     out = out.replace(
       'import { getTopUpDesign } from "@/lib/topup";',
@@ -74,7 +75,6 @@ function patchRestored(src) {
     );
   }
 
-  // store fields
   if (!out.includes("holidays,")) {
     out = out.replace(
       "    soldTickets,\n    replayTicket,\n  } = useStore();",
@@ -82,14 +82,12 @@ function patchRestored(src) {
     );
   }
 
-  // bulletin strip at top of section
   const marker =
     '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
   const insert =
     '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n          {user && (\n            <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />\n          )}\n          <HolidayDrawCard holidays={holidays} games={games} />\n        </div>\n        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
   if (out.includes(marker)) out = out.replace(marker, insert);
 
-  // LineTitle for cart lines
   const oldTitle =
     '                  <div className="font-bold">\n                    {games.find((g) => g.id === l.game)?.name || l.game} · {l.bet_type}\n                  </div>';
   const newTitle =
@@ -99,11 +97,26 @@ function patchRestored(src) {
   return out;
 }
 
+async function ensurePrintReceipt() {
+  let need = true;
+  if (fs.existsSync(printReceiptPath)) {
+    const cur = fs.readFileSync(printReceiptPath, "utf8");
+    if (cur.includes("export function printReceipt") && cur.includes("document.write") && cur.length > 5000) {
+      need = false;
+    }
+  }
+  if (!need) return;
+  console.log("Restoring print-receipt.ts from commit 6cfa204...");
+  const content = await fetchUrl(FALLBACK_PRINT);
+  fs.writeFileSync(printReceiptPath, content);
+  console.log("Restored print-receipt.ts (%d chars)", content.length);
+}
+
 async function main() {
   let content = tryGzip() || tryParts();
   if (!content) {
     console.log("Fetching full SellScreen from commit 6cfa204...");
-    content = await fetchUrl(FALLBACK_RAW);
+    content = await fetchUrl(FALLBACK_SELL);
     content = patchRestored(content);
   }
   if (!content.includes("function SellScreen") && !content.includes("export function SellScreen")) {
@@ -112,6 +125,7 @@ async function main() {
   }
   fs.writeFileSync(out, content);
   console.log("Assembled SellScreenImpl.tsx (%d chars)", content.length);
+  await ensurePrintReceipt();
 }
 
 main().catch((e) => {
