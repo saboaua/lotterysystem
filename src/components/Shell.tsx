@@ -17,7 +17,6 @@ import { useStore } from "@/lib/store";
 import { ToastHost } from "./Toast";
 import { PresencePing } from "./PresencePing";
 import { BroadcastPopup } from "./BroadcastPopup";
-import { BulletinBoard } from "./BulletinBoard";
 import { can, isBackOffice } from "@/lib/permissions";
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -238,10 +237,6 @@ export function Shell({ children }: { children: ReactNode }) {
             )}
           </div>
         </header>
-
-        {!isOwner && user && (
-          <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />
-        )}
 
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
       </div>
