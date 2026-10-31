@@ -2,10 +2,15 @@
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
+const https = require("https");
 
 const partsDir = path.join(__dirname, "../src/components/sell/ss_parts");
 const out = path.join(__dirname, "../src/components/SellScreenImpl.tsx");
 const b64Path = path.join(partsDir, "sell.gz.b64");
+
+// Last known complete SellScreen.tsx before keypad was stripped (commit 6cfa204)
+const FALLBACK_RAW =
+  "https://raw.githubusercontent.com/saboaua/lotterysystem/6cfa204826ef25726a2069fc3e3b46ef4283377e/src/components/SellScreen.tsx";
 
 function tryGzip() {
   if (!fs.existsSync(b64Path)) return null;
@@ -30,17 +35,86 @@ function tryParts() {
       return na - nb;
     });
   if (!files.length) return null;
-  return files.map((f) => fs.readFileSync(path.join(partsDir, f), "utf8")).join("");
+  const content = files.map((f) => fs.readFileSync(path.join(partsDir, f), "utf8")).join("");
+  if (content.length < 20000) return null; // incomplete split
+  return content;
 }
 
-let content = tryGzip() || tryParts();
-if (!content) {
-  console.error("No sell.gz.b64 or part*.txt found under", partsDir);
-  process.exit(1);
+function fetchUrl(url) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, (res) => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return fetchUrl(res.headers.location).then(resolve, reject);
+        }
+        if (res.statusCode !== 200) {
+          reject(new Error("HTTP " + res.statusCode + " for " + url));
+          res.resume();
+          return;
+        }
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+      })
+      .on("error", reject);
+  });
 }
-if (!content.includes("function SellScreen") && !content.includes("export function SellScreen")) {
-  console.error("Assembled content does not look like SellScreenImpl");
-  process.exit(1);
+
+function patchRestored(src) {
+  // Inject bulletin + holiday + LineTitle into the classic full SellScreen
+  if (src.includes("BulletinBoard")) return src; // already patched
+
+  let out = src;
+
+  // imports
+  if (!out.includes('from "@/components/BulletinBoard"')) {
+    out = out.replace(
+      'import { getTopUpDesign } from "@/lib/topup";',
+      'import { getTopUpDesign } from "@/lib/topup";\nimport { BulletinBoard } from "@/components/BulletinBoard";\nimport { HolidayDrawCard } from "@/components/sell/HolidayDrawCard";\nimport { LineTitle } from "@/components/sell/LineTitle";'
+    );
+  }
+
+  // store fields
+  if (!out.includes("holidays,")) {
+    out = out.replace(
+      "    soldTickets,\n    replayTicket,\n  } = useStore();",
+      "    soldTickets,\n    replayTicket,\n    holidays,\n    user,\n  } = useStore();"
+    );
+  }
+
+  // bulletin strip at top of section
+  const marker =
+    '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
+  const insert =
+    '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n          {user && (\n            <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />\n          )}\n          <HolidayDrawCard holidays={holidays} games={games} />\n        </div>\n        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
+  if (out.includes(marker)) out = out.replace(marker, insert);
+
+  // LineTitle for cart lines
+  const oldTitle =
+    '                  <div className="font-bold">\n                    {games.find((g) => g.id === l.game)?.name || l.game} · {l.bet_type}\n                  </div>';
+  const newTitle =
+    '                  <div className="font-bold">\n                    <LineTitle gameId={l.game} betTypeKey={l.bet_type} games={games} betTypes={betTypes} />\n                  </div>';
+  if (out.includes(oldTitle)) out = out.replace(oldTitle, newTitle);
+
+  return out;
 }
-fs.writeFileSync(out, content);
-console.log("Assembled SellScreenImpl.tsx (%d chars)", content.length);
+
+async function main() {
+  let content = tryGzip() || tryParts();
+  if (!content) {
+    console.log("Fetching full SellScreen from commit 6cfa204...");
+    content = await fetchUrl(FALLBACK_RAW);
+    content = patchRestored(content);
+  }
+  if (!content.includes("function SellScreen") && !content.includes("export function SellScreen")) {
+    console.error("Assembled content does not look like SellScreenImpl");
+    process.exit(1);
+  }
+  fs.writeFileSync(out, content);
+  console.log("Assembled SellScreenImpl.tsx (%d chars)", content.length);
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
