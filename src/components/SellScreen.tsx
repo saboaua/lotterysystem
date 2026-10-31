@@ -1,5 +1,1 @@
-"use client";
-
-// TEMP: full file restored in next commits if truncated
-export { default } from "./SellScreenImpl";
-export { SellScreen } from "./SellScreenImpl";
+LOAD_FROM_FILE_FAILED_USE_IMPL
