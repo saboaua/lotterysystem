@@ -6,6 +6,9 @@ export function newBlockedId(): string {
   return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** Zodiac sign ids (lowercase) that may be blocked alone. */
+const SIGN_RE = /^(aries|taurus|gemini|cancer|leo|virgo|libra|scorpio|sagittarius|capricorn|aquarius|pisces)$/i;
+
 /** Split pasted text ("2323, 4444\n7777") into valid, de-duplicated numbers / patterns. */
 export function parseNumberList(text: string): { numbers: string[]; invalid: string[] } {
   const parts = text
@@ -17,6 +20,10 @@ export function parseNumberList(text: string): { numbers: string[]; invalid: str
   for (const part of parts) {
     if (PATTERN_RE.test(part)) {
       if (!numbers.includes(part)) numbers.push(part);
+    } else if (SIGN_RE.test(part)) {
+      // Store as *-<sign> so ruleBlocks can match any digits with that sign
+      const key = "*-" + part.toLowerCase();
+      if (!numbers.includes(key)) numbers.push(key);
     } else invalid.push(part);
   }
   return { numbers, invalid };
@@ -57,10 +64,16 @@ export function ruleBlocks(
   if (!r.enabled || !game || r.game_id !== game.id) return false;
   if (r.until && drawDate > r.until) return false;
   if (r.bet_types?.length && !r.bet_types.includes(betType)) return false;
+  // Zodiac sign-only block: stored as "*-aries"
+  if (game.format === "zodiac" && r.number.startsWith("*-")) {
+    const blockedSign = r.number.slice(2).toLowerCase();
+    const lineSign = number.includes("-") ? number.split("-").pop()!.toLowerCase() : "";
+    return !!lineSign && lineSign === blockedSign;
+  }
   const played = playedDigits(number);
-  if (!played) return false;
+  if (!played && game.format !== "zodiac") return false;
   if (game.format === "whe") return stripZeros(played) === stripZeros(r.number);
-  if (patternMatches(r.number, played)) return true;
+  if (played && patternMatches(r.number, played)) return true;
   if (r.permutations && !r.number.includes("*") && r.number.length === played.length) {
     return sortChars(r.number) === sortChars(played);
   }
