@@ -64,8 +64,7 @@ function fetchUrl(url) {
 }
 
 function patchRestored(src) {
-  if (src.includes("BulletinBoard")) return src;
-
+  // Always enforce side-by-side bulletin + holiday layout when patching
   let out = src;
 
   if (!out.includes('from "@/components/BulletinBoard"')) {
@@ -82,11 +81,25 @@ function patchRestored(src) {
     );
   }
 
-  const marker =
-    '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
-  const insert =
-    '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n          {user && (\n            <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />\n          )}\n          <HolidayDrawCard holidays={holidays} games={games} />\n        </div>\n        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
-  if (out.includes(marker)) out = out.replace(marker, insert);
+  // Remove any previous stacked bulletin block if present, then insert side-by-side
+  const stacked =
+    '        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n          {user && (\n            <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />\n          )}\n          <HolidayDrawCard holidays={holidays} games={games} />\n        </div>\n';
+  const sideBySide =
+    '        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">\n          <div className="min-w-0 flex-1 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n            {user && (\n              <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />\n            )}\n          </div>\n          <div className="w-full shrink-0 sm:w-[min(100%,18rem)] lg:w-72">\n            <HolidayDrawCard holidays={holidays} games={games} />\n          </div>\n        </div>\n';
+
+  if (out.includes(stacked)) {
+    out = out.replace(stacked, sideBySide);
+  } else if (out.includes(sideBySide)) {
+    // already correct
+  } else {
+    const marker =
+      '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
+    const insert =
+      '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n' +
+      sideBySide +
+      '        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
+    if (out.includes(marker)) out = out.replace(marker, insert);
+  }
 
   const oldTitle =
     '                  <div className="font-bold">\n                    {games.find((g) => g.id === l.game)?.name || l.game} · {l.bet_type}\n                  </div>';
@@ -117,8 +130,8 @@ async function main() {
   if (!content) {
     console.log("Fetching full SellScreen from commit 6cfa204...");
     content = await fetchUrl(FALLBACK_SELL);
-    content = patchRestored(content);
   }
+  content = patchRestored(content);
   if (!content.includes("function SellScreen") && !content.includes("export function SellScreen")) {
     console.error("Assembled content does not look like SellScreenImpl");
     process.exit(1);
