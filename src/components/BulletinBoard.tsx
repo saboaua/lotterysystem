@@ -167,12 +167,12 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
 
       {expanded && (
         <div id="bulletin-panel" className="px-3 pb-3">
-          <div className={`grid gap-3 ${hasHolidayAside ? "sm:grid-cols-2" : ""} items-stretch`}>
-            <div className="flex min-h-0 min-w-0 flex-col gap-2">
-              {listed.length > 0 && (
-                <ul
-                  className={`grid flex-1 grid-cols-1 gap-2 ${preview ? "" : "max-h-[min(46vh,24rem)] overflow-auto"}`}
-                >
+          <div
+            className={`grid gap-3 ${hasHolidayAside ? "sm:grid-cols-2" : ""} items-stretch`}
+          >
+            <div className="min-h-0 min-w-0">
+              {listed.length > 0 ? (
+                <ul className={`grid h-full grid-cols-1 gap-2 ${preview ? "" : "max-h-[min(46vh,24rem)] overflow-auto"}`}>
                   {listed.map((p) => {
                     const meta = LEVELS[p.level];
                     const url = safeUrl(p.link_url);
@@ -186,10 +186,10 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
                       <li
                         key={p.id}
                         role={urgent ? "alert" : undefined}
-                        className={`relative h-full w-full overflow-hidden rounded-xl border p-3 pl-4 shadow-sm ${meta.card}`}
+                        className={`relative flex h-full min-h-full w-full flex-col overflow-hidden rounded-xl border p-3 pl-4 shadow-sm ${meta.card}`}
                       >
                         <div className={`absolute bottom-0 left-0 top-0 w-1 ${meta.bar}`} />
-                        <div className="flex items-start gap-2">
+                        <div className="flex min-h-0 flex-1 items-start gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span
@@ -266,46 +266,48 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
                     );
                   })}
                 </ul>
+              ) : (
+                <div className="h-full min-h-[8rem] rounded-xl border border-dashed border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/40" />
               )}
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">
-                  {closedCount > 0 && !revealed && (
-                    <button
-                      type="button"
-                      onClick={restore}
-                      className="font-bold text-indigo-600 hover:underline dark:text-indigo-400"
-                    >
-                      Show {closedCount} closed
-                    </button>
-                  )}
-                  {revealed && (
-                    <button
-                      type="button"
-                      onClick={() => setRevealed(false)}
-                      className="font-bold text-indigo-600 hover:underline dark:text-indigo-400"
-                    >
-                      Hide closed
-                    </button>
-                  )}
-                </span>
-                <span className="flex items-center gap-3">
-                  {!preview && !locked && visible.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={closeAll}
-                      className="font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    >
-                      Close all
-                    </button>
-                  )}
-                </span>
-              </div>
             </div>
             {hasHolidayAside && (
-              <div className="flex min-h-0 min-w-0 flex-col">
+              <div className="min-h-0 min-w-0">
                 <HolidayDrawCard holidays={holidays!} games={games!} />
               </div>
             )}
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400">
+              {closedCount > 0 && !revealed && (
+                <button
+                  type="button"
+                  onClick={restore}
+                  className="font-bold text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  Show {closedCount} closed
+                </button>
+              )}
+              {revealed && (
+                <button
+                  type="button"
+                  onClick={() => setRevealed(false)}
+                  className="font-bold text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  Hide closed
+                </button>
+              )}
+            </span>
+            <span className="flex items-center gap-3">
+              {!preview && !locked && visible.length > 1 && (
+                <button
+                  type="button"
+                  onClick={closeAll}
+                  className="font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                >
+                  Close all
+                </button>
+              )}
+            </span>
           </div>
         </div>
       )}
