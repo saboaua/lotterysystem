@@ -1,1 +1,3 @@
-LOAD_FROM_FILE_FAILED_USE_IMPL
+"use client";
+
+export { default, SellScreen } from "./SellScreenImpl";
