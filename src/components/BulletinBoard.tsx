@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, ExternalLink, Newspaper, Pin, X } from "lucide-react";
-import type { BrandSettings, Bulletin } from "@/lib/types";
+import type { BrandSettings, Bulletin, Game, Holiday } from "@/lib/types";
 import { arubaToday } from "@/lib/dates";
 import { LEVELS, livePosts, needsAck, safeUrl, timeAgo } from "@/lib/bulletins";
+import { HolidayDrawCard } from "@/components/sell/HolidayDrawCard";
 
 interface Props {
   brand: BrandSettings;
@@ -12,6 +13,9 @@ interface Props {
   userKey: string;
   preview?: boolean;
   previewToday?: string;
+  /** Holiday notice lives inside the board and collapses with it. */
+  holidays?: Holiday[];
+  games?: Game[];
 }
 
 type Marks = Record<string, string>;
@@ -31,7 +35,7 @@ const write = (key: string, v: Marks) => {
   }
 };
 
-export function BulletinBoard({ brand, retailerId, userKey, preview = false, previewToday }: Props) {
+export function BulletinBoard({ brand, retailerId, userKey, preview = false, previewToday, holidays, games }: Props) {
   const dKey = `bulletin:closed:${userKey}`;
   const sKey = `bulletin:seen:${userKey}`;
   const [today, setToday] = useState(previewToday || arubaToday());
@@ -41,6 +45,7 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
   const [full, setFull] = useState<Record<string, boolean>>({});
   const [revealed, setRevealed] = useState(false);
   const [ready, setReady] = useState(preview);
+  const hasHolidayAside = Boolean(holidays && games);
 
   useEffect(() => {
     if (previewToday) setToday(previewToday);
@@ -62,7 +67,7 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
   const pendingAck = visible.filter(needsAck);
   const attention = unread.some((p) => p.level === "urgent" || p.level === "important");
   const locked = pendingAck.length > 0;
-  const expanded = preview ? true : locked ? true : open ?? attention;
+  const expanded = preview ? true : locked ? true : open ?? (attention || hasHolidayAside);
 
   const markSeen = useCallback(
     (posts: Bulletin[]) => {
@@ -108,20 +113,20 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
     setRevealed(true);
   }
 
-  if (!ready || (!preview && all.length === 0)) return null;
+  if (!ready || (!preview && all.length === 0 && !hasHolidayAside)) return null;
 
   const listed = revealed ? all : visible;
-  if (!listed.length && !closedCount) return null;
+  if (!listed.length && !closedCount && !hasHolidayAside) return null;
 
   const top = visible[0] || all[0];
   const topMeta = top ? LEVELS[top.level] : LEVELS.info;
 
   return (
-    <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <section className="bg-transparent">
       <button
         type="button"
         disabled={preview || locked}
-        onClick={() => !preview && !locked && setOpen((o) => !(o ?? attention))}
+        onClick={() => !preview && !locked && setOpen((o) => !(o ?? attention || hasHolidayAside))}
         className="flex w-full items-center gap-2 px-3 py-2 text-left"
       >
         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white dark:bg-white dark:text-slate-900">
@@ -162,135 +167,146 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
 
       {expanded && (
         <div id="bulletin-panel" className="px-3 pb-3">
-          <ul
-            className={`grid gap-2 ${preview ? "" : "max-h-[min(46vh,24rem)] overflow-auto"}`}
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 28rem), 1fr))" }}
-          >
-            {listed.map((p) => {
-              const meta = LEVELS[p.level];
-              const url = safeUrl(p.link_url);
-              const urgent = p.level === "urgent";
-              const isClosed = closed[p.id] === p.updated_at;
-              const ack = needsAck(p) && !isClosed;
-              const canClose = !needsAck(p) && p.dismissible !== false && !isClosed;
-              const long = p.body.length > 140;
-              const showAll = full[p.id];
-              return (
-                <li
-                  key={p.id}
-                  role={urgent ? "alert" : undefined}
-                  className={`relative overflow-hidden rounded-xl border p-3 pl-4 shadow-sm ${meta.card}`}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+            <div className="min-w-0 flex-1 space-y-2">
+              {listed.length > 0 && (
+                <ul
+                  className={`grid gap-2 ${preview ? "" : "max-h-[min(46vh,24rem)] overflow-auto"}`}
+                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 18rem), 1fr))" }}
                 >
-                  <div className={`absolute bottom-0 left-0 top-0 w-1 ${meta.bar}`} />
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white ${meta.chip}`}
-                        >
-                          <span aria-hidden>{meta.icon}</span> {meta.label}
-                        </span>
-                        {p.pinned && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-400">
-                            <Pin size={10} /> Pinned
-                          </span>
-                        )}
-                        <span className="text-[10px] text-slate-400">{timeAgo(p.updated_at)}</span>
-                      </div>
-                      {p.title && (
-                        <h4 className="mt-1 text-sm font-extrabold leading-snug text-slate-900 dark:text-white">
-                          {p.title}
-                        </h4>
-                      )}
-                      {p.body && (
-                        <p
-                          className={`mt-0.5 whitespace-pre-line text-[13px] leading-snug text-slate-700 dark:text-slate-200 ${
-                            long && !showAll ? "line-clamp-3" : ""
-                          }`}
-                        >
-                          {p.body}
-                        </p>
-                      )}
-                      {long && (
-                        <button
-                          type="button"
-                          onClick={() => setFull((f) => ({ ...f, [p.id]: !showAll }))}
-                          className="mt-0.5 text-[11px] font-bold text-indigo-600 hover:underline dark:text-indigo-400"
-                        >
-                          {showAll ? "Show less" : "Read more"}
-                        </button>
-                      )}
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {url && (
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex min-h-[32px] items-center gap-1 rounded-lg bg-slate-900 px-2.5 text-[11px] font-bold text-white dark:bg-white dark:text-slate-900"
-                          >
-                            {p.link_label || "Open"} <ExternalLink size={11} />
-                          </a>
-                        )}
-                        {ack && (
-                          <button
-                            type="button"
-                            onClick={() => close(p)}
-                            className={`inline-flex min-h-[36px] items-center rounded-lg px-4 text-xs font-extrabold text-white ${
-                              urgent ? "bg-rose-600 hover:bg-rose-700" : "bg-amber-600 hover:bg-amber-700"
-                            }`}
-                          >
-                            Got it
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {canClose && (
-                      <button
-                        type="button"
-                        onClick={() => close(p)}
-                        className="-m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-black/5 hover:text-slate-700 dark:hover:bg-white/10"
-                        aria-label="Dismiss"
+                  {listed.map((p) => {
+                    const meta = LEVELS[p.level];
+                    const url = safeUrl(p.link_url);
+                    const urgent = p.level === "urgent";
+                    const isClosed = closed[p.id] === p.updated_at;
+                    const ack = needsAck(p) && !isClosed;
+                    const canClose = !needsAck(p) && p.dismissible !== false && !isClosed;
+                    const long = p.body.length > 140;
+                    const showAll = full[p.id];
+                    return (
+                      <li
+                        key={p.id}
+                        role={urgent ? "alert" : undefined}
+                        className={`relative overflow-hidden rounded-xl border p-3 pl-4 shadow-sm ${meta.card}`}
                       >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">
-              {closedCount > 0 && !revealed && (
-                <button
-                  type="button"
-                  onClick={restore}
-                  className="font-bold text-indigo-600 hover:underline dark:text-indigo-400"
-                >
-                  Show {closedCount} closed
-                </button>
+                        <div className={`absolute bottom-0 left-0 top-0 w-1 ${meta.bar}`} />
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white ${meta.chip}`}
+                              >
+                                <span aria-hidden>{meta.icon}</span> {meta.label}
+                              </span>
+                              {p.pinned && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-400">
+                                  <Pin size={10} /> Pinned
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400">{timeAgo(p.updated_at)}</span>
+                            </div>
+                            {p.title && (
+                              <h4 className="mt-1 text-sm font-extrabold leading-snug text-slate-900 dark:text-white">
+                                {p.title}
+                              </h4>
+                            )}
+                            {p.body && (
+                              <p
+                                className={`mt-0.5 whitespace-pre-line text-[13px] leading-snug text-slate-700 dark:text-slate-200 ${
+                                  long && !showAll ? "line-clamp-3" : ""
+                                }`}
+                              >
+                                {p.body}
+                              </p>
+                            )}
+                            {long && (
+                              <button
+                                type="button"
+                                onClick={() => setFull((f) => ({ ...f, [p.id]: !showAll }))}
+                                className="mt-0.5 text-[11px] font-bold text-indigo-600 hover:underline dark:text-indigo-400"
+                              >
+                                {showAll ? "Show less" : "Read more"}
+                              </button>
+                            )}
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              {url && (
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex min-h-[32px] items-center gap-1 rounded-lg bg-slate-900 px-2.5 text-[11px] font-bold text-white dark:bg-white dark:text-slate-900"
+                                >
+                                  {p.link_label || "Open"} <ExternalLink size={11} />
+                                </a>
+                              )}
+                              {ack && (
+                                <button
+                                  type="button"
+                                  onClick={() => close(p)}
+                                  className={`inline-flex min-h-[36px] items-center rounded-lg px-4 text-xs font-extrabold text-white ${
+                                    urgent ? "bg-rose-600 hover:bg-rose-700" : "bg-amber-600 hover:bg-amber-700"
+                                  }`}
+                                >
+                                  Got it
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {canClose && (
+                            <button
+                              type="button"
+                              onClick={() => close(p)}
+                              className="-m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-black/5 hover:text-slate-700 dark:hover:bg-white/10"
+                              aria-label="Dismiss"
+                            >
+                              <X size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
-              {revealed && (
-                <button
-                  type="button"
-                  onClick={() => setRevealed(false)}
-                  className="font-bold text-indigo-600 hover:underline dark:text-indigo-400"
-                >
-                  Hide closed
-                </button>
-              )}
-            </span>
-            <span className="flex items-center gap-3">
-              {!preview && !locked && visible.length > 1 && (
-                <button
-                  type="button"
-                  onClick={closeAll}
-                  className="font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                >
-                  Close all
-                </button>
-              )}
-            </span>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">
+                  {closedCount > 0 && !revealed && (
+                    <button
+                      type="button"
+                      onClick={restore}
+                      className="font-bold text-indigo-600 hover:underline dark:text-indigo-400"
+                    >
+                      Show {closedCount} closed
+                    </button>
+                  )}
+                  {revealed && (
+                    <button
+                      type="button"
+                      onClick={() => setRevealed(false)}
+                      className="font-bold text-indigo-600 hover:underline dark:text-indigo-400"
+                    >
+                      Hide closed
+                    </button>
+                  )}
+                </span>
+                <span className="flex items-center gap-3">
+                  {!preview && !locked && visible.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={closeAll}
+                      className="font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    >
+                      Close all
+                    </button>
+                  )}
+                </span>
+              </div>
+            </div>
+            {hasHolidayAside && (
+              <div className="w-full shrink-0 sm:w-[min(100%,16rem)] lg:w-64">
+                <HolidayDrawCard holidays={holidays!} games={games!} />
+              </div>
+            )}
           </div>
         </div>
       )}
