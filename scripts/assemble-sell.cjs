@@ -69,7 +69,7 @@ function patchRestored(src) {
   if (!out.includes('from "@/components/BulletinBoard"')) {
     out = out.replace(
       'import { getTopUpDesign } from "@/lib/topup";',
-      'import { getTopUpDesign } from "@/lib/topup";\nimport { BulletinBoard } from "@/components/BulletinBoard";\nimport { HolidayDrawCard } from "@/components/sell/HolidayDrawCard";\nimport { LineTitle } from "@/components/sell/LineTitle";'
+      'import { getTopUpDesign } from "@/lib/topup";\nimport { BulletinBoard } from "@/components/BulletinBoard";\nimport { LineTitle } from "@/components/sell/LineTitle";'
     );
   }
 
@@ -84,12 +84,15 @@ function patchRestored(src) {
     '        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n          {user && (\n            <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />\n          )}\n          <HolidayDrawCard holidays={holidays} games={games} />\n        </div>\n';
   const outerSide =
     '        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">\n          <div className="min-w-0 flex-1 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n            {user && (\n              <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />\n            )}\n          </div>\n          <div className="w-full shrink-0 sm:w-[min(100%,18rem)] lg:w-72">\n            <HolidayDrawCard holidays={holidays} games={games} />\n          </div>\n        </div>\n';
-  const sideBySide =
+  const sharedSibling =
     '        <div className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">\n            <div className="min-w-0 flex-1">\n              {user && (\n                <BulletinBoard brand={brand} retailerId={selectedRetailerId} userKey={user.id} />\n              )}\n            </div>\n            <div className="w-full shrink-0 sm:w-[min(100%,16rem)] lg:w-64">\n              <HolidayDrawCard holidays={holidays} games={games} />\n            </div>\n          </div>\n        </div>\n';
+  const sideBySide =
+    '        <div className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">\n          {user && (\n            <BulletinBoard\n              brand={brand}\n              retailerId={selectedRetailerId}\n              userKey={user.id}\n              holidays={holidays}\n              games={games}\n            />\n          )}\n        </div>\n';
 
   if (out.includes(stacked)) out = out.replace(stacked, sideBySide);
   else if (out.includes(outerSide)) out = out.replace(outerSide, sideBySide);
-  else if (!out.includes(sideBySide)) {
+  else if (out.includes(sharedSibling)) out = out.replace(sharedSibling, sideBySide);
+  else if (!out.includes("holidays={holidays}")) {
     const marker =
       '      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:p-4">\n        <div className="flex gap-1 rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-900">';
     const insert =
