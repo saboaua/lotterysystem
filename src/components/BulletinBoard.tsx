@@ -126,7 +126,7 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
       <button
         type="button"
         disabled={preview || locked}
-        onClick={() => !preview && !locked && setOpen((o) => !(o ?? attention || hasHolidayAside))}
+        onClick={() => !preview && !locked && setOpen((o) => !(o ?? (attention || hasHolidayAside)))}
         className="flex w-full items-center gap-2 px-3 py-2 text-left"
       >
         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white dark:bg-white dark:text-slate-900">
