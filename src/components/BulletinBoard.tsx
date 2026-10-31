@@ -186,7 +186,7 @@ export function BulletinBoard({ brand, retailerId, userKey, preview = false, pre
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white ${meta.badge}`}
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white ${meta.chip}`}
                         >
                           <span aria-hidden>{meta.icon}</span> {meta.label}
                         </span>
