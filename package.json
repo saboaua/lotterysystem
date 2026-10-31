@@ -1,5 +1,5 @@
 {
-  "name": "lotterysystem",
+  "name": "lottery-pos-tablet",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,22 +10,23 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "next": "15.5.28",
     "@supabase/supabase-js": "^2.49.1",
-    "lucide-react": "^0.475.0",
-    "next": "15.2.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "zustand": "^5.0.3"
+    "@supabase/ssr": "^0.6.1",
+    "lucide-react": "^0.484.0",
+    "date-fns": "^4.1.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
+    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.2.4",
+    "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "eslint": "^9",
+    "eslint-config-next": "15.5.28",
+    "@eslint/eslintrc": "^3"
   }
 }
